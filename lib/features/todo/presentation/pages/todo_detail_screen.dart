@@ -3,8 +3,6 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:flutter_slidable/flutter_slidable.dart';
-import 'package:habit_tracker_ios/core/constants/app_colors.dart';
-import 'package:habit_tracker_ios/core/constants/app_colors.dart';
 import '../../data/models/todo_category.dart';
 import '../../data/models/todo_task.dart';
 import '../controllers/todo_controller.dart';
@@ -50,13 +48,13 @@ class _TodoDetailScreenState extends ConsumerState<TodoDetailScreen> {
 
     return Scaffold(
       backgroundColor: Colors.transparent,
+      resizeToAvoidBottomInset: true,
       body: SafeArea(
         child: Column(
           children: [
             // Header
             _buildHeader(context, category),
             
-            // Task List
             Expanded(
               child: category.tasks.isEmpty
                 ? _buildEmptyTasksState()
@@ -75,7 +73,6 @@ class _TodoDetailScreenState extends ConsumerState<TodoDetailScreen> {
                   ),
             ),
             
-            // Bottom Input
             _buildBottomInput(context, category.color),
           ],
         ),
@@ -93,7 +90,7 @@ class _TodoDetailScreenState extends ConsumerState<TodoDetailScreen> {
             children: [
               GestureDetector(
                 onTap: () => Navigator.pop(context),
-                child: const Icon(CupertinoIcons.chevron_left, color: Color(0xFF2D264B), size: 28),
+                child: Icon(CupertinoIcons.chevron_left, color: Theme.of(context).brightness == Brightness.dark ? Colors.white : const Color(0xFF2D264B), size: 28),
               ),
               const SizedBox(width: 12),
               Text(
@@ -101,7 +98,7 @@ class _TodoDetailScreenState extends ConsumerState<TodoDetailScreen> {
                 style: GoogleFonts.poppins(
                   fontSize: 28,
                   fontWeight: FontWeight.w800,
-                  color: const Color(0xFF2D264B),
+                  color: Theme.of(context).brightness == Brightness.dark ? Colors.white : const Color(0xFF2D264B),
                 ),
               ),
             ],
@@ -115,7 +112,10 @@ class _TodoDetailScreenState extends ConsumerState<TodoDetailScreen> {
                 child: Container(
                   height: 4,
                   decoration: BoxDecoration(
-                    color: const Color(0xFFE5E7EB),
+                    // Dark mode: muted grey base so filled (white) portion stands out
+                    color: Theme.of(context).brightness == Brightness.dark
+                        ? Colors.white.withValues(alpha: 0.12)
+                        : const Color(0xFFE5E7EB),
                     borderRadius: BorderRadius.circular(2),
                   ),
                   child: FractionallySizedBox(
@@ -123,7 +123,10 @@ class _TodoDetailScreenState extends ConsumerState<TodoDetailScreen> {
                     widthFactor: category.progress,
                     child: Container(
                       decoration: BoxDecoration(
-                        color: category.color,
+                        // Dark mode: pure white fill vs grey base = clear progress contrast
+                        color: Theme.of(context).brightness == Brightness.dark
+                            ? Colors.white
+                            : category.color,
                         borderRadius: BorderRadius.circular(2),
                       ),
                     ),
@@ -152,9 +155,16 @@ class _TodoDetailScreenState extends ConsumerState<TodoDetailScreen> {
 
   Widget _buildBottomInput(BuildContext context, Color color) {
     return Container(
-      padding: EdgeInsets.fromLTRB(24, 16, 24, 24 + MediaQuery.of(context).viewInsets.bottom),
-      decoration: const BoxDecoration(
-        color: Colors.white,
+      padding: const EdgeInsets.fromLTRB(24, 16, 24, 24),
+      decoration: BoxDecoration(
+        color: Colors.transparent,
+        border: Theme.of(context).brightness == Brightness.dark
+            ? Border(
+                top: BorderSide(
+                  color: Colors.white.withValues(alpha: 0.06),
+                ),
+              )
+            : null,
       ),
       child: Row(
         children: [
@@ -162,7 +172,7 @@ class _TodoDetailScreenState extends ConsumerState<TodoDetailScreen> {
             child: Container(
               height: 56,
               decoration: BoxDecoration(
-                color: const Color(0xFFF3F4F6),
+                color: Theme.of(context).brightness == Brightness.dark ? Colors.transparent : Theme.of(context).colorScheme.surfaceContainerHighest,
                 borderRadius: BorderRadius.circular(20),
               ),
               padding: const EdgeInsets.symmetric(horizontal: 20),
@@ -171,6 +181,7 @@ class _TodoDetailScreenState extends ConsumerState<TodoDetailScreen> {
                 focusNode: _focusNode,
                 textInputAction: TextInputAction.done,
                 onSubmitted: (_) => _addTask(),
+                style: TextStyle(color: Theme.of(context).brightness == Brightness.dark ? Colors.white : Colors.black),
                 decoration: const InputDecoration(
                   hintText: 'Add a new task...',
                   hintStyle: TextStyle(color: Color(0xFF9CA3AF)),
@@ -225,25 +236,34 @@ class _AnimatedAddButtonState extends State<_AnimatedAddButton> with SingleTicke
         child: Container(
           width: 60,
           height: 60,
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              colors: [
-                widget.color,
-                widget.color.withValues(alpha: 0.8),
-              ],
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-            ),
-            shape: BoxShape.circle,
-            boxShadow: [
-              BoxShadow(
-                color: widget.color.withValues(alpha: 0.4),
-                blurRadius: 12,
-                offset: const Offset(0, 6),
-              ),
-            ],
+          decoration: Theme.of(context).brightness == Brightness.dark
+              ? const BoxDecoration(
+                  color: Colors.transparent,
+                  shape: BoxShape.circle,
+                )
+              : BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [
+                      widget.color,
+                      widget.color.withValues(alpha: 0.8),
+                    ],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  ),
+                  shape: BoxShape.circle,
+                  boxShadow: [
+                    BoxShadow(
+                      color: widget.color.withValues(alpha: 0.4),
+                      blurRadius: 12,
+                      offset: const Offset(0, 6),
+                    ),
+                  ],
+                ),
+          child: Icon(
+            Theme.of(context).brightness == Brightness.dark ? Icons.arrow_forward : CupertinoIcons.arrow_up, 
+            color: Theme.of(context).brightness == Brightness.dark ? Colors.white : Colors.white, 
+            size: Theme.of(context).brightness == Brightness.dark ? 28 : 30
           ),
-          child: const Icon(CupertinoIcons.arrow_up, color: Colors.white, size: 30),
         ),
       ),
     );
@@ -269,7 +289,7 @@ class _TaskItem extends ConsumerWidget {
         key: ValueKey(task.id),
         startActionPane: ActionPane(
           extentRatio: 0.2, // Small swipe distance
-          motion: DrawerMotion(),
+          motion: const DrawerMotion(),
           children: [
             SlidableAction(
               onPressed: (_) => _showEditDialog(context, ref),
@@ -281,7 +301,7 @@ class _TaskItem extends ConsumerWidget {
         ),
         endActionPane: ActionPane(
           extentRatio: 0.2, // Small swipe distance
-          motion: DrawerMotion(),
+          motion: const DrawerMotion(),
           children: [
             SlidableAction(
               onPressed: (_) => ref.read(todoControllerProvider.notifier).deleteTask(categoryId, task.id),
@@ -296,10 +316,18 @@ class _TaskItem extends ConsumerWidget {
           opacity: task.isCompleted ? 0.6 : 1.0,
           child: Container(
             padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: color.withValues(alpha: 0.25), // Brighter pastel as requested
-              borderRadius: BorderRadius.circular(16),
-            ),
+            decoration: Theme.of(context).brightness == Brightness.dark
+                ? BoxDecoration(
+                    color: const Color(0xFF1C1C1E),
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(
+                      color: Colors.white.withValues(alpha: 0.08),
+                    ),
+                  )
+                : BoxDecoration(
+                    color: color.withValues(alpha: 0.25), // Brighter pastel as requested
+                    borderRadius: BorderRadius.circular(16),
+                  ),
             child: Row(
               children: [
                 GestureDetector(
@@ -308,11 +336,11 @@ class _TaskItem extends ConsumerWidget {
                     width: 24,
                     height: 24,
                     decoration: BoxDecoration(
-                      color: Colors.white,
+                      color: Theme.of(context).brightness == Brightness.dark ? Colors.white.withValues(alpha: 0.1) : Theme.of(context).colorScheme.surface,
                       borderRadius: BorderRadius.circular(6),
                     ),
                     child: task.isCompleted
-                        ? Icon(Icons.check_rounded, color: color, size: 18)
+                        ? Icon(Icons.check_rounded, color: Theme.of(context).brightness == Brightness.dark ? Colors.white : color, size: 18)
                         : null,
                   ),
                 ),
@@ -323,8 +351,9 @@ class _TaskItem extends ConsumerWidget {
                     style: GoogleFonts.poppins(
                       fontSize: 16,
                       fontWeight: FontWeight.w600, // Semi-bold as requested
-                      color: const Color(0xFF2D264B),
+                      color: Theme.of(context).brightness == Brightness.dark ? Colors.white : const Color(0xFF2D264B),
                       decoration: task.isCompleted ? TextDecoration.lineThrough : null,
+                      decorationColor: Theme.of(context).brightness == Brightness.dark ? Colors.white : const Color(0xFF2D264B),
                     ),
                   ),
                 ),

@@ -89,8 +89,9 @@ class _PomodoroFullscreenState extends ConsumerState<PomodoroFullscreen>
     final minutes = _currentDisplay.inMinutes.toString().padLeft(2, '0');
     final seconds = _currentDisplay.inSeconds.remainder(60).toString().padLeft(2, '0');
 
-    final bool isBreak = state.isBreak;
-    final Color tintColor = Colors.white;
+
+
+    const Color tintColor = Colors.white;
 
     return Scaffold(
       backgroundColor: Colors.black, // Pure AMOLED black
@@ -109,11 +110,27 @@ class _PomodoroFullscreenState extends ConsumerState<PomodoroFullscreen>
                 padding: const EdgeInsets.symmetric(horizontal: 24.0),
                 child: FittedBox(
                   fit: BoxFit.scaleDown,
-                  child: Row(
+                  child: Column(
                     mainAxisSize: MainAxisSize.min,
-                    crossAxisAlignment: CrossAxisAlignment.center,
                     children: [
-                      _FlipDigit(
+                      if (state.isBreak)
+                        const Padding(
+                          padding: EdgeInsets.only(bottom: 8),
+                          child: Text(
+                            "BREAK",
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 18,
+                              fontWeight: FontWeight.bold,
+                              letterSpacing: 2,
+                            ),
+                          ),
+                        ),
+                      Row(
+                        mainAxisSize: MainAxisSize.min,
+                        crossAxisAlignment: CrossAxisAlignment.center,
+                        children: [
+                          _FlipDigit(
                         value: int.parse(minutes[0]),
                         color: tintColor,
                       ),
@@ -136,6 +153,8 @@ class _PomodoroFullscreenState extends ConsumerState<PomodoroFullscreen>
                       ),
                     ],
                   ),
+                ],
+              ),
                 ),
               ),
             ),

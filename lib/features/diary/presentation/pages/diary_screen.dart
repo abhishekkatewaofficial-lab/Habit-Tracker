@@ -124,13 +124,27 @@ class _DiaryScreenState extends ConsumerState<DiaryScreen> {
                         'Diary',
                         style: AppTextStyles.diaryTitle.copyWith(
                           fontSize: 34,
-                          color: const Color(0xFF2D3142),
+                          color: Theme.of(context).brightness == Brightness.dark ? Colors.white : const Color(0xFF2D3142),
                         ),
                       ),
                       const SizedBox(width: 8),
                       const _HeaderIcon(),
                       const Spacer(),
-                      const SizedBox(width: 40),
+                      IconButton(
+                        icon: const Icon(CupertinoIcons.calendar),
+                        color: Theme.of(context).brightness == Brightness.dark ? Colors.white : Colors.black,
+                        onPressed: () async {
+                          final picked = await showDatePicker(
+                            context: context,
+                            initialDate: selectedDate,
+                            firstDate: DateTime(2000),
+                            lastDate: DateTime(2100),
+                          );
+                          if (picked != null) {
+                            ref.read(selectedDiaryDateProvider.notifier).state = picked;
+                          }
+                        },
+                      ),
                     ],
                   ),
                 ),
@@ -150,11 +164,11 @@ class _DiaryScreenState extends ConsumerState<DiaryScreen> {
                         // ── Main Card (Input Container) ──────────────────────────────
                         Container(
                           decoration: BoxDecoration(
-                            color: Colors.white,
+                            color: Theme.of(context).colorScheme.surface,
                             borderRadius: BorderRadius.circular(32),
                             boxShadow: [
                               BoxShadow(
-                                color: Colors.black.withAlpha(8),
+                                color: Colors.black.withAlpha(6),
                                 blurRadius: 24,
                                 offset: const Offset(0, 12),
                               ),
@@ -186,18 +200,18 @@ class _DiaryScreenState extends ConsumerState<DiaryScreen> {
                               const SizedBox(height: 6),
                               Container(
                                 decoration: BoxDecoration(
-                                  color: const Color(0xFFF1F4F9),
+                                  color: Theme.of(context).colorScheme.surfaceContainerHighest,
                                   borderRadius: BorderRadius.circular(20),
                                 ),
                                 child: TextField(
                                   controller: _contentController,
                                   focusNode: _contentFocusNode,
                                   maxLines: 3, // Reduced from 5 (approx 60% visual height)
-                                  style: AppTextStyles.bodyMedium.copyWith(color: const Color(0xFF2D3142), fontSize: 14),
+                                  style: AppTextStyles.bodyMedium.copyWith(color: Theme.of(context).colorScheme.onSurface, fontSize: 14),
                                   decoration: InputDecoration(
                                     hintText: 'Describe your day, feelings, or anything on your mind...',
                                     hintStyle: AppTextStyles.bodyMedium.copyWith(
-                                      color: const Color(0xFF94A3B8), 
+                                      color: Theme.of(context).colorScheme.onSurfaceVariant, 
                                       fontSize: 12, // Reduced from 13
                                     ),
                                     border: InputBorder.none,
@@ -212,26 +226,48 @@ class _DiaryScreenState extends ConsumerState<DiaryScreen> {
                               SizedBox(
                                 width: double.infinity,
                                 height: 50, // Reduced height (0.9x approx)
-                                child: ElevatedButton(
-                                  onPressed: () => _saveEntry(dateStr),
-                                  style: ElevatedButton.styleFrom(
-                                    backgroundColor: const Color(0xFF73D8A5),
-                                    foregroundColor: Colors.white,
-                                    elevation: 0,
-                                    shape: RoundedRectangleBorder(
-                                      borderRadius: BorderRadius.circular(16),
-                                    ),
-                                    padding: const EdgeInsets.symmetric(vertical: 12),
-                                  ),
-                                  child: Text(
-                                    _editingEntryId != null ? 'Update Entry' : 'Save Entry',
-                                    style: AppTextStyles.labelLarge.copyWith(
-                                      color: Colors.white,
-                                      fontWeight: FontWeight.w800, // Stronger weight
-                                      fontSize: 14, // Slightly reduced
-                                    ),
-                                  ),
-                                ),
+                                child: Theme.of(context).brightness == Brightness.dark
+                                    ? GestureDetector(
+                                        onTap: () => _saveEntry(dateStr),
+                                        child: Container(
+                                          padding: const EdgeInsets.symmetric(vertical: 12),
+                                          alignment: Alignment.center,
+                                          decoration: BoxDecoration(
+                                            color: Colors.transparent,
+                                            borderRadius: BorderRadius.circular(12),
+                                            border: Border.all(
+                                              color: Colors.white.withValues(alpha: 0.15),
+                                            ),
+                                          ),
+                                          child: Text(
+                                            _editingEntryId != null ? 'Update Entry' : 'Save Entry',
+                                            style: const TextStyle(
+                                              color: Colors.white,
+                                              fontWeight: FontWeight.w600,
+                                            ),
+                                          ),
+                                        ),
+                                      )
+                                    : ElevatedButton(
+                                        onPressed: () => _saveEntry(dateStr),
+                                        style: ElevatedButton.styleFrom(
+                                          backgroundColor: const Color(0xFF73D8A5),
+                                          foregroundColor: Colors.white,
+                                          elevation: 0,
+                                          shape: RoundedRectangleBorder(
+                                            borderRadius: BorderRadius.circular(16),
+                                          ),
+                                          padding: const EdgeInsets.symmetric(vertical: 12),
+                                        ),
+                                        child: Text(
+                                          _editingEntryId != null ? 'Update Entry' : 'Save Entry',
+                                          style: AppTextStyles.labelLarge.copyWith(
+                                            color: Colors.white,
+                                            fontWeight: FontWeight.w800, // Stronger weight
+                                            fontSize: 14, // Slightly reduced
+                                          ),
+                                        ),
+                                      ),
                               ),
                             ],
                           ),
@@ -249,16 +285,18 @@ class _DiaryScreenState extends ConsumerState<DiaryScreen> {
                             );
                           })
                         else
-                          ListView.separated(
-                            shrinkWrap: true,
-                            physics: const NeverScrollableScrollPhysics(),
-                            itemCount: entries.length,
-                            separatorBuilder: (_, __) => const SizedBox(height: 8), // Reduced gap to 50%
-                            itemBuilder: (context, index) {
-                              final entry = entries[index];
-                              final timeStr = DateFormat('h:mm a').format(DateTime.fromMillisecondsSinceEpoch(entry.timestamp));
-                              return Slidable(
-                                key: Key(entry.id),
+                          SlidableAutoCloseBehavior(
+                            child: ListView.separated(
+                              shrinkWrap: true,
+                              physics: const NeverScrollableScrollPhysics(),
+                              itemCount: entries.length,
+                              separatorBuilder: (_, __) => const SizedBox(height: 8), 
+                              itemBuilder: (context, index) {
+                                final entry = entries[index];
+                                final timeStr = DateFormat('h:mm a').format(DateTime.fromMillisecondsSinceEpoch(entry.timestamp));
+                                return Slidable(
+                                  key: ValueKey(entry.id),
+                                  direction: Axis.horizontal,
                                 // Swipe Right -> Edit
                                 startActionPane: ActionPane(
                                   motion: const ScrollMotion(),
@@ -275,8 +313,8 @@ class _DiaryScreenState extends ConsumerState<DiaryScreen> {
                                 ),
                                 // Swipe Left -> Delete
                                 endActionPane: ActionPane(
-                                  motion: const ScrollMotion(),
-                                  extentRatio: 0.25,
+                                  motion: const BehindMotion(),
+                                  extentRatio: 0.3,
                                   dismissible: DismissiblePane(
                                     confirmDismiss: () async {
                                       return await showCupertinoDialog<bool>(
@@ -304,31 +342,15 @@ class _DiaryScreenState extends ConsumerState<DiaryScreen> {
                                   ),
                                   children: [
                                     SlidableAction(
-                                      onPressed: (context) async {
-                                        final confirmed = await showCupertinoDialog<bool>(
-                                          context: context,
-                                          builder: (context) => CupertinoAlertDialog(
-                                            title: const Text('Delete Entry?'),
-                                            content: const Text('Are you sure you want to delete this entry?'),
-                                            actions: [
-                                              CupertinoDialogAction(
-                                                onPressed: () => Navigator.pop(context, false),
-                                                child: const Text('Cancel'),
-                                              ),
-                                              CupertinoDialogAction(
-                                                isDestructiveAction: true,
-                                                onPressed: () => Navigator.pop(context, true),
-                                                child: const Text('Delete', style: TextStyle(fontWeight: FontWeight.bold)),
-                                              ),
-                                            ],
-                                          ),
-                                        );
-                                        if (confirmed == true && context.mounted) {
-                                          ref.read(diaryEntriesProvider(dateStr).notifier).deleteEntry(entry.id);
-                                        }
+                                      onPressed: (actionContext) {
+                                        // Execute instantly on tap without secondary dialog
+                                        ref.read(diaryEntriesProvider(dateStr).notifier).deleteEntry(entry.id);
                                       },
-                                      backgroundColor: const Color(0xFFEF4444).withAlpha(40),
-                                      foregroundColor: const Color(0xFFEF4444),
+                                      backgroundColor: Theme.of(context).brightness == Brightness.dark 
+                                          ? const Color(0xFF7F1D1D) 
+                                          : const Color(0xFFEF4444), 
+
+                                      foregroundColor: Colors.white,
                                       icon: Icons.delete_outline_rounded,
                                       borderRadius: BorderRadius.circular(20),
                                     ),
@@ -338,11 +360,11 @@ class _DiaryScreenState extends ConsumerState<DiaryScreen> {
                                   padding: const EdgeInsets.all(12),
                                   margin: const EdgeInsets.symmetric(horizontal: 4), // Add margin to avoid slidable buttons overlapping with card edges visually
                                   decoration: BoxDecoration(
-                                    color: Colors.white,
+                                    color: Theme.of(context).colorScheme.surface,
                                     borderRadius: BorderRadius.circular(20),
                                     boxShadow: [
                                       BoxShadow(
-                                        color: Colors.black.withAlpha(5),
+                                        color: Colors.black.withAlpha(4),
                                         blurRadius: 8,
                                         offset: const Offset(0, 4),
                                       )
@@ -357,15 +379,15 @@ class _DiaryScreenState extends ConsumerState<DiaryScreen> {
                                           Text(
                                             timeStr,
                                             style: AppTextStyles.labelSmall.copyWith(
-                                              color: Colors.black, // Dark black
+                                              color: Theme.of(context).colorScheme.onSurface, // Dark black
                                               fontWeight: FontWeight.w700, // Bold
                                               fontSize: 10, // Balanced size
                                             ),
                                           ),
                                           Container(
                                             padding: const EdgeInsets.all(4),
-                                            decoration: const BoxDecoration(
-                                              color: Color(0xFFF1F4F9),
+                                            decoration: BoxDecoration(
+                                              color: Theme.of(context).colorScheme.surfaceContainerHighest,
                                               shape: BoxShape.circle,
                                             ),
                                             child: Text(entry.mood, style: const TextStyle(fontSize: 14)),
@@ -376,8 +398,8 @@ class _DiaryScreenState extends ConsumerState<DiaryScreen> {
                                       Text(
                                         entry.content,
                                         style: AppTextStyles.bodyMedium.copyWith(
-                                          color: const Color(0xFF2D3142), 
-                                          height: 1.4, 
+                                          color: Theme.of(context).colorScheme.onSurface.withAlpha(220),
+                                          height: 1.4,
                                           fontSize: 11,
                                         ),
                                       ),
@@ -387,6 +409,7 @@ class _DiaryScreenState extends ConsumerState<DiaryScreen> {
                               );
                             },
                           ),
+                        ),
                           
                         const SizedBox(height: 120), // Reserve space for BottomNav
                       ],
@@ -415,11 +438,11 @@ class _DiaryScreenState extends ConsumerState<DiaryScreen> {
                       child: Container(
                         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                         decoration: BoxDecoration(
-                          color: const Color(0xFFF1F4F9),
-                          border: Border(top: BorderSide(color: Colors.black.withAlpha(10))),
+                          color: Theme.of(context).colorScheme.surfaceContainerHighest,
+                          border: Border(top: BorderSide(color: Theme.of(context).colorScheme.outline.withAlpha(40))),
                           boxShadow: [
                             BoxShadow(
-                              color: Colors.black.withAlpha(5),
+                              color: Colors.black.withAlpha(4),
                               blurRadius: 4,
                               offset: const Offset(0, -2),
                             ),
@@ -485,9 +508,9 @@ class _HeaderLabel extends StatelessWidget {
         Text(
           label,
           style: AppTextStyles.headlineSmall.copyWith(
-            fontSize: 12, // Reduced from 13
+            fontSize: 12,
             fontWeight: FontWeight.bold,
-            color: Colors.black, // Pure dark black
+            color: Theme.of(context).colorScheme.onSurface,
           ),
         ),
       ],
@@ -547,11 +570,11 @@ class _EmptyState extends StatelessWidget {
                   width: 100,
                   height: 130,
                   decoration: BoxDecoration(
-                    color: Colors.white,
+                    color: Theme.of(context).colorScheme.surface,
                     borderRadius: BorderRadius.circular(16),
                     boxShadow: [
                       BoxShadow(
-                        color: Colors.black.withAlpha(10),
+                        color: Colors.black.withAlpha(8),
                         blurRadius: 30,
                         offset: const Offset(0, 15),
                       ),
@@ -574,7 +597,7 @@ class _EmptyState extends StatelessWidget {
                             width: 6,
                             height: 6,
                             margin: const EdgeInsets.symmetric(horizontal: 4),
-                            decoration: const BoxDecoration(color: Colors.white38, shape: BoxShape.circle),
+                            decoration: BoxDecoration(color: Theme.of(context).colorScheme.surfaceContainerHighest.withValues(alpha: 0.6), shape: BoxShape.circle),
                           )),
                         ),
                       ),
@@ -620,7 +643,7 @@ class _EmptyState extends StatelessWidget {
           Text(
             'No entries for this day',
             style: AppTextStyles.headlineSmall.copyWith(
-              color: const Color(0xFF1F2937),
+              color: Theme.of(context).colorScheme.onSurface,
               fontWeight: FontWeight.w800,
               fontSize: 22,
             ),
@@ -632,7 +655,7 @@ class _EmptyState extends StatelessWidget {
               'Write your first entry and track your mood!',
               textAlign: TextAlign.center,
               style: AppTextStyles.bodyMedium.copyWith(
-                color: const Color(0xFF6B7280),
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
                 fontSize: 15,
                 height: 1.5,
               ),
@@ -642,32 +665,54 @@ class _EmptyState extends StatelessWidget {
           const SizedBox(height: 32),
           
           // ── Action Button ────────────────────────────────────────────────────
-          ElevatedButton(
-            onPressed: onAddPressed,
-            style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFF73D8A5),
-              foregroundColor: Colors.white,
-              elevation: 0,
-              padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 14),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(100),
-              ),
-            ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const Icon(Icons.add_rounded, size: 20),
-                const SizedBox(width: 8),
-                Text(
-                  'Add Entry',
-                  style: AppTextStyles.labelLarge.copyWith(
-                    fontWeight: FontWeight.bold,
-                    color: Colors.white,
+          Theme.of(context).brightness == Brightness.dark
+              ? GestureDetector(
+                  onTap: onAddPressed,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                    alignment: Alignment.center,
+                    decoration: BoxDecoration(
+                      color: Colors.transparent,
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(
+                        color: Colors.white.withValues(alpha: 0.15),
+                      ),
+                    ),
+                    child: const Text(
+                      'Add Entry', 
+                      style: TextStyle(
+                        color: Colors.white, 
+                        fontWeight: FontWeight.w600,
+                      )
+                    ),
+                  ),
+                )
+              : ElevatedButton(
+                  onPressed: onAddPressed,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF73D8A5),
+                    foregroundColor: Colors.white,
+                    elevation: 0,
+                    padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 14),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(100),
+                    ),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(Icons.add_rounded, size: 20),
+                      const SizedBox(width: 8),
+                      Text(
+                        'Add Entry',
+                        style: AppTextStyles.labelLarge.copyWith(
+                          fontWeight: FontWeight.bold,
+                          color: Colors.white,
+                        ),
+                      ),
+                    ],
                   ),
                 ),
-              ],
-            ),
-          ),
           const SizedBox(height: 40),
         ],
       ),
@@ -742,7 +787,7 @@ class _MoodSelector extends StatelessWidget {
               width: 45, // Reduced from 56 (0.8x)
               height: 45, // Reduced from 56 (0.8x)
               decoration: BoxDecoration(
-                color: isSelected ? const Color(0xFF73D8A5).withAlpha(40) : const Color(0xFFF1F4F9),
+                color: isSelected ? const Color(0xFF73D8A5).withAlpha(40) : Theme.of(context).colorScheme.surfaceContainerHighest,
                 shape: BoxShape.circle,
                 border: isSelected ? Border.all(color: const Color(0xFF73D8A5), width: 2) : null,
               ),
@@ -796,6 +841,10 @@ class _DateCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final today = DateTime.now();
+    final isToday = date.day == today.day && date.month == today.month && date.year == today.year;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
     return GestureDetector(
       onTap: onTap,
       child: AnimatedContainer(
@@ -803,24 +852,41 @@ class _DateCard extends StatelessWidget {
         margin: const EdgeInsets.only(right: 8),
         width: 44, // Reduced from 52
         padding: const EdgeInsets.symmetric(vertical: 6), // Reduced from 10
-        decoration: BoxDecoration(
-          color: isSelected ? const Color(0xFF73D8A5) : Colors.white,
-          borderRadius: BorderRadius.circular(10), // tighter rounded corner
-          boxShadow: [
-            BoxShadow(
-              color: isSelected ? const Color(0xFF73D8A5).withAlpha(100) : Colors.black.withAlpha(5),
-              blurRadius: 4,
-              offset: isSelected ? const Offset(0, 2) : const Offset(0, 1),
-            )
-          ],
-        ),
+        decoration: Theme.of(context).brightness == Brightness.dark
+            ? BoxDecoration(
+                color: isSelected ? Colors.white.withValues(alpha: 0.15) : const Color(0xFF1C1C1E),
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(
+                  color: isSelected ? Colors.white : Colors.white.withValues(alpha: 0.08),
+                  width: isSelected ? 1.5 : 1, // Optional visual cue
+                ),
+                boxShadow: [
+                  if (isSelected)
+                    BoxShadow(
+                      color: Colors.white.withValues(alpha: 0.1),
+                      blurRadius: 4,
+                      offset: const Offset(0, 1),
+                    )
+                ],
+              )
+            : BoxDecoration(
+                color: isSelected ? const Color(0xFF73D8A5) : Theme.of(context).colorScheme.surface,
+                borderRadius: BorderRadius.circular(10), // tighter rounded corner
+                boxShadow: [
+                  BoxShadow(
+                    color: isSelected ? const Color(0xFF73D8A5).withAlpha(100) : Colors.black.withAlpha(4),
+                    blurRadius: 4,
+                    offset: isSelected ? const Offset(0, 2) : const Offset(0, 1),
+                  )
+                ],
+              ),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Text(
               _days[date.weekday - 1],
               style: AppTextStyles.labelSmall.copyWith(
-                color: isSelected ? Colors.white : const Color(0xFF64748B), // Slightly darker unselected
+                color: isSelected ? Colors.white : (Theme.of(context).brightness == Brightness.dark ? const Color(0xFFB0B0B5) : Theme.of(context).colorScheme.onSurfaceVariant),
                 fontWeight: isSelected ? FontWeight.bold : FontWeight.w600,
                 fontSize: 9.5,
               ),
@@ -829,12 +895,22 @@ class _DateCard extends StatelessWidget {
             Text(
               '${date.day}',
               style: AppTextStyles.headlineLarge.copyWith(
-                color: isSelected ? Colors.white : const Color(0xFF111827), // Near black
+                color: isSelected ? Colors.white : (Theme.of(context).brightness == Brightness.dark ? Colors.white : Theme.of(context).colorScheme.onSurface),
                 fontWeight: FontWeight.w700, // Bold
                 fontSize: 11, // Reduced to 0.7x (approx)
                 height: 1.0, 
               ),
             ),
+            if (isToday)
+              Container(
+                margin: const EdgeInsets.only(top: 4),
+                width: 4,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: isDark ? Colors.white : Colors.green,
+                  shape: BoxShape.circle,
+                ),
+              ),
           ],
         ),
       ),

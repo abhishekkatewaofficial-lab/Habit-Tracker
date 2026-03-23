@@ -6,6 +6,7 @@ import 'core/services/hive_service.dart';
 import 'core/services/notification_service.dart';
 import 'core/theme/app_theme.dart';
 import 'core/theme/app_background.dart';
+import 'core/theme/theme_provider.dart';
 import 'features/habits/presentation/home_screen.dart';
 
 Future<void> main() async {
@@ -42,13 +43,31 @@ class HabitTrackerApp extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    // Eagerly initialise the provider so the same theme is used globally.
+    // Eagerly initialise background provider
     ref.watch(globalBackgroundThemeProvider);
+
+    final appThemeMode = ref.watch(themeProvider);
+
+    // Map our custom enum → Material ThemeMode
+    ThemeMode materialThemeMode;
+    switch (appThemeMode) {
+      case ThemeModeType.light:
+        materialThemeMode = ThemeMode.light;
+        break;
+      case ThemeModeType.dark:
+        materialThemeMode = ThemeMode.dark;
+        break;
+      case ThemeModeType.system:
+        materialThemeMode = ThemeMode.system;
+        break;
+    }
 
     return MaterialApp(
       title: 'Habit Tracker',
       debugShowCheckedModeBanner: false,
       theme: AppTheme.lightTheme,
+      darkTheme: AppTheme.darkTheme,
+      themeMode: materialThemeMode,
       home: const HomeScreen(),
       builder: (context, child) {
         return MediaQuery(
@@ -57,7 +76,7 @@ class HabitTrackerApp extends ConsumerWidget {
               MediaQuery.of(context).textScaler.scale(1.0).clamp(0.8, 1.3),
             ),
           ),
-          // Apply the global pastel gradient behind every page in the app
+          // Apply the global gradient behind every page in the app
           child: AppBackground(child: child!),
         );
       },

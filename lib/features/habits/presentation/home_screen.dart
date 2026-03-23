@@ -110,18 +110,18 @@ class _HabitsTab extends ConsumerWidget {
                       style: AppTextStyles.headlineMedium.copyWith(
                         fontWeight: FontWeight.w800, 
                         fontSize: 18,
-                        color: const Color(0xFF000000),
+                        color: Theme.of(context).colorScheme.onSurface,
                       ),
                     ),
                     // Right: Daily Mood & Profile
-                    Align(
+                    const Align(
                       alignment: Alignment.centerRight,
                       child: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          const _ProfileButton(),
-                          const SizedBox(width: 12),
-                          const _MoodSelectorButton(),
+                          _ProfileButton(),
+                          SizedBox(width: 12),
+                          _MoodSelectorButton(),
                         ],
                       ),
                     ),
@@ -130,16 +130,16 @@ class _HabitsTab extends ConsumerWidget {
               ),
             ),
           ),
-          SliverToBoxAdapter(child: _DateStrip()),
+          const SliverToBoxAdapter(child: _DateStrip()),
           const SliverToBoxAdapter(child: SizedBox(height: 16)),
           if (habits.isEmpty)
-            const SliverToBoxAdapter(
+            SliverToBoxAdapter(
               child: Padding(
-                padding: EdgeInsets.symmetric(vertical: 60),
+                padding: const EdgeInsets.symmetric(vertical: 60),
                 child: Center(
                   child: Text(
                     'No habits yet. Tap + to start!',
-                    style: TextStyle(color: Colors.grey, fontSize: 16),
+                    style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant, fontSize: 16),
                   ),
                 ),
               ),
@@ -249,6 +249,9 @@ class _DateChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final today = DateTime.now();
+    final isToday = date.day == today.day && date.month == today.month && date.year == today.year;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 4),
       child: Column(
@@ -257,7 +260,7 @@ class _DateChip extends StatelessWidget {
           Text(
             _days[date.weekday - 1],
             style: AppTextStyles.labelSmall.copyWith(
-              color: AppColors.textSecondary,
+              color: Theme.of(context).colorScheme.onSurfaceVariant,
               fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
             ),
           ),
@@ -268,20 +271,36 @@ class _DateChip extends StatelessWidget {
             decoration: BoxDecoration(
               shape: BoxShape.circle,
               border: Border.all(
-                color: isSelected ? AppColors.accent : AppColors.outline.withAlpha(100),
+                color: isSelected 
+                    ? (isDark ? Colors.white.withValues(alpha: 0.7) : AppColors.accent)
+                    : (isDark ? Colors.white.withValues(alpha: 0.15) : AppColors.outline.withAlpha(100)),
                 width: isSelected ? 2 : 1,
               ),
-              color: Colors.transparent,
+              color: isSelected 
+                  ? (isDark ? Colors.white.withValues(alpha: 0.15) : Colors.transparent) 
+                  : Colors.transparent,
             ),
             alignment: Alignment.center,
             child: Text(
               '${date.day}',
               style: AppTextStyles.labelLarge.copyWith(
-                color: isSelected ? AppColors.accent : AppColors.textPrimary,
+                color: isSelected 
+                    ? (isDark ? Colors.white : AppColors.accent) 
+                    : (isDark ? Colors.white : Theme.of(context).colorScheme.onSurface),
                 fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
               ),
             ),
           ),
+          if (isToday)
+            Container(
+              margin: const EdgeInsets.only(top: 4),
+              width: 4,
+              height: 4,
+              decoration: BoxDecoration(
+                color: isDark ? Colors.white : Colors.green,
+                shape: BoxShape.circle,
+              ),
+            ),
         ],
       ),
     );
@@ -306,11 +325,12 @@ class _HabitCard extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final currentProgressValue = habit.dailyProgress[dateStr] ?? 0;
     final isCompletedToday = currentProgressValue >= habit.goalValue;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     final baseColor = Color(habit.colorValue);
     final progress = (currentProgressValue / habit.goalValue).clamp(0.0, 1.0);
 
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 4),
+      padding: const EdgeInsets.symmetric(vertical: 4),
       child: AnimatedOpacity(
         duration: const Duration(milliseconds: 300),
         opacity: isFuture ? 0.6 : 1.0,
@@ -374,43 +394,53 @@ class _HabitCard extends ConsumerWidget {
           ),
           child: GestureDetector(
             onLongPress: () => _showHabitAnalytics(context, habit),
-            child: ClipRRect(
-              borderRadius: BorderRadius.circular(16),
-              child: Container(
-                height: 72,
-                color: baseColor.withValues(alpha: 0.3),
-                child: Stack(
-                  children: [
-                    // Internal Progress Bar
-                    AnimatedFractionallySizedBox(
-                      duration: const Duration(milliseconds: 400),
-                      curve: Curves.easeOutCubic,
-                      widthFactor: progress,
-                      heightFactor: 1.0,
-                      child: Container(color: baseColor.withValues(alpha: 0.85)),
-                    ),
-                  // Content
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 16),
-                    child: Row(
-                      children: [
-                        Text(habit.icon ?? '✨', style: const TextStyle(fontSize: 22)),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              // Habit name
-                              Text(
-                                habit.name,
-                                style: GoogleFonts.poppins(
-                                  fontSize: 18,
-                                  fontWeight: FontWeight.w700,
-                                  color: const Color(0xFF2D264B),
-                                ),
-                                overflow: TextOverflow.ellipsis,
-                              ),
+            child: Container(
+              margin: const EdgeInsets.symmetric(horizontal: 16),
+              width: double.infinity,
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(20),
+                child: Container(
+                  height: 72,
+                  color: isDark ? Theme.of(context).colorScheme.surface : baseColor.withValues(alpha: 0.18),
+                  child: Stack(
+                    children: [
+                      // Internal Progress Bar
+                      AnimatedFractionallySizedBox(
+                        duration: const Duration(milliseconds: 400),
+                        curve: Curves.easeOutCubic,
+                        widthFactor: progress,
+                        heightFactor: 1.0,
+                        child: Container(
+                          decoration: BoxDecoration(
+                            color: isDark
+                                ? Colors.white.withValues(alpha: 0.1)
+                                : baseColor.withValues(alpha: 0.72),
+                            borderRadius: BorderRadius.circular(20),
+                          ),
+                        ),
+                      ),
+                      // Content
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 16),
+                        child: Row(
+                          children: [
+                            Text(habit.icon ?? '✨', style: const TextStyle(fontSize: 22)),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Column(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  // Habit name
+                                  Text(
+                                    habit.name,
+                                    style: GoogleFonts.poppins(
+                                      fontSize: 18,
+                                      fontWeight: FontWeight.w700,
+                                      color: Theme.of(context).colorScheme.onSurface,
+                                    ),
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
                               const SizedBox(height: 4),
                               // Progress pill + streak chip side by side
                               Row(
@@ -420,7 +450,7 @@ class _HabitCard extends ConsumerWidget {
                                     current: currentProgressValue,
                                     total: habit.goalValue,
                                     unit: habit.goalUnit,
-                                    color: baseColor,
+                                    color: isDark ? Colors.transparent : baseColor,
                                   ),
                                   Builder(builder: (_) {
                                     final streak = calculateHabitStreak(habit);
@@ -429,24 +459,28 @@ class _HabitCard extends ConsumerWidget {
                                       margin: const EdgeInsets.only(left: 8),
                                       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                                       decoration: BoxDecoration(
-                                        color: Colors.white.withValues(alpha: 0.75),
+                                        color: Theme.of(context).colorScheme.surface.withValues(alpha: 0.85),
                                         borderRadius: BorderRadius.circular(100),
                                         border: Border.all(
-                                          color: baseColor.withValues(alpha: 0.5),
+                                          color: isDark ? Colors.white.withValues(alpha: 0.15) : baseColor.withValues(alpha: 0.5),
                                           width: 0.8,
                                         ),
                                       ),
                                       child: Row(
                                         mainAxisSize: MainAxisSize.min,
                                         children: [
-                                          Icon(CupertinoIcons.flame_fill, size: 10, color: baseColor),
+                                          Icon(
+                                            CupertinoIcons.flame_fill, 
+                                            size: 10, 
+                                            color: isDark ? Colors.white70 : baseColor,
+                                          ),
                                           const SizedBox(width: 3),
                                           Text(
                                             '${streak}d',
                                             style: GoogleFonts.poppins(
                                               fontSize: 9,
                                               fontWeight: FontWeight.w700,
-                                              color: const Color(0xFF2D264B),
+                                              color: Theme.of(context).colorScheme.onSurface,
                                             ),
                                           ),
                                         ],
@@ -487,7 +521,7 @@ class _HabitCard extends ConsumerWidget {
                         index: index,
                         child: Icon(
                           CupertinoIcons.line_horizontal_3,
-                          color: Colors.black.withAlpha(50),
+                                color: Theme.of(context).colorScheme.onSurfaceVariant.withValues(alpha: 0.3),
                           size: 18,
                         ),
                       ),
@@ -501,6 +535,7 @@ class _HabitCard extends ConsumerWidget {
       ),
     ),
   ),
+),
 );
 }
 
@@ -550,7 +585,7 @@ class _ProgressPill extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
       decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.9),
+        color: Theme.of(context).colorScheme.surface.withValues(alpha: 0.9),
         borderRadius: BorderRadius.circular(8),
         boxShadow: [
           BoxShadow(
@@ -565,7 +600,7 @@ class _ProgressPill extends StatelessWidget {
         style: GoogleFonts.poppins(
           fontSize: 10,
           fontWeight: FontWeight.w600,
-          color: const Color(0xFF1C1C1E),
+          color: Theme.of(context).colorScheme.onSurface,
         ),
       ),
     );
@@ -613,6 +648,8 @@ class _PremiumCompleteButtonState extends State<_PremiumCompleteButton> with Sin
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
     return GestureDetector(
       onTapDown: widget.isFuture ? null : (_) => _controller.forward(),
       onTapUp: widget.isFuture ? null : (_) => _controller.reverse(),
@@ -628,19 +665,25 @@ class _PremiumCompleteButtonState extends State<_PremiumCompleteButton> with Sin
             shape: BoxShape.circle,
             color: widget.isFuture 
                 ? Colors.grey.withValues(alpha: 0.2)
-                : (widget.isCompleted ? AppColors.success : Colors.white.withAlpha(200)),
+                : (widget.isCompleted 
+                    ? (isDark ? Colors.white.withValues(alpha: 0.08) : AppColors.success)
+                    : Theme.of(context).colorScheme.surface.withAlpha(200)),
+            border: widget.isCompleted && isDark
+                ? Border.all(color: Colors.white.withValues(alpha: 0.2), width: 1.0)
+                : null,
             boxShadow: [
               if (!widget.isFuture) ...[
-                BoxShadow(
-                  color: (widget.isCompleted ? AppColors.success : Colors.black).withAlpha(40),
-                  blurRadius: 8,
-                  offset: const Offset(0, 4),
-                ),
+                if (!widget.isCompleted || !isDark)
+                  BoxShadow(
+                    color: (widget.isCompleted ? AppColors.success : Theme.of(context).colorScheme.shadow).withAlpha(40),
+                    blurRadius: 8,
+                    offset: const Offset(0, 4),
+                  ),
                 if (widget.isCompleted)
                   BoxShadow(
-                    color: AppColors.success.withAlpha(80),
-                    blurRadius: 12,
-                    spreadRadius: 1,
+                    color: isDark ? Colors.white.withValues(alpha: 0.15) : AppColors.success.withValues(alpha: 80),
+                    blurRadius: isDark ? 10 : 12,
+                    spreadRadius: isDark ? 0 : 1,
                   ),
               ]
             ],
@@ -653,7 +696,9 @@ class _PremiumCompleteButtonState extends State<_PremiumCompleteButton> with Sin
               key: ValueKey(widget.isCompleted),
               color: widget.isFuture 
                   ? Colors.grey.withValues(alpha: 0.5)
-                  : (widget.isCompleted ? Colors.white : Colors.black45),
+                  : (widget.isCompleted 
+                      ? Colors.white
+                      : Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.7)),
               size: 18,
             ),
           ),
@@ -741,6 +786,7 @@ class _FilterButtonState extends State<_FilterButton> {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return CompositedTransformTarget(
       link: _layerLink,
       child: GestureDetector(
@@ -748,14 +794,16 @@ class _FilterButtonState extends State<_FilterButton> {
         child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
           decoration: BoxDecoration(
-            color: AppColors.accent,
+            color: isDark ? Theme.of(context).colorScheme.surfaceContainerHighest : AppColors.accent,
             borderRadius: BorderRadius.circular(20),
+            border: isDark ? Border.all(color: Colors.white.withValues(alpha: 0.1), width: 1) : null,
             boxShadow: [
-              BoxShadow(
-                color: AppColors.accent.withValues(alpha: 0.3),
-                blurRadius: 8,
-                offset: const Offset(0, 4),
-              ),
+              if (!isDark)
+                BoxShadow(
+                  color: AppColors.accent.withValues(alpha: 0.3),
+                  blurRadius: 8,
+                  offset: const Offset(0, 4),
+                ),
             ],
           ),
           child: Row(
@@ -763,9 +811,9 @@ class _FilterButtonState extends State<_FilterButton> {
             children: [
               Flexible(
                 child: Text(
-                  _filterTitle, 
+                  _filterTitle,
                   style: AppTextStyles.labelMedium.copyWith(
-                    color: Colors.white, 
+                    color: Colors.white,
                     fontWeight: FontWeight.w600
                   ),
                   overflow: TextOverflow.ellipsis,
@@ -825,7 +873,7 @@ class _FilterDropdownMenuState extends ConsumerState<_FilterDropdownMenu> with S
           opacity: _animation,
           child: Container(
             decoration: BoxDecoration(
-              color: Colors.white.withValues(alpha: 0.9),
+              color: Theme.of(context).colorScheme.surface.withValues(alpha: 0.95),
               borderRadius: BorderRadius.circular(24),
               boxShadow: [
                 BoxShadow(
@@ -876,14 +924,14 @@ class _FilterDropdownMenuState extends ConsumerState<_FilterDropdownMenu> with S
             Icon(
               icon, 
               size: 18, 
-              color: isSelected ? AppColors.accent : Colors.grey.shade600
+              color: isSelected ? AppColors.accent : Theme.of(context).colorScheme.onSurfaceVariant.withValues(alpha: 0.7),
             ),
             const SizedBox(width: 12),
             Expanded(
               child: Text(
                 title,
                 style: TextStyle(
-                  color: isSelected ? AppColors.accent : Colors.black87,
+                  color: isSelected ? AppColors.accent : Theme.of(context).colorScheme.onSurfaceVariant,
                   fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
                   fontSize: 14,
                 ),
@@ -926,37 +974,76 @@ class _UpdateProgressPopupState extends State<_UpdateProgressPopup> {
   }
 
   void _onManualInput() {
-    showCupertinoDialog(
+    showDialog(
       context: context,
       builder: (context) {
         final controller = TextEditingController(text: _currentSelection.toInt().toString());
-        return CupertinoAlertDialog(
-          title: const Text('Manual Entry'),
-          content: Padding(
-            padding: const EdgeInsets.only(top: 12),
-            child: CupertinoTextField(
-              controller: controller,
-              keyboardType: TextInputType.number,
-              textAlign: TextAlign.center,
-              autofocus: true,
-              placeholder: 'Enter value',
+        final isDark = Theme.of(context).brightness == Brightness.dark;
+        return Dialog(
+          backgroundColor: isDark ? const Color(0xFF1C1C1E) : Colors.white,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+          child: Padding(
+            padding: const EdgeInsets.all(24),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text('Manual Entry', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: isDark ? Colors.white : Colors.black)),
+                const SizedBox(height: 16),
+                TextField(
+                  controller: controller,
+                  keyboardType: TextInputType.number,
+                  textAlign: TextAlign.center,
+                  style: TextStyle(color: isDark ? Colors.white : Colors.black),
+                  cursorColor: isDark ? Colors.white : Colors.blue,
+                  decoration: InputDecoration(
+                     filled: true,
+                     fillColor: isDark ? const Color(0xFF2C2C2E) : Colors.grey[200],
+                     border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
+                  ),
+                ),
+                const SizedBox(height: 24),
+                Row(
+                  children: [
+                    Expanded(
+                      child: GestureDetector(
+                        onTap: () => Navigator.pop(context),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(vertical: 12),
+                          alignment: Alignment.center,
+                          decoration: BoxDecoration(
+                            color: Colors.transparent,
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(color: isDark ? Colors.white.withValues(alpha: 0.15) : Colors.grey.withValues(alpha: 0.3)),
+                          ),
+                          child: Text('Cancel', style: TextStyle(color: isDark ? Colors.white : Colors.black)),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: GestureDetector(
+                        onTap: () {
+                          final val = int.tryParse(controller.text) ?? _currentSelection.toInt();
+                          setState(() => _currentSelection = val.clamp(0, widget.habit.goalValue).toDouble());
+                          Navigator.pop(context);
+                        },
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(vertical: 12),
+                          alignment: Alignment.center,
+                          decoration: BoxDecoration(
+                            color: isDark ? Colors.transparent : Colors.blue,
+                            borderRadius: BorderRadius.circular(12),
+                            border: isDark ? Border.all(color: Colors.white.withValues(alpha: 0.15)) : null,
+                          ),
+                          child: Text('Set', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
             ),
           ),
-          actions: [
-            CupertinoDialogAction(
-              onPressed: () => Navigator.pop(context),
-              child: const Text('Cancel'),
-            ),
-            CupertinoDialogAction(
-              isDefaultAction: true,
-              onPressed: () {
-                final val = int.tryParse(controller.text) ?? _currentSelection.toInt();
-                setState(() => _currentSelection = val.clamp(0, widget.habit.goalValue).toDouble());
-                Navigator.pop(context);
-              },
-              child: const Text('Set'),
-            ),
-          ],
         );
       },
     );
@@ -972,7 +1059,7 @@ class _UpdateProgressPopupState extends State<_UpdateProgressPopup> {
           child: BackdropFilter(
             filter: ImageFilter.blur(sigmaX: 15, sigmaY: 15),
             child: Material(
-              color: Colors.white.withValues(alpha: 0.85),
+              color: Theme.of(context).brightness == Brightness.dark ? const Color(0xFF1C1C1E) : Theme.of(context).colorScheme.surface.withValues(alpha: 0.92),
               child: Padding(
                 padding: const EdgeInsets.all(24),
                 child: Column(
@@ -983,7 +1070,7 @@ class _UpdateProgressPopupState extends State<_UpdateProgressPopup> {
                       style: GoogleFonts.poppins(
                         fontSize: 18,
                         fontWeight: FontWeight.bold,
-                        color: const Color(0xFF1C1C1E),
+                        color: Theme.of(context).brightness == Brightness.dark ? Colors.white : const Color(0xFF1C1C1E),
                       ),
                     ),
                     const SizedBox(height: 24),
@@ -996,7 +1083,7 @@ class _UpdateProgressPopupState extends State<_UpdateProgressPopup> {
                           style: GoogleFonts.poppins(
                             fontSize: 48,
                             fontWeight: FontWeight.bold,
-                            color: Color(widget.habit.colorValue),
+                            color: Theme.of(context).brightness == Brightness.dark ? Colors.white : Color(widget.habit.colorValue),
                           ),
                         ),
                         const SizedBox(width: 8),
@@ -1004,14 +1091,14 @@ class _UpdateProgressPopupState extends State<_UpdateProgressPopup> {
                           widget.habit.goalUnit,
                           style: GoogleFonts.poppins(
                             fontSize: 18,
-                            color: Colors.grey.shade500,
+                            color: Theme.of(context).brightness == Brightness.dark ? const Color(0xFFB0B0B5) : Theme.of(context).colorScheme.onSurfaceVariant,
                             fontWeight: FontWeight.w500,
                           ),
                         ),
                         const SizedBox(width: 12),
                         IconButton(
                           onPressed: _onManualInput,
-                          icon: const Icon(CupertinoIcons.pencil_circle_fill, color: Colors.grey, size: 28),
+                          icon: Icon(CupertinoIcons.pencil_circle_fill, color: Theme.of(context).brightness == Brightness.dark ? Colors.white : Theme.of(context).colorScheme.onSurfaceVariant, size: 28),
                         ),
                       ],
                     ),
@@ -1019,11 +1106,11 @@ class _UpdateProgressPopupState extends State<_UpdateProgressPopup> {
                     // Slider
                     SliderTheme(
                       data: SliderTheme.of(context).copyWith(
-                        activeTrackColor: Color(widget.habit.colorValue),
-                        inactiveTrackColor: Color(widget.habit.colorValue).withValues(alpha: 0.2),
-                        thumbColor: Color(widget.habit.colorValue),
+                        activeTrackColor: Theme.of(context).brightness == Brightness.dark ? Colors.white : Color(widget.habit.colorValue),
+                        inactiveTrackColor: Theme.of(context).brightness == Brightness.dark ? Colors.white.withValues(alpha: 0.1) : Color(widget.habit.colorValue).withValues(alpha: 0.2),
+                        thumbColor: Theme.of(context).brightness == Brightness.dark ? Colors.white : Color(widget.habit.colorValue),
                         trackHeight: 8,
-                        overlayColor: Color(widget.habit.colorValue).withValues(alpha: 0.1),
+                        overlayColor: Theme.of(context).brightness == Brightness.dark ? Colors.white.withValues(alpha: 0.05) : Color(widget.habit.colorValue).withValues(alpha: 0.1),
                       ),
                       child: Slider(
                         value: _currentSelection,
@@ -1045,7 +1132,9 @@ class _UpdateProgressPopupState extends State<_UpdateProgressPopup> {
                             height: 48,
                             alignment: Alignment.center,
                             decoration: BoxDecoration(
-                              color: const Color(0xFFD2F0DA), // pastel green
+                              color: Theme.of(context).brightness == Brightness.dark
+                                  ? Colors.white.withValues(alpha: 0.08)
+                                  : const Color(0xFFD2F0DA),
                               borderRadius: BorderRadius.circular(12),
                               boxShadow: [
                                 BoxShadow(
@@ -1057,8 +1146,10 @@ class _UpdateProgressPopupState extends State<_UpdateProgressPopup> {
                             ),
                             child: Text(
                               '$val',
-                              style: const TextStyle(
-                                color: Color(0xFF2E7D32), // dark green
+                              style: TextStyle(
+                                color: Theme.of(context).brightness == Brightness.dark
+                                    ? Colors.white
+                                    : const Color(0xFF2E7D32),
                                 fontWeight: FontWeight.bold,
                                 fontSize: 13,
                               ),
@@ -1077,7 +1168,7 @@ class _UpdateProgressPopupState extends State<_UpdateProgressPopup> {
                           Navigator.pop(context);
                         },
                         style: ElevatedButton.styleFrom(
-                          backgroundColor: Color(widget.habit.colorValue),
+                          backgroundColor: Theme.of(context).brightness == Brightness.dark ? Colors.white.withValues(alpha: 0.1) : Color(widget.habit.colorValue),
                           foregroundColor: Colors.white,
                           elevation: 0,
                           padding: const EdgeInsets.symmetric(vertical: 16),
@@ -1120,7 +1211,11 @@ class _MoodSelectorButton extends ConsumerWidget {
         height: 38,
         width: 38,
         decoration: BoxDecoration(
-          color: currentMood != null ? AppColors.pastelYellow : const Color(0xFFF3F4F6),
+          color: currentMood != null
+              ? (Theme.of(context).brightness == Brightness.dark
+                  ? Theme.of(context).colorScheme.surfaceContainerHighest
+                  : AppColors.pastelYellow)
+              : Theme.of(context).colorScheme.surfaceContainerHighest,
           shape: BoxShape.circle,
           boxShadow: [
             if (currentMood != null)
@@ -1269,9 +1364,9 @@ class _MoodRadialPickerState extends ConsumerState<_MoodRadialPicker> with Singl
                       width: 280,
                       height: 280,
                       decoration: BoxDecoration(
-                        color: Colors.white.withValues(alpha: 0.1),
+                        color: Theme.of(context).colorScheme.surface.withValues(alpha: 0.92),
                         shape: BoxShape.circle,
-                        border: Border.all(color: Colors.white.withValues(alpha: 0.2), width: 1),
+                        border: Border.all(color: Theme.of(context).colorScheme.outline.withValues(alpha: 0.2), width: 1),
                         boxShadow: [
                           BoxShadow(
                             color: Colors.black.withValues(alpha: 0.05),
@@ -1290,7 +1385,7 @@ class _MoodRadialPickerState extends ConsumerState<_MoodRadialPicker> with Singl
                             style: GoogleFonts.poppins(
                               fontSize: 16,
                               fontWeight: FontWeight.w600,
-                              color: Colors.black87,
+                              color: Theme.of(context).colorScheme.onSurface,
                             ),
                           ),
                           ...List.generate(_emojis.length, (index) {
@@ -1299,7 +1394,7 @@ class _MoodRadialPickerState extends ConsumerState<_MoodRadialPicker> with Singl
                             
                             // Calculate radial position
                             final double angle = (index * (2 * math.pi / _emojis.length)) - (math.pi / 2);
-                            final double radius = 95.0; // Adjusted for better fit
+                            const double radius = 95.0; // Adjusted for better fit
                             final double x = radius * math.cos(angle);
                             final double y = radius * math.sin(angle);
 
@@ -1357,43 +1452,6 @@ class _MoodRadialPickerState extends ConsumerState<_MoodRadialPicker> with Singl
   }
 }
 
-class _PlannerPlaceholderScreen extends StatelessWidget {
-  final String title;
-  const _PlannerPlaceholderScreen({required this.title});
-
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      color: AppColors.background,
-      child: Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(CupertinoIcons.hammer_fill, size: 48, color: Colors.grey.withValues(alpha: 0.5)),
-            const SizedBox(height: 16),
-            Text(
-              title,
-              style: GoogleFonts.poppins(
-                fontSize: 24,
-                fontWeight: FontWeight.bold,
-                color: Colors.grey.withValues(alpha: 0.8),
-              ),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              'Coming Soon',
-              style: GoogleFonts.poppins(
-                fontSize: 14,
-                color: Colors.grey.withValues(alpha: 0.6),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
 
 // ─────────────────────────────────────────────
 // ANALYTICS BOTTOM SHEET
@@ -1458,6 +1516,7 @@ class _HabitAnalyticsSheetState extends State<_HabitAnalyticsSheet>
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     final currentWeek = _weekData(0);
     final prevWeek = _weekData(-1);
     const chartGreen = Color(0xFF65D282);
@@ -1469,14 +1528,16 @@ class _HabitAnalyticsSheetState extends State<_HabitAnalyticsSheet>
         filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
         child: Container(
           decoration: BoxDecoration(
-            color: Colors.white.withValues(alpha: 0.97),
+            color: isDark ? const Color(0xFF1C1C1E) : Colors.white.withValues(alpha: 0.97),
             borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
+            border: isDark ? Border.all(color: Colors.white.withValues(alpha: 0.08)) : null,
             boxShadow: [
-              BoxShadow(
-                color: Colors.black.withValues(alpha: 0.12),
-                blurRadius: 30,
-                offset: const Offset(0, -6),
-              ),
+              if (!isDark)
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.12),
+                  blurRadius: 30,
+                  offset: const Offset(0, -6),
+                ),
             ],
           ),
           padding: const EdgeInsets.fromLTRB(20, 12, 20, 32),
@@ -1506,7 +1567,7 @@ class _HabitAnalyticsSheetState extends State<_HabitAnalyticsSheet>
                     style: GoogleFonts.poppins(
                       fontSize: 17,
                       fontWeight: FontWeight.w700,
-                      color: const Color(0xFF1C1C1E),
+                      color: isDark ? Colors.white : const Color(0xFF1C1C1E),
                     ),
                   ),
                 ],
@@ -1519,14 +1580,14 @@ class _HabitAnalyticsSheetState extends State<_HabitAnalyticsSheet>
                 style: GoogleFonts.poppins(
                   fontSize: 15,
                   fontWeight: FontWeight.w700,
-                  color: const Color(0xFF1C1C1E),
+                  color: isDark ? Colors.white : const Color(0xFF1C1C1E),
                 ),
               ),
               const SizedBox(height: 10),
               Container(
                 height: 180,
                 decoration: BoxDecoration(
-                  color: const Color(0xFFF8F9FB),
+                  color: isDark ? Colors.transparent : const Color(0xFFF8F9FB),
                   borderRadius: BorderRadius.circular(18),
                 ),
                 padding: const EdgeInsets.fromLTRB(12, 16, 12, 8),
@@ -1537,6 +1598,7 @@ class _HabitAnalyticsSheetState extends State<_HabitAnalyticsSheet>
                       values: currentWeek,
                       color: chartGreen,
                       animProgress: _progress.value,
+                      isDark: isDark,
                     ),
                     child: Container(),
                   ),
@@ -1550,14 +1612,14 @@ class _HabitAnalyticsSheetState extends State<_HabitAnalyticsSheet>
                 style: GoogleFonts.poppins(
                   fontSize: 15,
                   fontWeight: FontWeight.w700,
-                  color: const Color(0xFF1C1C1E),
+                  color: isDark ? Colors.white : const Color(0xFF1C1C1E),
                 ),
               ),
               const SizedBox(height: 10),
               Container(
                 height: 200,
                 decoration: BoxDecoration(
-                  color: const Color(0xFFF8F9FB),
+                  color: isDark ? Colors.transparent : const Color(0xFFF8F9FB),
                   borderRadius: BorderRadius.circular(18),
                 ),
                 padding: const EdgeInsets.fromLTRB(12, 16, 12, 8),
@@ -1570,6 +1632,7 @@ class _HabitAnalyticsSheetState extends State<_HabitAnalyticsSheet>
                       color: chartGreen,
                       prevColor: chartOrange,
                       animProgress: _progress.value,
+                      isDark: isDark,
                     ),
                     child: Container(),
                   ),
@@ -1577,11 +1640,11 @@ class _HabitAnalyticsSheetState extends State<_HabitAnalyticsSheet>
               ),
               const SizedBox(height: 8),
               // Legend
-              Row(
+              const Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   _LegendDot(color: chartGreen, label: 'This Week'),
-                  const SizedBox(width: 20),
+                  SizedBox(width: 20),
                   _LegendDot(color: chartOrange, label: 'Last Week'),
                 ],
               ),
@@ -1610,7 +1673,7 @@ class _LegendDot extends StatelessWidget {
         const SizedBox(width: 6),
         Text(
           label,
-          style: GoogleFonts.poppins(fontSize: 11, color: Colors.grey.shade600),
+          style: GoogleFonts.poppins(fontSize: 11, color: Theme.of(context).brightness == Brightness.dark ? const Color(0xFFB0B0B5) : Colors.grey.shade600),
         ),
       ],
     );
@@ -1622,6 +1685,7 @@ class _WeeklyBarChartPainter extends CustomPainter {
   final List<double> values; // 7 values, Mon–Sun, 0.0–1.0
   final Color color;
   final double animProgress;
+  final bool isDark;
 
   static const _labels = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
 
@@ -1629,6 +1693,7 @@ class _WeeklyBarChartPainter extends CustomPainter {
     required this.values,
     required this.color,
     required this.animProgress,
+    required this.isDark,
   });
 
   @override
@@ -1639,7 +1704,7 @@ class _WeeklyBarChartPainter extends CustomPainter {
     const barInnerW = 18.0;
     const radius = Radius.circular(6);
 
-    final bgPaint = Paint()..color = Colors.grey.shade200;
+    final bgPaint = Paint()..color = isDark ? Colors.white.withValues(alpha: 0.05) : Colors.grey.shade200;
     final filledPaint = Paint()
       ..shader = LinearGradient(
         begin: Alignment.topCenter,
@@ -1649,7 +1714,7 @@ class _WeeklyBarChartPainter extends CustomPainter {
 
     final labelStyle = GoogleFonts.poppins(
       fontSize: 11,
-      color: Colors.grey.shade500,
+      color: isDark ? const Color(0xFFB0B0B5) : Colors.grey.shade500,
       fontWeight: FontWeight.w500,
     );
 
@@ -1696,6 +1761,7 @@ class _WeeklyLineChartPainter extends CustomPainter {
   final Color color;
   final Color prevColor;
   final double animProgress;
+  final bool isDark;
 
   static const _labels = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 
@@ -1705,6 +1771,7 @@ class _WeeklyLineChartPainter extends CustomPainter {
     required this.color,
     required this.prevColor,
     required this.animProgress,
+    required this.isDark,
   });
 
   @override
@@ -1728,7 +1795,7 @@ class _WeeklyLineChartPainter extends CustomPainter {
 
     // ── Grid lines ───────────────────────────────────
     final gridPaint = Paint()
-      ..color = Colors.grey.withValues(alpha: 0.1) // Very subtle grid
+      ..color = isDark ? Colors.white.withValues(alpha: 0.1) : Colors.grey.withValues(alpha: 0.1)
       ..strokeWidth = 1;
 
     for (int g = 0; g <= 4; g++) {
@@ -1747,7 +1814,11 @@ class _WeeklyLineChartPainter extends CustomPainter {
     final prevPath = Path();
     for (int i = 0; i < 7; i++) {
       final p = pt(i, previous[i]);
-      if (i == 0) prevPath.moveTo(p.dx, p.dy); else prevPath.lineTo(p.dx, p.dy);
+      if (i == 0) {
+        prevPath.moveTo(p.dx, p.dy);
+      } else {
+        prevPath.lineTo(p.dx, p.dy);
+      }
     }
     canvas.drawPath(_clipPathByProgress(prevPath, size, animProgress), prevPaint);
 
@@ -1764,7 +1835,11 @@ class _WeeklyLineChartPainter extends CustomPainter {
     areaPath.moveTo(pt(0, 0).dx, chartH);
     for (int i = 0; i < 7; i++) {
       final p = pt(i, current[i]);
-      if (i == 0) areaPath.lineTo(p.dx, p.dy); else areaPath.lineTo(p.dx, p.dy);
+      if (i == 0) {
+        areaPath.lineTo(p.dx, p.dy);
+      } else {
+        areaPath.lineTo(p.dx, p.dy);
+      }
     }
     areaPath.lineTo(pt(6, 0).dx, chartH);
     areaPath.close();
@@ -1780,7 +1855,11 @@ class _WeeklyLineChartPainter extends CustomPainter {
     final linePath = Path();
     for (int i = 0; i < 7; i++) {
       final p = pt(i, current[i]);
-      if (i == 0) linePath.moveTo(p.dx, p.dy); else linePath.lineTo(p.dx, p.dy);
+      if (i == 0) {
+        linePath.moveTo(p.dx, p.dy);
+      } else {
+        linePath.lineTo(p.dx, p.dy);
+      }
     }
     canvas.drawPath(_clipPathByProgress(linePath, size, animProgress), linePaint);
 
@@ -1790,7 +1869,7 @@ class _WeeklyLineChartPainter extends CustomPainter {
       ..strokeWidth = 2
       ..style = PaintingStyle.stroke;
     final prevDotFill = Paint()
-      ..color = Colors.white
+      ..color = isDark ? const Color(0xFF1C1C1E) : Colors.white
       ..style = PaintingStyle.fill;
       
     for (int i = 0; i < 7; i++) {
@@ -1812,7 +1891,7 @@ class _WeeklyLineChartPainter extends CustomPainter {
     }
 
     // ── X-axis labels ────────────────────────────────
-    final labelStyle = GoogleFonts.poppins(fontSize: 10, color: Colors.grey.shade500);
+    final labelStyle = GoogleFonts.poppins(fontSize: 10, color: isDark ? const Color(0xFFB0B0B5) : Colors.grey.shade500);
     for (int i = 0; i < 7; i++) {
       final tp = TextPainter(
         text: TextSpan(text: _labels[i], style: labelStyle),
@@ -1836,47 +1915,6 @@ class _WeeklyLineChartPainter extends CustomPainter {
       old.previous != previous;
 }
 
-class _FocusPlaceholderScreen extends StatelessWidget {
-  final String title;
-  final IconData icon;
-
-  const _FocusPlaceholderScreen({required this.title, required this.icon});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      color: AppColors.background,
-      child: SafeArea(
-        bottom: false,
-        child: Column(
-          children: [
-            Padding(
-              padding: const EdgeInsets.fromLTRB(20, 30, 20, 20),
-              child: Center(
-                child: Text(
-                  title,
-                  style: GoogleFonts.greatVibes(
-                    fontSize: 40,
-                    fontWeight: FontWeight.w600,
-                    color: const Color(0xFF2D264B),
-                  ),
-                ),
-              ),
-            ),
-            const Spacer(),
-            Icon(icon, size: 80, color: Colors.grey.withValues(alpha: 0.15)),
-            const SizedBox(height: 20),
-            Text(
-              '$title coming soon...',
-              style: const TextStyle(color: Colors.grey, fontSize: 16),
-            ),
-            const Spacer(),
-          ],
-        ),
-      ),
-    );
-  }
-}
 
 // ── Glass Add Button ──────────────────────────────────────────────────────────
 class _GlassAddButton extends StatefulWidget {
@@ -1920,10 +1958,10 @@ class _GlassAddButtonState extends State<_GlassAddButton> {
               filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
               child: Container(
                 decoration: BoxDecoration(
-                  color: Colors.white.withValues(alpha: 0.2),
+                  color: Theme.of(context).colorScheme.surface.withValues(alpha: 0.2),
                   borderRadius: BorderRadius.circular(20),
                   border: Border.all(
-                    color: Colors.white.withValues(alpha: 0.4),
+                    color: Theme.of(context).colorScheme.outline.withValues(alpha: 0.4),
                     width: 1.5,
                   ),
                 ),

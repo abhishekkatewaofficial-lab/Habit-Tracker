@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/cupertino.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../../data/models/eisenhower_task.dart';
@@ -51,7 +50,7 @@ class QuadrantDetailScreen extends ConsumerWidget {
           width: 60,
           height: 60,
           decoration: BoxDecoration(
-            color: Colors.white.withValues(alpha: 0.9),
+            color: Theme.of(context).colorScheme.surface.withValues(alpha: 0.9),
             shape: BoxShape.circle,
             border: Border.all(color: const Color(0xFFE5E5EA), width: 1),
             boxShadow: [

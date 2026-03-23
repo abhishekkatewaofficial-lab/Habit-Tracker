@@ -20,26 +20,26 @@ class EisenhowerMatrixScreen extends ConsumerWidget {
           child: Column(
             children: [
               _buildHeader(context),
-              Expanded(
+              const Expanded(
                 child: Padding(
-                  padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+                  padding: EdgeInsets.fromLTRB(16, 0, 16, 16),
                   child: Column(
                     children: [
                       Expanded(
                         child: Row(
                           children: [
                             Expanded(child: _MatrixQuadrant(type: QuadrantType.doNow)),
-                            const SizedBox(width: 12),
+                            SizedBox(width: 12),
                             Expanded(child: _MatrixQuadrant(type: QuadrantType.schedule)),
                           ],
                         ),
                       ),
-                      const SizedBox(height: 12),
+                      SizedBox(height: 12),
                       Expanded(
                         child: Row(
                           children: [
                             Expanded(child: _MatrixQuadrant(type: QuadrantType.delegate)),
-                            const SizedBox(width: 12),
+                            SizedBox(width: 12),
                             Expanded(child: _MatrixQuadrant(type: QuadrantType.eliminate)),
                           ],
                         ),
@@ -65,27 +65,49 @@ class EisenhowerMatrixScreen extends ConsumerWidget {
             style: GoogleFonts.greatVibes(
               fontSize: 48,
               fontWeight: FontWeight.w600,
-              color: const Color(0xFF2D264B),
+              color: Theme.of(context).brightness == Brightness.dark ? Colors.white : const Color(0xFF2D264B),
             ),
           ),
           GestureDetector(
             onTap: () => showUpsertSheet(context),
-            child: Container(
-              width: 48,
-              height: 48,
-              decoration: BoxDecoration(
-                color: Colors.white,
-                shape: BoxShape.circle,
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.1),
-                    blurRadius: 10,
-                    offset: const Offset(0, 4),
+            child: Theme.of(context).brightness == Brightness.dark
+                ? Container(
+                    decoration: BoxDecoration(
+                      color: Colors.transparent,
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(
+                        color: Colors.white.withValues(alpha: 0.15),
+                      ),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withValues(alpha: 0.4),
+                          blurRadius: 10,
+                        ),
+                      ],
+                    ),
+                    padding: const EdgeInsets.all(10),
+                    child: const Icon(
+                      Icons.add_rounded,
+                      color: Colors.white,
+                      size: 28,
+                    ),
+                  )
+                : Container(
+                    width: 48,
+                    height: 48,
+                    decoration: BoxDecoration(
+                      color: Theme.of(context).colorScheme.surface,
+                      shape: BoxShape.circle,
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withValues(alpha: 0.1),
+                          blurRadius: 10,
+                          offset: const Offset(0, 4),
+                        ),
+                      ],
+                    ),
+                    child: const Icon(Icons.add_rounded, color: Color(0xFF2D264B), size: 28),
                   ),
-                ],
-              ),
-              child: const Icon(Icons.add_rounded, color: Color(0xFF2D264B), size: 28),
-            ),
           ),
         ],
       ),
@@ -109,8 +131,8 @@ class _MatrixQuadrant extends ConsumerWidget {
     final cfg = getQuadrantConfig(type);
 
     return DragTarget<String>(
-      onWillAccept: (data) => data != null,
-      onAccept: (id) => ref.read(eisenhowerControllerProvider.notifier).moveTask(id, type),
+      onWillAcceptWithDetails: (details) => true,
+      onAcceptWithDetails: (details) => ref.read(eisenhowerControllerProvider.notifier).moveTask(details.data, type),
       builder: (context, candidates, _) {
         return AnimatedContainer(
           duration: const Duration(milliseconds: 200),

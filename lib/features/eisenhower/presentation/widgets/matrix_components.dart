@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/cupertino.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:flutter_slidable/flutter_slidable.dart';
@@ -79,10 +78,10 @@ class _MatrixTaskCardState extends ConsumerState<MatrixTaskCard> with SingleTick
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 9),
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: Theme.of(context).colorScheme.surface,
           borderRadius: BorderRadius.circular(10),
           boxShadow: [
-            BoxShadow(color: Colors.black.withValues(alpha: 0.03), blurRadius: 4, offset: const Offset(0, 2)),
+            BoxShadow(color: Colors.black.withValues(alpha: 0.06), blurRadius: 4, offset: const Offset(0, 2)),
           ],
         ),
         child: Row(
@@ -117,9 +116,9 @@ class _MatrixTaskCardState extends ConsumerState<MatrixTaskCard> with SingleTick
                 style: GoogleFonts.poppins(
                   fontSize: 12,
                   fontWeight: FontWeight.w600,
-                  color: const Color(0xFF2D264B),
+                  color: Theme.of(context).colorScheme.onSurface,
                   decoration: task.isCompleted ? TextDecoration.lineThrough : TextDecoration.none,
-                  decorationColor: kSubtitleColor,
+                  decorationColor: Theme.of(context).colorScheme.onSurfaceVariant,
                 ),
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis,
@@ -165,12 +164,12 @@ class _MatrixTaskCardState extends ConsumerState<MatrixTaskCard> with SingleTick
               width: 140,
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
               decoration: BoxDecoration(
-                color: Colors.white,
+                color: Theme.of(context).colorScheme.surface,
                 borderRadius: BorderRadius.circular(10),
                 boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.15), blurRadius: 16)],
               ),
               child: Text(task.title,
-                  style: GoogleFonts.poppins(fontSize: 12, fontWeight: FontWeight.w600, color: const Color(0xFF2D264B))),
+                  style: GoogleFonts.poppins(fontSize: 12, fontWeight: FontWeight.w600, color: Theme.of(context).colorScheme.onSurface)),
             ),
           ),
         ),
@@ -225,7 +224,7 @@ class _UpsertSheetState extends ConsumerState<UpsertSheet> {
     return Container(
       padding: EdgeInsets.fromLTRB(24, 24, 24, 24 + bottomInset),
       decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.98),
+        color: Theme.of(context).colorScheme.surface,
         borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
       ),
       child: Column(
@@ -245,19 +244,19 @@ class _UpsertSheetState extends ConsumerState<UpsertSheet> {
           ),
           Text(
             isEdit ? 'Edit Task' : 'New Task',
-            style: GoogleFonts.poppins(fontSize: 20, fontWeight: FontWeight.w700, color: const Color(0xFF2D264B)),
+            style: GoogleFonts.poppins(fontSize: 20, fontWeight: FontWeight.w700, color: Theme.of(context).colorScheme.onSurface),
           ),
           const SizedBox(height: 16),
           TextField(
             controller: _ctrl,
             autofocus: true,
             textCapitalization: TextCapitalization.sentences,
-            style: GoogleFonts.poppins(fontSize: 14, color: const Color(0xFF2D264B)),
+            style: GoogleFonts.poppins(fontSize: 14, color: Theme.of(context).colorScheme.onSurface),
             decoration: InputDecoration(
               hintText: 'What needs to be done?',
               hintStyle: GoogleFonts.poppins(color: kSubtitleColor),
               filled: true,
-              fillColor: const Color(0xFFF2F2F7),
+              fillColor: Theme.of(context).colorScheme.surfaceContainerHighest,
               border: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(14),
                 borderSide: BorderSide.none,
@@ -278,7 +277,7 @@ class _UpsertSheetState extends ConsumerState<UpsertSheet> {
             child: ElevatedButton(
               onPressed: _save,
               style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF2D264B),
+                backgroundColor: Theme.of(context).colorScheme.primary,
                 padding: const EdgeInsets.symmetric(vertical: 15),
                 elevation: 0,
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
@@ -298,7 +297,7 @@ class _UpsertSheetState extends ConsumerState<UpsertSheet> {
                 },
                 style: TextButton.styleFrom(
                   padding: const EdgeInsets.symmetric(vertical: 15),
-                  backgroundColor: const Color(0xFFFFF0F0),
+                  backgroundColor: Theme.of(context).colorScheme.error.withValues(alpha: 0.1),
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
                 ),
                 child: Text('Delete Task',
@@ -347,7 +346,7 @@ class _UpsertSheetState extends ConsumerState<UpsertSheet> {
             style: GoogleFonts.poppins(
               fontSize: 12,
               fontWeight: FontWeight.w700,
-              color: isSelected ? const Color(0xFF2D264B) : kSubtitleColor,
+              color: isSelected ? Theme.of(context).colorScheme.onSurface : Theme.of(context).colorScheme.onSurfaceVariant,
             ),
           ),
         ),

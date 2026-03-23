@@ -20,44 +20,44 @@ class _CountdownIcon {
 // ── Premium event-based icon registry (28 icons, 6 categories) ─────────────
 final List<_CountdownIcon> _iconRegistry = [
   // 🎉 Personal / Celebration
-  _CountdownIcon(CupertinoIcons.gift_fill,        const Color(0xFFFF7BAC), 'Birthday'),
-  _CountdownIcon(CupertinoIcons.heart_fill,        const Color(0xFFFF6B8A), 'Anniversary'),
-  _CountdownIcon(CupertinoIcons.sparkles,          const Color(0xFFFFB347), 'Party'),
-  _CountdownIcon(CupertinoIcons.rosette,           const Color(0xFFE891C8), 'Wedding'),
-  _CountdownIcon(CupertinoIcons.music_note,        const Color(0xFFB388FF), 'Concert'),
+  const _CountdownIcon(CupertinoIcons.gift_fill,        Color(0xFFFF7BAC), 'Birthday'),
+  const _CountdownIcon(CupertinoIcons.heart_fill,        Color(0xFFFF6B8A), 'Anniversary'),
+  const _CountdownIcon(CupertinoIcons.sparkles,          Color(0xFFFFB347), 'Party'),
+  const _CountdownIcon(CupertinoIcons.rosette,           Color(0xFFE891C8), 'Wedding'),
+  const _CountdownIcon(CupertinoIcons.music_note,        Color(0xFFB388FF), 'Concert'),
 
   // 📚 Productivity / Career
-  _CountdownIcon(CupertinoIcons.book_fill,         const Color(0xFF5C7CFF), 'Exam'),
-  _CountdownIcon(CupertinoIcons.pencil,            const Color(0xFF4FC3F7), 'Study'),
-  _CountdownIcon(CupertinoIcons.flag_fill,         const Color(0xFFFF8A65), 'Goal'),
-  _CountdownIcon(CupertinoIcons.briefcase_fill,    const Color(0xFF78909C), 'Work'),
-  _CountdownIcon(CupertinoIcons.checkmark_seal_fill, const Color(0xFF66BB6A), 'Deadline'),
+  const _CountdownIcon(CupertinoIcons.book_fill,         Color(0xFF5C7CFF), 'Exam'),
+  const _CountdownIcon(CupertinoIcons.pencil,            Color(0xFF4FC3F7), 'Study'),
+  const _CountdownIcon(CupertinoIcons.flag_fill,         Color(0xFFFF8A65), 'Goal'),
+  const _CountdownIcon(CupertinoIcons.briefcase_fill,    Color(0xFF78909C), 'Work'),
+  const _CountdownIcon(CupertinoIcons.checkmark_seal_fill, Color(0xFF66BB6A), 'Deadline'),
 
   // ✈️ Travel
-  _CountdownIcon(CupertinoIcons.airplane,          const Color(0xFF29B6F6), 'Flight'),
-  _CountdownIcon(CupertinoIcons.car_fill,          const Color(0xFF42A5F5), 'Road Trip'),
-  _CountdownIcon(CupertinoIcons.house_fill,        const Color(0xFF26C6DA), 'Stay'),
-  _CountdownIcon(CupertinoIcons.map_fill,          const Color(0xFF26A69A), 'Adventure'),
+  const _CountdownIcon(CupertinoIcons.airplane,          Color(0xFF29B6F6), 'Flight'),
+  const _CountdownIcon(CupertinoIcons.car_fill,          Color(0xFF42A5F5), 'Road Trip'),
+  const _CountdownIcon(CupertinoIcons.house_fill,        Color(0xFF26C6DA), 'Stay'),
+  const _CountdownIcon(CupertinoIcons.map_fill,          Color(0xFF26A69A), 'Adventure'),
 
   // 🏃 Health / Fitness
-  _CountdownIcon(CupertinoIcons.flame_fill,        const Color(0xFFFF7043), 'Workout'),
-  _CountdownIcon(CupertinoIcons.heart_circle_fill, const Color(0xFFF06292), 'Health'),
-  _CountdownIcon(CupertinoIcons.moon_stars_fill,   const Color(0xFF9575CD), 'Mindfulness'),
-  _CountdownIcon(CupertinoIcons.sun_max_fill,      const Color(0xFFFFCA28), 'Yoga'),
-  _CountdownIcon(CupertinoIcons.sportscourt_fill,  const Color(0xFF66BB6A), 'Sport'),
+  const _CountdownIcon(CupertinoIcons.flame_fill,        Color(0xFFFF7043), 'Workout'),
+  const _CountdownIcon(CupertinoIcons.heart_circle_fill, Color(0xFFF06292), 'Health'),
+  const _CountdownIcon(CupertinoIcons.moon_stars_fill,   Color(0xFF9575CD), 'Mindfulness'),
+  const _CountdownIcon(CupertinoIcons.sun_max_fill,      Color(0xFFFFCA28), 'Yoga'),
+  const _CountdownIcon(CupertinoIcons.sportscourt_fill,  Color(0xFF66BB6A), 'Sport'),
 
   // 💰 Finance
-  _CountdownIcon(CupertinoIcons.money_dollar_circle_fill, const Color(0xFF26A69A), 'Finance'),
-  _CountdownIcon(CupertinoIcons.cart_fill,         const Color(0xFFEF5350), 'Shopping'),
-  _CountdownIcon(CupertinoIcons.chart_bar_fill,    const Color(0xFF42A5F5), 'Investment'),
+  const _CountdownIcon(CupertinoIcons.money_dollar_circle_fill, Color(0xFF26A69A), 'Finance'),
+  const _CountdownIcon(CupertinoIcons.cart_fill,         Color(0xFFEF5350), 'Shopping'),
+  const _CountdownIcon(CupertinoIcons.chart_bar_fill,    Color(0xFF42A5F5), 'Investment'),
 
   // 🔔 General
-  _CountdownIcon(CupertinoIcons.star_fill,         const Color(0xFFFFD54F), 'Star'),
-  _CountdownIcon(CupertinoIcons.bell_fill,         const Color(0xFFFF8A65), 'Reminder'),
-  _CountdownIcon(CupertinoIcons.calendar,          const Color(0xFF7E57C2), 'Event'),
-  _CountdownIcon(CupertinoIcons.person_2_fill,     const Color(0xFF26C6DA), 'Friends'),
-  _CountdownIcon(CupertinoIcons.camera_fill,       const Color(0xFFEC407A), 'Photo'),
-  _CountdownIcon(CupertinoIcons.gamecontroller_fill, const Color(0xFF66BB6A), 'Gaming'),
+  const _CountdownIcon(CupertinoIcons.star_fill,         Color(0xFFFFD54F), 'Star'),
+  const _CountdownIcon(CupertinoIcons.bell_fill,         Color(0xFFFF8A65), 'Reminder'),
+  const _CountdownIcon(CupertinoIcons.calendar,          Color(0xFF7E57C2), 'Event'),
+  const _CountdownIcon(CupertinoIcons.person_2_fill,     Color(0xFF26C6DA), 'Friends'),
+  const _CountdownIcon(CupertinoIcons.camera_fill,       Color(0xFFEC407A), 'Photo'),
+  const _CountdownIcon(CupertinoIcons.gamecontroller_fill, Color(0xFF66BB6A), 'Gaming'),
 ];
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
@@ -81,6 +81,7 @@ class CountdownScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final events = ref.watch(countdownProvider);
+    final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return Scaffold(
       backgroundColor: Colors.transparent, // rely on parent
@@ -88,14 +89,41 @@ class CountdownScreen extends ConsumerWidget {
         padding: const EdgeInsets.only(bottom: 110), // Same 110px padding as Focus to clear dock
         child: _ScaleOnTap(
           onTap: () => _showAddEditModal(context, ref, null),
-          child: FloatingActionButton(
-            heroTag: 'countdown_fab',
-            onPressed: null, // handled by _ScaleOnTap
-            backgroundColor: const Color(0xFF34C759), // Focus Green
-            elevation: 8,
-            shape: const CircleBorder(),
-            child: const Icon(CupertinoIcons.add, color: Colors.white, size: 28),
-          ),
+          child: isDark 
+              ? Container(
+                  height: 56,
+                  width: 56,
+                  decoration: BoxDecoration(
+                    color: Colors.white.withValues(alpha: 0.06),
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(
+                      color: Colors.white.withValues(alpha: 0.12),
+                      width: 1,
+                    ),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.4),
+                        blurRadius: 20,
+                        spreadRadius: -4,
+                      )
+                    ]
+                  ),
+                  child: const Center(
+                    child: Icon(
+                      Icons.add,
+                      color: Colors.white,
+                      size: 24,
+                    ),
+                  ),
+                )
+              : const FloatingActionButton(
+                  heroTag: 'countdown_fab',
+                  onPressed: null, // handled by _ScaleOnTap
+                  backgroundColor: Color(0xFF34C759), // Focus Green
+                  elevation: 8,
+                  shape: CircleBorder(),
+                  child: Icon(CupertinoIcons.add, color: Colors.white, size: 28),
+                ),
         ),
       ),
       body: SafeArea(
@@ -111,7 +139,7 @@ class CountdownScreen extends ConsumerWidget {
                   style: GoogleFonts.greatVibes(
                     fontSize: 40,
                     fontWeight: FontWeight.w600,
-                    color: const Color(0xFF2D264B),
+                    color: isDark ? Colors.white : const Color(0xFF2D264B),
                   ),
                 ),
               ),
@@ -281,26 +309,26 @@ class _CountdownCardState extends State<_CountdownCard> {
 
   @override
   Widget build(BuildContext context) {
+    bool isDark = Theme.of(context).brightness == Brightness.dark;
     final days = widget.event.daysLeft;
     final Color daysColor;
     final String daysLabel;
 
     if (days == 0) {
-      daysColor = const Color(0xFFEF4444); // RED
+      daysColor = isDark ? Colors.white : const Color(0xFFEF4444); // RED
       daysLabel = 'Today';
     } else if (days > 0) {
-      daysColor = const Color(0xFF22C55E); // GREEN
+      daysColor = isDark ? Colors.white : const Color(0xFF22C55E); // GREEN
       daysLabel = '$days day${days == 1 ? '' : 's'} left';
     } else {
-      daysColor = const Color(0xFFF97316); // ORANGE
+      daysColor = isDark ? Colors.white : const Color(0xFFF97316); // ORANGE
       daysLabel = '${-days} day${-days == 1 ? '' : 's'} passed';
     }
 
     final iconEntry = _iconEntryFromCode(widget.event.iconCode);
-    final iconColor = iconEntry.color;
+    final iconColor = isDark ? Colors.white : iconEntry.color;
 
-    // Use icon's native color for aesthetic, but fallback to RED if it's "Today"
-    final Color displayColor = days == 0 ? const Color(0xFFEF4444) : iconColor;
+    final Color displayColor = days == 0 ? (isDark ? Colors.white : const Color(0xFFEF4444)) : iconColor;
 
     return Padding(
       padding: const EdgeInsets.only(bottom: 12),
@@ -346,7 +374,7 @@ class _CountdownCardState extends State<_CountdownCard> {
               1.0,
             ),
             decoration: BoxDecoration(
-              color: Colors.white,
+              color: isDark ? const Color(0xFF1C1C1E) : Colors.white,
               borderRadius: BorderRadius.circular(20),
               boxShadow: [
                 BoxShadow(
@@ -365,7 +393,8 @@ class _CountdownCardState extends State<_CountdownCard> {
                     width: 48,
                     height: 48,
                     decoration: BoxDecoration(
-                      color: displayColor.withValues(alpha: 0.12),
+                      color: isDark ? Colors.transparent : displayColor.withValues(alpha: 0.12),
+                      border: isDark ? Border.all(color: Colors.white.withValues(alpha: 0.2)) : null,
                       borderRadius: BorderRadius.circular(14),
                     ),
                     child: Icon(iconEntry.icon, color: displayColor, size: 24),
@@ -379,7 +408,7 @@ class _CountdownCardState extends State<_CountdownCard> {
                       style: GoogleFonts.poppins(
                         fontSize: 15,
                         fontWeight: FontWeight.w600,
-                        color: const Color(0xFF2D264B),
+                        color: isDark ? Colors.white : const Color(0xFF2D264B),
                       ),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
@@ -390,7 +419,8 @@ class _CountdownCardState extends State<_CountdownCard> {
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                     decoration: BoxDecoration(
-                      color: daysColor.withValues(alpha: 0.1),
+                      color: isDark ? Colors.transparent : daysColor.withValues(alpha: 0.1),
+                      border: isDark ? Border.all(color: Colors.white.withValues(alpha: 0.2)) : null,
                       borderRadius: BorderRadius.circular(50),
                     ),
                     child: Text(
@@ -500,6 +530,7 @@ class _AddEditModalState extends State<_AddEditModal>
 
   @override
   Widget build(BuildContext context) {
+    bool isDark = Theme.of(context).brightness == Brightness.dark;
     final isNew = widget.existing == null;
     final bottomPad = MediaQuery.of(context).viewInsets.bottom;
 
@@ -519,17 +550,10 @@ class _AddEditModalState extends State<_AddEditModal>
                 bottom: bottomPad + 16,
               ),
               decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                  colors: [
-                    Colors.white.withValues(alpha: 0.96),
-                    Colors.white.withValues(alpha: 0.89),
-                  ],
-                ),
+                color: isDark ? const Color(0xFF1C1C1E) : Theme.of(context).colorScheme.surface,
                 borderRadius: BorderRadius.circular(28),
                 border: Border.all(
-                  color: Colors.white.withValues(alpha: 0.7),
+                  color: Theme.of(context).colorScheme.outline.withValues(alpha: 0.4),
                   width: 1.5,
                 ),
                 boxShadow: [
@@ -573,7 +597,7 @@ class _AddEditModalState extends State<_AddEditModal>
                           style: GoogleFonts.greatVibes(
                             fontSize: 40,
                             fontWeight: FontWeight.w600,
-                            color: const Color(0xFF2D264B),
+                            color: isDark ? Colors.white : const Color(0xFF2D264B),
                           ),
                         ),
                       ),
@@ -596,22 +620,26 @@ class _AddEditModalState extends State<_AddEditModal>
                       const SizedBox(height: 28),
 
                       // ── Event Name ─────────────────────────────
-                      _ModalLabel('Event Name'),
+                      const _ModalLabel('Event Name'),
                       const SizedBox(height: 10),
                       AnimatedContainer(
                         duration: const Duration(milliseconds: 250),
                         decoration: BoxDecoration(
-                          color: _nameFocused
-                              ? AppColors.primary.withValues(alpha: 0.05)
-                              : const Color(0xFFF5F4FF),
+                          color: isDark
+                              ? Colors.transparent
+                              : (_nameFocused
+                                  ? AppColors.primary.withValues(alpha: 0.05)
+                                  : const Color(0xFFF5F4FF)),
                           borderRadius: BorderRadius.circular(18),
                           border: Border.all(
-                            color: _nameFocused
-                                ? AppColors.primary.withValues(alpha: 0.5)
-                                : Colors.transparent,
+                            color: isDark
+                                ? Colors.white.withValues(alpha: 0.15)
+                                : (_nameFocused
+                                    ? AppColors.primary.withValues(alpha: 0.5)
+                                    : Colors.transparent),
                             width: 1.5,
                           ),
-                          boxShadow: _nameFocused
+                          boxShadow: _nameFocused && !isDark
                               ? [
                                   BoxShadow(
                                     color: AppColors.primary
@@ -624,15 +652,16 @@ class _AddEditModalState extends State<_AddEditModal>
                         child: TextField(
                           controller: _nameCtrl,
                           focusNode: _nameFocus,
+                          cursorColor: isDark ? Colors.white : null,
                           style: GoogleFonts.poppins(
                             fontSize: 15,
-                            color: const Color(0xFF2D264B),
+                            color: isDark ? Colors.white : const Color(0xFF2D264B),
                             fontWeight: FontWeight.w500,
                           ),
                           decoration: InputDecoration(
                             hintText: 'e.g. Birthday Party',
                             hintStyle: GoogleFonts.poppins(
-                              color: Colors.grey.shade400,
+                              color: isDark ? const Color(0xFF6B6B70) : Colors.grey.shade400,
                               fontSize: 14,
                             ),
                             border: InputBorder.none,
@@ -643,9 +672,11 @@ class _AddEditModalState extends State<_AddEditModal>
                                   const EdgeInsets.only(left: 14, right: 8),
                               child: Icon(
                                 CupertinoIcons.pencil_ellipsis_rectangle,
-                                color: _nameFocused
-                                    ? AppColors.primary
-                                    : Colors.grey.shade400,
+                                color: isDark
+                                    ? (_nameFocused ? Colors.white : const Color(0xFFB0B0B5))
+                                    : (_nameFocused
+                                        ? AppColors.primary
+                                        : Colors.grey.shade400),
                                 size: 20,
                               ),
                             ),
@@ -656,7 +687,7 @@ class _AddEditModalState extends State<_AddEditModal>
                       const SizedBox(height: 18),
 
                       // ── Date selector ─────────────────────────
-                      _ModalLabel('Target Date'),
+                      const _ModalLabel('Target Date'),
                       const SizedBox(height: 10),
                       _PremiumTapCard(
                         onTap: _pickDate,
@@ -669,7 +700,7 @@ class _AddEditModalState extends State<_AddEditModal>
                                 color: AppColors.primary.withValues(alpha: 0.1),
                                 borderRadius: BorderRadius.circular(12),
                               ),
-                              child: Icon(CupertinoIcons.calendar,
+                              child: const Icon(CupertinoIcons.calendar,
                                   color: AppColors.primary, size: 20),
                             ),
                             const SizedBox(width: 14),
@@ -679,7 +710,7 @@ class _AddEditModalState extends State<_AddEditModal>
                                 style: GoogleFonts.poppins(
                                   fontSize: 15,
                                   fontWeight: FontWeight.w600,
-                                  color: const Color(0xFF2D264B),
+                                  color: isDark ? Colors.white : const Color(0xFF2D264B),
                                 ),
                               ),
                             ),
@@ -691,7 +722,7 @@ class _AddEditModalState extends State<_AddEditModal>
                       const SizedBox(height: 18),
 
                       // ── Icon selector ─────────────────────────
-                      _ModalLabel('Choose Icon'),
+                      const _ModalLabel('Choose Icon'),
                       const SizedBox(height: 10),
                       _PremiumTapCard(
                         onTap: _showIconPicker,
@@ -729,7 +760,7 @@ class _AddEditModalState extends State<_AddEditModal>
                                     style: GoogleFonts.poppins(
                                       fontSize: 15,
                                       fontWeight: FontWeight.w600,
-                                      color: const Color(0xFF2D264B),
+                                      color: isDark ? Colors.white : const Color(0xFF2D264B),
                                     ),
                                   ),
                                   Text(
@@ -749,7 +780,7 @@ class _AddEditModalState extends State<_AddEditModal>
                                     AppColors.primary.withValues(alpha: 0.08),
                                 borderRadius: BorderRadius.circular(8),
                               ),
-                              child: Icon(CupertinoIcons.chevron_right,
+                              child: const Icon(CupertinoIcons.chevron_right,
                                   color: AppColors.primary, size: 14),
                             ),
                           ],
@@ -771,30 +802,49 @@ class _AddEditModalState extends State<_AddEditModal>
                               },
                               onTapCancel: () =>
                                   setState(() => _cancelPressed = false),
-                              child: AnimatedContainer(
-                                duration: const Duration(milliseconds: 120),
-                                height: 54,
-                                transform: Matrix4.diagonal3Values(
-                                  _cancelPressed ? 0.97 : 1.0,
-                                  _cancelPressed ? 0.97 : 1.0,
-                                  1.0,
-                                ),
-                                decoration: BoxDecoration(
-                                  color: Colors.grey.shade100,
-                                  borderRadius: BorderRadius.circular(18),
-                                  border: Border.all(
-                                      color: Colors.grey.shade200, width: 1),
-                                ),
-                                alignment: Alignment.center,
-                                child: Text(
-                                  'Cancel',
-                                  style: GoogleFonts.poppins(
-                                    fontSize: 15,
-                                    fontWeight: FontWeight.w600,
-                                    color: Colors.grey.shade500,
-                                  ),
-                                ),
-                              ),
+                              child: isDark 
+                                  ? Container(
+                                      height: 54,
+                                      alignment: Alignment.center,
+                                      decoration: BoxDecoration(
+                                        color: Colors.transparent,
+                                        borderRadius: BorderRadius.circular(12),
+                                        border: Border.all(
+                                          color: Colors.white.withValues(alpha: 0.15),
+                                        ),
+                                      ),
+                                      child: const Text(
+                                        'Cancel',
+                                        style: TextStyle(
+                                          color: Colors.white,
+                                          fontWeight: FontWeight.w600,
+                                        ),
+                                      ),
+                                    )
+                                  : AnimatedContainer(
+                                      duration: const Duration(milliseconds: 120),
+                                      height: 54,
+                                      transform: Matrix4.diagonal3Values(
+                                        _cancelPressed ? 0.97 : 1.0,
+                                        _cancelPressed ? 0.97 : 1.0,
+                                        1.0,
+                                      ),
+                                      decoration: BoxDecoration(
+                                        color: Colors.grey.shade100,
+                                        borderRadius: BorderRadius.circular(18),
+                                        border: Border.all(
+                                            color: Colors.grey.shade200, width: 1),
+                                      ),
+                                      alignment: Alignment.center,
+                                      child: Text(
+                                        'Cancel',
+                                        style: GoogleFonts.poppins(
+                                          fontSize: 15,
+                                          fontWeight: FontWeight.w600,
+                                          color: Colors.grey.shade500,
+                                        ),
+                                      ),
+                                    ),
                             ),
                           ),
                           const SizedBox(width: 12),
@@ -810,55 +860,74 @@ class _AddEditModalState extends State<_AddEditModal>
                               },
                               onTapCancel: () =>
                                   setState(() => _savePressed = false),
-                              child: AnimatedContainer(
-                                duration: const Duration(milliseconds: 120),
-                                height: 54,
-                                transform: Matrix4.diagonal3Values(
-                                  _savePressed ? 0.97 : 1.0,
-                                  _savePressed ? 0.97 : 1.0,
-                                  1.0,
-                                ),
-                                decoration: BoxDecoration(
-                                  gradient: LinearGradient(
-                                    begin: Alignment.topLeft,
-                                    end: Alignment.bottomRight,
-                                    colors: [
-                                      AppColors.primary,
-                                      Color.lerp(AppColors.primary,
-                                          const Color(0xFF9B72CF), 0.6)!,
-                                    ],
-                                  ),
-                                  borderRadius: BorderRadius.circular(18),
-                                  boxShadow: [
-                                    BoxShadow(
-                                      color: AppColors.primary.withValues(
-                                          alpha: _savePressed ? 0.2 : 0.35),
-                                      blurRadius: _savePressed ? 6 : 16,
-                                      offset:
-                                          Offset(0, _savePressed ? 2 : 6),
-                                    ),
-                                  ],
-                                ),
-                                alignment: Alignment.center,
-                                child: Row(
-                                  mainAxisAlignment: MainAxisAlignment.center,
-                                  children: [
-                                    const Icon(
-                                        CupertinoIcons.checkmark_circle_fill,
-                                        color: Colors.white,
-                                        size: 18),
-                                    const SizedBox(width: 8),
-                                    Text(
-                                      'Save',
-                                      style: GoogleFonts.poppins(
-                                        fontSize: 15,
-                                        fontWeight: FontWeight.w700,
-                                        color: Colors.white,
+                              child: isDark 
+                                  ? Container(
+                                      height: 54,
+                                      alignment: Alignment.center,
+                                      decoration: BoxDecoration(
+                                        color: Colors.transparent,
+                                        borderRadius: BorderRadius.circular(12),
+                                        border: Border.all(
+                                          color: Colors.white.withValues(alpha: 0.15),
+                                        ),
+                                      ),
+                                      child: const Text(
+                                        'Save',
+                                        style: TextStyle(
+                                          color: Colors.white,
+                                          fontWeight: FontWeight.w600,
+                                        ),
+                                      ),
+                                    )
+                                  : AnimatedContainer(
+                                      duration: const Duration(milliseconds: 120),
+                                      height: 54,
+                                      transform: Matrix4.diagonal3Values(
+                                        _savePressed ? 0.97 : 1.0,
+                                        _savePressed ? 0.97 : 1.0,
+                                        1.0,
+                                      ),
+                                      decoration: BoxDecoration(
+                                        gradient: LinearGradient(
+                                          begin: Alignment.topLeft,
+                                          end: Alignment.bottomRight,
+                                          colors: [
+                                            AppColors.primary,
+                                            Color.lerp(AppColors.primary,
+                                                const Color(0xFF9B72CF), 0.6)!,
+                                          ],
+                                        ),
+                                        borderRadius: BorderRadius.circular(18),
+                                        boxShadow: [
+                                          BoxShadow(
+                                            color: AppColors.primary.withValues(
+                                                alpha: _savePressed ? 0.2 : 0.35),
+                                            blurRadius: _savePressed ? 6 : 16,
+                                            offset:
+                                                Offset(0, _savePressed ? 2 : 6),
+                                          ),
+                                        ],
+                                      ),
+                                      alignment: Alignment.center,
+                                      child: Row(
+                                        mainAxisAlignment: MainAxisAlignment.center,
+                                        children: [
+                                          const Icon(
+                                              CupertinoIcons.checkmark_circle_fill,
+                                              color: Colors.white,
+                                              size: 18),
+                                          const SizedBox(width: 8),
+                                          Text(
+                                            'Save',
+                                            style: GoogleFonts.poppins(
+                                              fontSize: 15,
+                                              fontWeight: FontWeight.w700,
+                                              color: Colors.white,
+                                            ),
+                                          ),
+                                        ],
                                       ),
                                     ),
-                                  ],
-                                ),
-                              ),
                             ),
                           ),
                         ],
@@ -880,17 +949,30 @@ class _AddEditModalState extends State<_AddEditModal>
       initialDate: _selectedDate,
       firstDate: DateTime(2020),
       lastDate: DateTime(2040),
-      builder: (context, child) => Theme(
-        data: Theme.of(context).copyWith(
-          colorScheme: ColorScheme.light(
-            primary: AppColors.primary,
-            onPrimary: Colors.white,
-            surface: Colors.white,
-            onSurface: const Color(0xFF2D264B),
-          ),
-        ),
-        child: child!,
-      ),
+      builder: (context, child) {
+        bool isDark = Theme.of(context).brightness == Brightness.dark;
+        return Theme(
+          data: isDark 
+            ? ThemeData.dark().copyWith(
+                colorScheme: const ColorScheme.dark(
+                  primary: Colors.white,
+                  onPrimary: Colors.black,
+                  surface: Color(0xFF1C1C1E),
+                  onSurface: Colors.white,
+                ),
+                dialogBackgroundColor: const Color(0xFF1C1C1E),
+              )
+            : Theme.of(context).copyWith(
+                colorScheme: ColorScheme.light(
+                  primary: AppColors.primary,
+                  onPrimary: Colors.white,
+                  surface: Theme.of(context).colorScheme.surface,
+                  onSurface: const Color(0xFF2D264B),
+                ),
+              ),
+          child: child!,
+        );
+      },
     );
     if (picked != null) setState(() => _selectedDate = picked);
   }
@@ -968,6 +1050,8 @@ class _PremiumTapCardState extends State<_PremiumTapCard> {
   bool _pressed = false;
   @override
   Widget build(BuildContext context) {
+    bool isDark = Theme.of(context).brightness == Brightness.dark;
+
     return GestureDetector(
       onTapDown: (_) => setState(() => _pressed = true),
       onTapUp: (_) {
@@ -984,23 +1068,29 @@ class _PremiumTapCardState extends State<_PremiumTapCard> {
           1.0,
         ),
         decoration: BoxDecoration(
-          color: _pressed
-              ? AppColors.primary.withValues(alpha: 0.05)
-              : const Color(0xFFF6F5FF),
+          color: isDark
+              ? const Color(0xFF1C1C1E)
+              : (_pressed
+                  ? AppColors.primary.withValues(alpha: 0.05)
+                  : const Color(0xFFF6F5FF)),
           borderRadius: BorderRadius.circular(18),
           border: Border.all(
-            color: _pressed
-                ? AppColors.primary.withValues(alpha: 0.2)
-                : Colors.transparent,
+            color: isDark
+                ? Colors.white.withValues(alpha: 0.08)
+                : (_pressed
+                    ? AppColors.primary.withValues(alpha: 0.2)
+                    : Colors.transparent),
             width: 1.5,
           ),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withValues(alpha: 0.04),
-              blurRadius: 8,
-              offset: const Offset(0, 2),
-            ),
-          ],
+          boxShadow: isDark 
+              ? []
+              : [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.04),
+                    blurRadius: 8,
+                    offset: const Offset(0, 2),
+                  ),
+                ],
         ),
         child: widget.child,
       ),
@@ -1017,22 +1107,17 @@ class _PremiumIconPickerSheet extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    bool isDark = Theme.of(context).brightness == Brightness.dark;
+
     return BackdropFilter(
       filter: ImageFilter.blur(sigmaX: 16, sigmaY: 16),
       child: Container(
         margin: const EdgeInsets.fromLTRB(16, 0, 16, 24),
         decoration: BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: [
-              Colors.white.withValues(alpha: 0.97),
-              Colors.white.withValues(alpha: 0.92),
-            ],
-          ),
+          color: isDark ? const Color(0xFF1C1C1E) : Theme.of(context).colorScheme.surface,
           borderRadius: BorderRadius.circular(28),
           border: Border.all(
-              color: Colors.white.withValues(alpha: 0.7), width: 1.5),
+              color: isDark ? Colors.white.withValues(alpha: 0.15) : Theme.of(context).colorScheme.outline.withValues(alpha: 0.4), width: 1.5),
           boxShadow: [
             BoxShadow(
               color: Colors.black.withValues(alpha: 0.1),
@@ -1067,7 +1152,7 @@ class _PremiumIconPickerSheet extends StatelessWidget {
                       color: AppColors.primary.withValues(alpha: 0.1),
                       borderRadius: BorderRadius.circular(10),
                     ),
-                    child: Icon(CupertinoIcons.sparkles,
+                    child: const Icon(CupertinoIcons.sparkles,
                         color: AppColors.primary, size: 18),
                   ),
                   const SizedBox(width: 12),
@@ -1076,7 +1161,7 @@ class _PremiumIconPickerSheet extends StatelessWidget {
                     style: GoogleFonts.poppins(
                       fontSize: 17,
                       fontWeight: FontWeight.w700,
-                      color: const Color(0xFF2D264B),
+                      color: isDark ? Colors.white : const Color(0xFF2D264B),
                     ),
                   ),
                 ],
@@ -1103,7 +1188,7 @@ class _PremiumIconPickerSheet extends StatelessWidget {
                       transform: Matrix4.diagonal3Values(
                           isSel ? 1.08 : 1.0, isSel ? 1.08 : 1.0, 1.0),
                       decoration: BoxDecoration(
-                        gradient: isSel
+                        gradient: isSel && !isDark
                             ? LinearGradient(
                                 begin: Alignment.topLeft,
                                 end: Alignment.bottomRight,
@@ -1113,15 +1198,17 @@ class _PremiumIconPickerSheet extends StatelessWidget {
                                 ],
                               )
                             : null,
-                        color: isSel ? null : const Color(0xFFF5F4FF),
+                        color: isSel 
+                            ? (isDark ? Colors.transparent : null) 
+                            : (isDark ? Colors.transparent : const Color(0xFFF5F4FF)),
                         borderRadius: BorderRadius.circular(16),
                         border: Border.all(
                           color: isSel
-                              ? entry.color.withValues(alpha: 0.55)
+                              ? (isDark ? Colors.white : entry.color.withValues(alpha: 0.55))
                               : Colors.transparent,
                           width: 1.5,
                         ),
-                        boxShadow: isSel
+                        boxShadow: isSel && !isDark
                             ? [
                                 BoxShadow(
                                   color: entry.color.withValues(alpha: 0.25),
@@ -1133,7 +1220,9 @@ class _PremiumIconPickerSheet extends StatelessWidget {
                       ),
                       child: Icon(
                         entry.icon,
-                        color: isSel ? entry.color : Colors.grey.shade500,
+                        color: isDark
+                            ? (isSel ? Colors.white : Colors.white.withValues(alpha: 0.4))
+                            : (isSel ? entry.color : Colors.grey.shade500),
                         size: 24,
                       ),
                     ),
@@ -1155,12 +1244,14 @@ class _ModalLabel extends StatelessWidget {
   const _ModalLabel(this.text);
   @override
   Widget build(BuildContext context) {
+    bool isDark = Theme.of(context).brightness == Brightness.dark;
+
     return Text(
       text.toUpperCase(),
       style: GoogleFonts.poppins(
         fontSize: 11,
         fontWeight: FontWeight.w700,
-        color: Colors.grey.shade400,
+        color: isDark ? const Color(0xFFB0B0B5) : Colors.grey.shade400,
         letterSpacing: 1.2,
       ),
     );

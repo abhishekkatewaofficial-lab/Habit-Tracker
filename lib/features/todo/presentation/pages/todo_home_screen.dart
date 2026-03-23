@@ -1,10 +1,9 @@
+import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:flutter_slidable/flutter_slidable.dart';
-import 'package:habit_tracker_ios/core/constants/app_colors.dart';
-import 'package:habit_tracker_ios/core/constants/app_text_styles.dart';
 import '../controllers/todo_controller.dart';
 import '../../data/models/todo_category.dart';
 import 'todo_detail_screen.dart';
@@ -35,7 +34,7 @@ class TodoHomeScreen extends ConsumerWidget {
                         style: GoogleFonts.greatVibes(
                           fontSize: 48,
                           fontWeight: FontWeight.w600,
-                          color: const Color(0xFF2D264B),
+                          color: Theme.of(context).brightness == Brightness.dark ? Colors.white : const Color(0xFF2D264B),
                         ),
                       ),
                       GestureDetector(
@@ -44,7 +43,7 @@ class TodoHomeScreen extends ConsumerWidget {
                           width: 48,
                           height: 48,
                           decoration: BoxDecoration(
-                            color: Colors.white,
+                            color: Theme.of(context).colorScheme.surface,
                             shape: BoxShape.circle,
                             boxShadow: [
                               BoxShadow(
@@ -54,7 +53,7 @@ class TodoHomeScreen extends ConsumerWidget {
                               ),
                             ],
                           ),
-                          child: const Icon(Icons.add_rounded, color: Colors.black, size: 28),
+                          child: Icon(Icons.add_rounded, color: Theme.of(context).colorScheme.onSurface, size: 28),
                         ),
                       ),
                     ],
@@ -123,7 +122,7 @@ class _CategoryCard extends ConsumerWidget {
       key: ValueKey(category.id),
       startActionPane: ActionPane(
         extentRatio: 0.25,
-        motion: ScrollMotion(),
+        motion: const ScrollMotion(),
         children: [
           SlidableAction(
             onPressed: (context) => _showEditDialog(context, ref),
@@ -135,7 +134,7 @@ class _CategoryCard extends ConsumerWidget {
       ),
       endActionPane: ActionPane(
         extentRatio: 0.25,
-        motion: ScrollMotion(),
+        motion: const ScrollMotion(),
         children: [
           SlidableAction(
             onPressed: (context) {
@@ -157,17 +156,25 @@ class _CategoryCard extends ConsumerWidget {
         child: Container(
           height: 70, // Reduced from 100
           width: double.infinity,
-          decoration: BoxDecoration(
-            color: category.color,
-            borderRadius: BorderRadius.circular(20), // Slightly smaller radius for compact card
-            boxShadow: [
-              BoxShadow(
-                color: category.color.withValues(alpha: 0.25),
-                blurRadius: 8,
-                offset: const Offset(0, 4),
+          decoration: Theme.of(context).brightness == Brightness.dark
+            ? BoxDecoration(
+                color: const Color(0xFF1C1C1E),
+                borderRadius: BorderRadius.circular(20),
+                border: Border.all(
+                  color: Colors.white.withValues(alpha: 0.08),
+                ),
+              )
+            : BoxDecoration(
+                color: category.color,
+                borderRadius: BorderRadius.circular(20), // Slightly smaller radius for compact card
+                boxShadow: [
+                  BoxShadow(
+                    color: category.color.withValues(alpha: 0.25),
+                    blurRadius: 8,
+                    offset: const Offset(0, 4),
+                  ),
+                ],
               ),
-            ],
-          ),
           padding: const EdgeInsets.symmetric(horizontal: 20),
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -177,19 +184,19 @@ class _CategoryCard extends ConsumerWidget {
                 style: GoogleFonts.poppins(
                   fontSize: 18,
                   fontWeight: FontWeight.w700,
-                  color: const Color(0xFF2D264B),
+                  color: Theme.of(context).brightness == Brightness.dark ? Colors.white : const Color(0xFF2D264B),
                 ),
               ),
               Container(
                 width: 32,
                 height: 32,
                 decoration: BoxDecoration(
-                  color: Colors.white.withValues(alpha: 0.3),
+                  color: Theme.of(context).brightness == Brightness.dark ? Colors.white.withValues(alpha: 0.1) : Colors.white.withValues(alpha: 0.3),
                   shape: BoxShape.circle,
                 ),
-                child: const Icon(
+                child: Icon(
                   CupertinoIcons.chevron_right,
-                  color: Color(0xFF2D264B),
+                  color: Theme.of(context).brightness == Brightness.dark ? Colors.white : const Color(0xFF2D264B),
                   size: 16,
                 ),
               ),
@@ -241,10 +248,6 @@ class _CategoryCard extends ConsumerWidget {
       ),
     );
   }
-
-  void _showCategoryOptions(BuildContext context, WidgetRef ref) {
-    // Replaced by Slidable for primary actions
-  }
 }
 
 class _AddCategoryDialog extends ConsumerStatefulWidget {
@@ -278,7 +281,7 @@ class _AddCategoryDialogState extends ConsumerState<_AddCategoryDialog> {
           width: MediaQuery.of(context).size.width * 0.85,
           padding: const EdgeInsets.all(28),
           decoration: BoxDecoration(
-            color: Colors.white,
+            color: Theme.of(context).colorScheme.surface,
             borderRadius: BorderRadius.circular(32),
             boxShadow: [
               BoxShadow(
@@ -295,7 +298,7 @@ class _AddCategoryDialogState extends ConsumerState<_AddCategoryDialog> {
                 style: GoogleFonts.poppins(
                   fontSize: 22,
                   fontWeight: FontWeight.w700,
-                  color: const Color(0xFF2D264B),
+                  color: Theme.of(context).colorScheme.onSurface,
                 ),
               ),
               const SizedBox(height: 24),
@@ -304,12 +307,17 @@ class _AddCategoryDialogState extends ConsumerState<_AddCategoryDialog> {
               TextField(
                 controller: _controller,
                 textAlign: TextAlign.center,
-                style: GoogleFonts.poppins(fontWeight: FontWeight.w600),
+                cursorColor: Theme.of(context).brightness == Brightness.dark ? Colors.white : null,
+                style: GoogleFonts.poppins(
+                  fontWeight: FontWeight.w600,
+                  color: Theme.of(context).brightness == Brightness.dark ? Colors.white : Colors.black,
+                ),
                 decoration: InputDecoration(
                   hintText: 'Category Name',
-                  hintStyle: GoogleFonts.poppins(color: Colors.grey[400]),
+                  labelStyle: Theme.of(context).brightness == Brightness.dark ? const TextStyle(color: Color(0xFFB0B0B5)) : null,
+                  hintStyle: Theme.of(context).brightness == Brightness.dark ? const TextStyle(color: Color(0xFF6B6B70)) : GoogleFonts.poppins(color: Colors.grey[400]),
                   filled: true,
-                  fillColor: const Color(0xFFF3F4F6),
+                  fillColor: Theme.of(context).colorScheme.surfaceContainerHighest,
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(16),
                     borderSide: BorderSide.none,
@@ -319,75 +327,122 @@ class _AddCategoryDialogState extends ConsumerState<_AddCategoryDialog> {
               const SizedBox(height: 24),
               
               // Color Picker
-              Wrap(
-                spacing: 12,
-                runSpacing: 12,
-                alignment: WrapAlignment.center,
-                children: _colors.map((color) {
-                  final isSelected = _selectedColor == color;
-                  return GestureDetector(
-                    onTap: () => setState(() => _selectedColor = color),
-                    child: AnimatedContainer(
-                      duration: const Duration(milliseconds: 200),
-                      width: isSelected ? 36 : 32,
-                      height: isSelected ? 36 : 32,
-                      decoration: BoxDecoration(
-                        color: color,
-                        shape: BoxShape.circle,
-                        border: isSelected ? Border.all(color: const Color(0xFF2D264B), width: 2) : null,
-                        boxShadow: isSelected ? [
-                          BoxShadow(color: color.withValues(alpha: 0.4), blurRadius: 8, offset: const Offset(0, 4))
-                        ] : null,
+              if (Theme.of(context).brightness != Brightness.dark) ...[
+                Wrap(
+                  spacing: 12,
+                  runSpacing: 12,
+                  alignment: WrapAlignment.center,
+                  children: _colors.map((color) {
+                    final isSelected = _selectedColor == color;
+                    return GestureDetector(
+                      onTap: () => setState(() => _selectedColor = color),
+                      child: AnimatedContainer(
+                        duration: const Duration(milliseconds: 200),
+                        width: isSelected ? 36 : 32,
+                        height: isSelected ? 36 : 32,
+                        decoration: BoxDecoration(
+                          color: color,
+                          shape: BoxShape.circle,
+                          border: isSelected ? Border.all(color: const Color(0xFF2D264B), width: 2) : null,
+                          boxShadow: isSelected ? [
+                            BoxShadow(color: color.withValues(alpha: 0.4), blurRadius: 8, offset: const Offset(0, 4))
+                          ] : null,
+                        ),
                       ),
-                    ),
-                  );
-                }).toList(),
-              ),
-              const SizedBox(height: 32),
+                    );
+                  }).toList(),
+                ),
+                const SizedBox(height: 32),
+              ],
               
               // Buttons
               Row(
                 children: [
                   Expanded(
-                    child: TextButton(
-                      onPressed: () => Navigator.pop(context),
-                      child: Text(
-                        'Cancel',
-                        style: GoogleFonts.poppins(
-                          color: Colors.grey[400],
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    ),
+                    child: Theme.of(context).brightness == Brightness.dark
+                        ? GestureDetector(
+                            onTap: () => Navigator.pop(context),
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(vertical: 12),
+                              alignment: Alignment.center,
+                              decoration: BoxDecoration(
+                                color: Colors.transparent,
+                                borderRadius: BorderRadius.circular(12),
+                                border: Border.all(
+                                  color: Colors.white.withValues(alpha: 0.15),
+                                ),
+                              ),
+                              child: const Text('Cancel', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600)),
+                            ),
+                          )
+                        : TextButton(
+                            onPressed: () => Navigator.pop(context),
+                            child: Text(
+                              'Cancel',
+                              style: GoogleFonts.poppins(
+                                color: Colors.grey[400],
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ),
                   ),
                   const SizedBox(width: 12),
                   Expanded(
-                    child: ElevatedButton(
-                      onPressed: () {
-                        if (_controller.text.isNotEmpty) {
-                          final category = TodoCategory(
-                            name: _controller.text,
-                            color: _selectedColor,
-                            emoji: _selectedEmoji,
-                          );
-                          ref.read(todoControllerProvider.notifier).addCategory(category);
-                          Navigator.pop(context);
-                        }
-                      },
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFF2D264B),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                        padding: const EdgeInsets.symmetric(vertical: 14),
-                        elevation: 0,
-                      ),
-                      child: Text(
-                        'Create',
-                        style: GoogleFonts.poppins(
-                          color: Colors.white,
-                          fontWeight: FontWeight.w700,
-                        ),
-                      ),
-                    ),
+                    child: Theme.of(context).brightness == Brightness.dark
+                        ? GestureDetector(
+                            onTap: () {
+                              if (_controller.text.isNotEmpty) {
+                                final assignedColor = Theme.of(context).brightness == Brightness.dark 
+                                    ? _colors[Random().nextInt(_colors.length)] 
+                                    : _selectedColor;
+                                final category = TodoCategory(
+                                  name: _controller.text,
+                                  color: assignedColor,
+                                  emoji: _selectedEmoji,
+                                );
+                                ref.read(todoControllerProvider.notifier).addCategory(category);
+                                Navigator.pop(context);
+                              }
+                            },
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(vertical: 12),
+                              alignment: Alignment.center,
+                              decoration: BoxDecoration(
+                                color: Colors.transparent,
+                                borderRadius: BorderRadius.circular(12),
+                                border: Border.all(
+                                  color: Colors.white.withValues(alpha: 0.15),
+                                ),
+                              ),
+                              child: const Text('Create', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600)),
+                            ),
+                          )
+                        : ElevatedButton(
+                            onPressed: () {
+                              if (_controller.text.isNotEmpty) {
+                                final category = TodoCategory(
+                                  name: _controller.text,
+                                  color: _selectedColor,
+                                  emoji: _selectedEmoji,
+                                );
+                                ref.read(todoControllerProvider.notifier).addCategory(category);
+                                Navigator.pop(context);
+                              }
+                            },
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: const Color(0xFF2D264B),
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                              padding: const EdgeInsets.symmetric(vertical: 14),
+                              elevation: 0,
+                            ),
+                            child: Text(
+                              'Create',
+                              style: GoogleFonts.poppins(
+                                color: Colors.white,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                          ),
                   ),
                 ],
               ),

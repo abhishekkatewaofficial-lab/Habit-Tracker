@@ -1,4 +1,3 @@
-import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -105,10 +104,10 @@ class _StopwatchScreenState extends ConsumerState<StopwatchScreen>
     final String leftLabel = isRunning || isIdle ? 'Lap' : 'Reset';
     final bool leftEnabled = isRunning || (!isRunning && !isIdle);
     final Color leftColor = !leftEnabled
-        ? Colors.grey.shade200
-        : (isIdle || !isRunning ? const Color(0xFFE5E7EB) : const Color(0xFFF3F4F6));
+        ? Theme.of(context).colorScheme.surfaceContainerHighest
+        : Theme.of(context).colorScheme.surfaceContainerHighest;
     final Color leftTextColor =
-        !leftEnabled ? Colors.grey.shade400 : const Color(0xFF374151);
+        !leftEnabled ? Theme.of(context).colorScheme.onSurfaceVariant.withValues(alpha: 0.4) : Theme.of(context).colorScheme.onSurface;
 
     // Determine right button state
     final String rightLabel = isRunning ? 'Stop' : 'Start';
@@ -130,7 +129,7 @@ class _StopwatchScreenState extends ConsumerState<StopwatchScreen>
                   style: GoogleFonts.greatVibes(
                     fontSize: 40,
                     fontWeight: FontWeight.w600,
-                    color: const Color(0xFF2D264B),
+                    color: Theme.of(context).colorScheme.onSurface,
                   ),
                 ),
               ),
@@ -144,7 +143,7 @@ class _StopwatchScreenState extends ConsumerState<StopwatchScreen>
                 style: GoogleFonts.spaceMono(
                   fontSize: _currentDisplay.inHours > 0 ? 52 : 64,
                   fontWeight: FontWeight.w400,
-                  color: const Color(0xFF2D264B),
+                  color: Theme.of(context).colorScheme.onSurface,
                   letterSpacing: -1.5,
                 ),
                 child: Text(_formatTime(_currentDisplay)),
@@ -180,7 +179,7 @@ class _StopwatchScreenState extends ConsumerState<StopwatchScreen>
             ),
 
             const SizedBox(height: 40),
-            Container(height: 1, color: Colors.grey.shade200),
+            Container(height: 1, color: Theme.of(context).colorScheme.outline),
 
             // Laps List
             Expanded(
@@ -190,7 +189,7 @@ class _StopwatchScreenState extends ConsumerState<StopwatchScreen>
                       child: Text(
                         'No laps yet',
                         style: GoogleFonts.poppins(
-                          color: Colors.grey.shade400,
+                          color: Theme.of(context).colorScheme.onSurfaceVariant,
                           fontSize: 15,
                         ),
                       ),
@@ -211,12 +210,10 @@ class _StopwatchScreenState extends ConsumerState<StopwatchScreen>
                                 'Lap $lapIdx',
                                 style: GoogleFonts.poppins(
                                   fontSize: 16,
-                                  fontWeight: isLatest
-                                      ? FontWeight.w600
-                                      : FontWeight.w400,
+                                  fontWeight: isLatest ? FontWeight.w600 : FontWeight.w400,
                                   color: isLatest
                                       ? AppColors.primary
-                                      : const Color(0xFF2D264B),
+                                      : Theme.of(context).colorScheme.onSurface,
                                 ),
                               ),
                               Text(
@@ -228,7 +225,7 @@ class _StopwatchScreenState extends ConsumerState<StopwatchScreen>
                                       : FontWeight.w400,
                                   color: isLatest
                                       ? AppColors.primary
-                                      : const Color(0xFF4B5563),
+                                      : Theme.of(context).colorScheme.onSurfaceVariant,
                                 ),
                               ),
                             ],

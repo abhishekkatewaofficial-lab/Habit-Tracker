@@ -2,7 +2,6 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:habit_tracker_ios/core/constants/app_colors.dart';
 import 'package:habit_tracker_ios/core/constants/app_text_styles.dart';
 import 'package:habit_tracker_ios/core/constants/app_constants.dart';
 import 'package:habit_tracker_ios/providers/navigation_provider.dart';
@@ -56,7 +55,7 @@ class AppBottomNavBar extends ConsumerWidget {
         borderRadius: BorderRadius.circular(40),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.15),
+            color: Colors.black.withValues(alpha: 0.12),
             blurRadius: 25,
             offset: const Offset(0, 10),
           ),
@@ -69,10 +68,10 @@ class AppBottomNavBar extends ConsumerWidget {
           child: Container(
             height: 72,
             decoration: BoxDecoration(
-              color: Colors.white.withValues(alpha: 0.2),
+              color: Theme.of(context).colorScheme.surface.withValues(alpha: 0.25),
               borderRadius: BorderRadius.circular(40),
               border: Border.all(
-                color: Colors.white.withValues(alpha: 0.25), 
+                color: Theme.of(context).colorScheme.outlineVariant.withValues(alpha: 0.4), 
                 width: 1.5
               ),
             ),
@@ -123,42 +122,26 @@ class AppBottomNavBar extends ConsumerWidget {
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(40),
         boxShadow: [
-          // Ambient soft glow
           BoxShadow(
-            color: AppColors.primary.withValues(alpha: 0.15),
-            blurRadius: 40,
-            offset: const Offset(0, 15),
-          ),
-          // Deeper drop shadow
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.1),
-            blurRadius: 15,
-            offset: const Offset(0, 8),
+            color: Colors.black.withValues(alpha: 0.12),
+            blurRadius: 25,
+            offset: const Offset(0, 10),
           ),
         ],
       ),
       child: ClipRRect(
         borderRadius: BorderRadius.circular(40),
         child: BackdropFilter(
-          filter: ImageFilter.blur(sigmaX: 35, sigmaY: 35),
+          filter: ImageFilter.blur(sigmaX: 25, sigmaY: 25),
           child: Container(
             height: 72,
             padding: const EdgeInsets.symmetric(horizontal: 16),
             decoration: BoxDecoration(
-              // Semi-transparent glassy base
-              color: Colors.white.withValues(alpha: 0.12),
+              color: Theme.of(context).colorScheme.surface.withValues(alpha: 0.25),
               borderRadius: BorderRadius.circular(40),
               border: Border.all(
-                color: Colors.white.withValues(alpha: 0.3), // Light reflection edge
-                width: 1.5,
-              ),
-              gradient: RadialGradient(
-                center: const Alignment(0, -1.2),
-                radius: 1.5,
-                colors: [
-                  Colors.white.withValues(alpha: 0.25),
-                  Colors.transparent,
-                ],
+                color: Theme.of(context).colorScheme.outlineVariant.withValues(alpha: 0.4), 
+                width: 1.5
               ),
             ),
             child: Row(
@@ -173,45 +156,15 @@ class AppBottomNavBar extends ConsumerWidget {
                   onTap: () => ref.read(navigationIndexProvider.notifier).state = AppConstants.navIndexPlannerTodo,
                 ),
 
-                // 2. Home (Center Elevated)
-                GestureDetector(
+                // 2. Home (Center Elevated Removed -> Flat)
+                _SubNavItem(
+                  icon: CupertinoIcons.house_fill,
+                  label: 'Home',
+                  isSelected: false,
                   onTap: () {
                     ref.read(plannerModeProvider.notifier).state = false;
                     ref.read(navigationIndexProvider.notifier).state = AppConstants.navIndexHome;
                   },
-                  behavior: HitTestBehavior.opaque,
-                  child: AnimatedContainer(
-                    duration: const Duration(milliseconds: 300),
-                    curve: Curves.easeOutBack,
-                    width: 52,
-                    height: 52,
-                    margin: const EdgeInsets.only(bottom: 6),
-                    decoration: BoxDecoration(
-                      color: AppColors.primary,
-                      shape: BoxShape.circle,
-                      boxShadow: [
-                        BoxShadow(
-                          color: AppColors.primary.withValues(alpha: 0.4),
-                          blurRadius: 20,
-                          offset: const Offset(0, 8),
-                        ),
-                        BoxShadow(
-                          color: Colors.white.withValues(alpha: 0.2),
-                          blurRadius: 8,
-                          offset: const Offset(0, -2),
-                        ),
-                      ],
-                      border: Border.all(
-                        color: Colors.white.withValues(alpha: 0.15),
-                        width: 1,
-                      ),
-                    ),
-                    child: const Icon(
-                      CupertinoIcons.house_fill,
-                      color: Colors.white,
-                      size: 24,
-                    ),
-                  ),
                 ),
 
                 // 3. Matrix
@@ -238,40 +191,26 @@ class AppBottomNavBar extends ConsumerWidget {
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(40),
         boxShadow: [
-          // Ambient soft glow (Sync with Planner color)
           BoxShadow(
-            color: AppColors.primary.withValues(alpha: 0.15), 
-            blurRadius: 40,
-            offset: const Offset(0, 15),
-          ),
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.1),
-            blurRadius: 15,
-            offset: const Offset(0, 8),
+            color: Colors.black.withValues(alpha: 0.12),
+            blurRadius: 25,
+            offset: const Offset(0, 10),
           ),
         ],
       ),
       child: ClipRRect(
         borderRadius: BorderRadius.circular(40),
         child: BackdropFilter(
-          filter: ImageFilter.blur(sigmaX: 35, sigmaY: 35),
+          filter: ImageFilter.blur(sigmaX: 25, sigmaY: 25),
           child: Container(
             height: 72,
             padding: const EdgeInsets.symmetric(horizontal: 4),
             decoration: BoxDecoration(
-              color: Colors.white.withValues(alpha: 0.12),
+              color: Theme.of(context).colorScheme.surface.withValues(alpha: 0.25),
               borderRadius: BorderRadius.circular(40),
               border: Border.all(
-                color: Colors.white.withValues(alpha: 0.3),
-                width: 1.5,
-              ),
-              gradient: RadialGradient(
-                center: const Alignment(0, -1.2),
-                radius: 1.5,
-                colors: [
-                  Colors.white.withValues(alpha: 0.25),
-                  Colors.transparent,
-                ],
+                color: Theme.of(context).colorScheme.outlineVariant.withValues(alpha: 0.4), 
+                width: 1.5
               ),
             ),
             child: Row(
@@ -294,45 +233,15 @@ class AppBottomNavBar extends ConsumerWidget {
                   onTap: () => ref.read(navigationIndexProvider.notifier).state = AppConstants.navIndexFocusPomodoro,
                 ),
 
-                // 3. Home (Center Elevated)
-                GestureDetector(
+                // 3. Home (Center Elevated Removed -> Flat)
+                _SubNavItem(
+                  icon: CupertinoIcons.house_fill,
+                  label: 'Home',
+                  isSelected: false,
                   onTap: () {
                     ref.read(focusModeProvider.notifier).state = false;
                     ref.read(navigationIndexProvider.notifier).state = AppConstants.navIndexHome;
                   },
-                  behavior: HitTestBehavior.opaque,
-                  child: AnimatedContainer(
-                    duration: const Duration(milliseconds: 300),
-                    curve: Curves.easeOutBack,
-                    width: 52,
-                    height: 52,
-                    margin: const EdgeInsets.only(bottom: 6),
-                    decoration: BoxDecoration(
-                      color: AppColors.primary, 
-                      shape: BoxShape.circle,
-                      boxShadow: [
-                        BoxShadow(
-                          color: AppColors.primary.withValues(alpha: 0.4),
-                          blurRadius: 20,
-                          offset: const Offset(0, 8),
-                        ),
-                        BoxShadow(
-                          color: Colors.white.withValues(alpha: 0.2),
-                          blurRadius: 8,
-                          offset: const Offset(0, -2),
-                        ),
-                      ],
-                      border: Border.all(
-                        color: Colors.white.withValues(alpha: 0.15),
-                        width: 1,
-                      ),
-                    ),
-                    child: const Icon(
-                      CupertinoIcons.house_fill,
-                      color: Colors.white,
-                      size: 24,
-                    ),
-                  ),
                 ),
 
                 // 4. Stopwatch
@@ -394,14 +303,14 @@ class _NavItem extends StatelessWidget {
           children: [
             Icon(
               isSelected ? activeIcon : icon,
-              color: isSelected ? AppColors.primary : AppColors.textSecondary.withValues(alpha: 0.6),
+              color: isSelected ? Theme.of(context).colorScheme.primary : Theme.of(context).colorScheme.onSurfaceVariant.withValues(alpha: 0.6),
               size: 26,
             ),
             const SizedBox(height: 4),
             Text(
               label,
               style: AppTextStyles.labelSmall.copyWith(
-                color: isSelected ? AppColors.primary : AppColors.textSecondary.withValues(alpha: 0.6),
+                color: isSelected ? Theme.of(context).colorScheme.primary : Theme.of(context).colorScheme.onSurfaceVariant.withValues(alpha: 0.6),
                 fontSize: 10,
                 fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
               ),
@@ -467,47 +376,29 @@ class _SubNavItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final color = isSelected ? AppColors.primary : AppColors.textSecondary.withValues(alpha: 0.6);
+    final color = isSelected ? Theme.of(context).colorScheme.primary : Theme.of(context).colorScheme.onSurfaceVariant.withValues(alpha: 0.6);
 
     return GestureDetector(
       onTap: onTap,
       behavior: HitTestBehavior.opaque,
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 300),
-        curve: Curves.easeOutBack,
+        curve: Curves.easeOutCubic,
         transform: Matrix4.diagonal3Values(
           isSelected ? 1.05 : 1.0, 
           isSelected ? 1.05 : 1.0, 
           1.0
         ),
-        padding: const EdgeInsets.symmetric(horizontal: 2, vertical: 4),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            // Icon in glowing soft circle when active
-            AnimatedContainer(
-              duration: const Duration(milliseconds: 300),
-              curve: Curves.easeInOut,
-              padding: const EdgeInsets.all(4),
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: isSelected ? AppColors.primary.withValues(alpha: 0.15) : Colors.transparent,
-                boxShadow: isSelected ? [
-                  BoxShadow(
-                    color: AppColors.primary.withValues(alpha: 0.2),
-                    blurRadius: 10,
-                    spreadRadius: 2,
-                  ),
-                ] : [],
-              ),
-              child: Icon(
-                icon,
-                color: color,
-                size: isSelected ? 24 : 22, // Minimal modern line icon feel
-              ),
+            Icon(
+              icon,
+              color: color,
+              size: 26,
             ),
             const SizedBox(height: 4),
-            // Clean label
             Text(
               label,
               style: AppTextStyles.labelSmall.copyWith(

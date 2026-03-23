@@ -38,12 +38,12 @@ class _ReportsScreenState extends State<ReportsScreen> {
             padding: const EdgeInsets.only(top: 100),
             child: IndexedStack(
               index: _selectedIndex,
-              children: [
-                const WeeklyReportView(),
-                const MonthlyReportView(),
-                const YearlyReportView(),
-                const FocusReportView(),
-                const MoodReportView(),
+              children: const [
+                WeeklyReportView(),
+                MonthlyReportView(),
+                YearlyReportView(),
+                FocusReportView(),
+                MoodReportView(),
               ],
             ),
           ),
@@ -97,7 +97,12 @@ class WeeklyReportView extends ConsumerWidget {
           Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              const Text('☀️', style: TextStyle(fontSize: 18)),
+              Theme.of(context).brightness == Brightness.dark
+                  ? const ColorFiltered(
+                      colorFilter: ColorFilter.mode(Colors.white, BlendMode.srcIn),
+                      child: Text('☀️', style: TextStyle(fontSize: 18)),
+                    )
+                  : const Text('☀️', style: TextStyle(fontSize: 18)),
               const SizedBox(width: 8),
               Text(
                 'Habit Tracker',
@@ -160,7 +165,7 @@ class _HeatmapCard extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: Theme.of(context).colorScheme.surface,
         borderRadius: BorderRadius.circular(32),
         boxShadow: [
           BoxShadow(
@@ -184,7 +189,7 @@ class _HeatmapCard extends StatelessWidget {
                     style: GoogleFonts.poppins(
                       fontSize: 11,
                       fontWeight: FontWeight.w600,
-                      color: const Color(0xFF9CA3AF),
+                      color: Theme.of(context).colorScheme.onSurfaceVariant,
                     ),
                   ),
                 ),
@@ -214,7 +219,7 @@ class _HeatmapCard extends StatelessWidget {
                             style: GoogleFonts.poppins(
                               fontSize: 10,
                               fontWeight: FontWeight.w600,
-                              color: const Color(0xFF374151),
+                              color: Theme.of(context).colorScheme.onSurface,
                             ),
                             overflow: TextOverflow.ellipsis,
                             maxLines: 1,
@@ -238,10 +243,10 @@ class _HeatmapCard extends StatelessWidget {
 
                     if (isSkipped) {
                       // Not scheduled — show subtle X
-                      cellColor = const Color(0xFFEDEDED);
+                      cellColor = Theme.of(context).colorScheme.surfaceContainerHighest;
                       cellChild = const Icon(CupertinoIcons.xmark, size: 9, color: Color(0xFFC7C7CC));
                     } else if (progressPercent <= 0) {
-                      cellColor = const Color(0xFFF9FAFB);
+                      cellColor = Theme.of(context).colorScheme.surfaceContainerHighest.withValues(alpha: 0.6);
                     } else if (progressPercent >= 1.0) {
                       cellColor = baseColor;
                       cellChild = const Icon(CupertinoIcons.checkmark, size: 12, color: Colors.white);
@@ -264,7 +269,7 @@ class _HeatmapCard extends StatelessWidget {
                             color: cellColor,
                             borderRadius: BorderRadius.circular(6),
                             border: Border.all(
-                              color: (!isSkipped && progressPercent <= 0) ? const Color(0xFFF3F4F6) : Colors.transparent,
+                              color: (!isSkipped && progressPercent <= 0) ? Theme.of(context).colorScheme.outline.withValues(alpha: 0.5) : Colors.transparent,
                               width: 1,
                             ),
                           ),
@@ -272,7 +277,7 @@ class _HeatmapCard extends StatelessWidget {
                         ),
                       ),
                     );
-                  }).toList(),
+                  }),
                 ],
               ),
             );
@@ -285,7 +290,7 @@ class _HeatmapCard extends StatelessWidget {
           Row(
             mainAxisAlignment: MainAxisAlignment.end,
             children: [
-              Text('Less', style: GoogleFonts.poppins(fontSize: 10, color: Colors.grey)),
+              Text('Less', style: GoogleFonts.poppins(fontSize: 10, color: Theme.of(context).colorScheme.onSurfaceVariant)),
               const SizedBox(width: 8),
               ...[0.0, 0.2, 0.4, 0.6, 0.8, 1.0].map((v) => Container(
                 width: 12,
@@ -293,14 +298,14 @@ class _HeatmapCard extends StatelessWidget {
                 margin: const EdgeInsets.only(left: 4),
                 decoration: BoxDecoration(
                   color: v == 0 
-                      ? const Color(0xFFF9FAFB) 
+                      ? Theme.of(context).colorScheme.surfaceContainerHighest
                       : const Color(0xFF22C55E).withValues(alpha: v == 1.0 ? 1.0 : v),
                   borderRadius: BorderRadius.circular(2),
-                  border: v == 0 ? Border.all(color: const Color(0xFFF3F4F6), width: 0.5) : null,
+                  border: v == 0 ? Border.all(color: Theme.of(context).colorScheme.outline.withValues(alpha: 0.5), width: 0.5) : null,
                 ),
               )),
               const SizedBox(width: 8),
-              Text('More', style: GoogleFonts.poppins(fontSize: 10, color: Colors.grey)),
+              Text('More', style: GoogleFonts.poppins(fontSize: 10, color: Theme.of(context).colorScheme.onSurfaceVariant)),
             ],
           ),
 
@@ -325,8 +330,7 @@ class _StatCard extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 8),
       decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
+        color: Theme.of(context).colorScheme.surface,
         boxShadow: [
           BoxShadow(
             color: Colors.black.withValues(alpha: 0.02),
@@ -351,7 +355,7 @@ class _StatCard extends StatelessWidget {
             style: GoogleFonts.poppins(
               fontSize: 11,
               fontWeight: FontWeight.w500,
-              color: const Color(0xFF9CA3AF),
+              color: Theme.of(context).colorScheme.onSurfaceVariant,
             ),
           ),
         ],
@@ -381,10 +385,10 @@ class _ReportsTopDock extends StatelessWidget {
           height: 44,
           padding: const EdgeInsets.symmetric(horizontal: 4),
           decoration: BoxDecoration(
-            color: Colors.white.withValues(alpha: 0.25), // lighter for the purple bg
+            color: Theme.of(context).colorScheme.surface.withValues(alpha: 0.25),
             borderRadius: BorderRadius.circular(25),
             border: Border.all(
-              color: Colors.white.withValues(alpha: 0.3),
+              color: Theme.of(context).colorScheme.outline.withValues(alpha: 0.4),
               width: 1,
             ),
           ),
@@ -405,16 +409,26 @@ class _ReportsTopDock extends StatelessWidget {
                     alignment: Alignment.center,
                     decoration: BoxDecoration(
                       color: isSelected 
-                        ? Colors.white.withValues(alpha: 0.9) 
+                        ? Theme.of(context).brightness == Brightness.dark
+                            ? Colors.transparent
+                            : Theme.of(context).colorScheme.surface.withValues(alpha: 0.9) 
                         : Colors.transparent,
                       borderRadius: BorderRadius.circular(20),
+                      border: Theme.of(context).brightness == Brightness.dark
+                        ? Border.all(
+                            color: isSelected ? Colors.white.withValues(alpha: 0.2) : Colors.white.withValues(alpha: 0.08),
+                            width: 1,
+                          )
+                        : null,
                     ),
                     child: Text(
                       tabs[index],
                       style: GoogleFonts.poppins(
                         fontSize: 11,
                         fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
-                        color: isSelected ? const Color(0xFFFF85A1) : Colors.black54,
+                        color: Theme.of(context).brightness == Brightness.dark
+                          ? isSelected ? Colors.white : const Color(0xFFB0B0B5)
+                          : isSelected ? const Color(0xFFFF85A1) : Colors.black54,
                       ),
                     ),
                   ),
@@ -487,10 +501,10 @@ class YearlyReportView extends ConsumerWidget {
     final totalCells = startOffset + 365;
     final numCols = (totalCells / 7).ceil();
 
-    final double cellSize = 12.0;
-    final double spacing = 4.0;
-    final double colWidth = cellSize + spacing;
-    final double gridHeight = (7 * cellSize) + (6 * spacing);
+    const double cellSize = 12.0;
+    const double spacing = 4.0;
+    const double colWidth = cellSize + spacing;
+    const double gridHeight = (7 * cellSize) + (6 * spacing);
     final double gridWidth = (numCols * cellSize) + ((numCols - 1) * spacing);
 
     return SingleChildScrollView(
@@ -531,7 +545,7 @@ class YearlyReportView extends ConsumerWidget {
               margin: const EdgeInsets.only(bottom: 16),
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
-                color: Colors.white,
+                color: Theme.of(context).colorScheme.surface,
                 borderRadius: BorderRadius.circular(20),
                 boxShadow: [
                   BoxShadow(
@@ -554,7 +568,7 @@ class YearlyReportView extends ConsumerWidget {
                         style: GoogleFonts.poppins(
                           fontSize: 14,
                           fontWeight: FontWeight.bold,
-                          color: const Color(0xFF374151),
+                          color: Theme.of(context).colorScheme.onSurface,
                         ),
                       ),
                     ],
@@ -587,7 +601,7 @@ class YearlyReportView extends ConsumerWidget {
                                   DateFormat('MMM').format(date),
                                   style: GoogleFonts.poppins(
                                     fontSize: 10,
-                                    color: const Color(0xFF9CA3AF),
+                                    color: Theme.of(context).colorScheme.onSurfaceVariant,
                                     fontWeight: FontWeight.w500,
                                   ),
                                 ),
@@ -608,7 +622,7 @@ class YearlyReportView extends ConsumerWidget {
                               runSpacing: spacing, // horizontal gap between columns
                               children: List.generate(totalCells, (index) {
                                 if (index < startOffset) {
-                                  return SizedBox(width: cellSize, height: cellSize);
+                                  return const SizedBox(width: cellSize, height: cellSize);
                                 }
                                 
                                 final dayIndex = index - startOffset;
@@ -728,7 +742,7 @@ class MonthlyReportView extends ConsumerWidget {
                 style: GoogleFonts.poppins(
                   fontSize: 18,
                   fontWeight: FontWeight.bold,
-                  color: const Color(0xFF374151),
+                  color: Theme.of(context).brightness == Brightness.dark ? Colors.white : const Color(0xFF374151),
                 ),
               ),
               const SizedBox(width: 16),
@@ -821,7 +835,7 @@ class _MonthlyHabitCard extends StatelessWidget {
 
     return Container(
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: Theme.of(context).colorScheme.surface,
         borderRadius: BorderRadius.circular(20),
         boxShadow: [
           BoxShadow(
@@ -846,7 +860,7 @@ class _MonthlyHabitCard extends StatelessWidget {
                   style: GoogleFonts.poppins(
                     fontSize: 13,
                     fontWeight: FontWeight.bold,
-                    color: const Color(0xFF374151),
+                    color: Theme.of(context).brightness == Brightness.dark ? Colors.white : const Color(0xFF374151),
                   ),
                   overflow: TextOverflow.ellipsis,
                   maxLines: 1,
@@ -1040,7 +1054,12 @@ class _FocusRow extends ConsumerWidget {
                 decoration: BoxDecoration(
                   color: totalSeconds > 0 ? const Color(0xFFDBEAFE) : const Color(0xFFEFF6FF),
                   borderRadius: BorderRadius.circular(6),
-                  border: Border.all(color: const Color(0xFFDBEAFE), width: 1),
+                  border: Border.all(
+                    color: (dateStr == DateFormat('yyyy-MM-dd').format(DateTime.now()))
+                        ? Theme.of(context).colorScheme.primary.withValues(alpha: 0.5)
+                        : Colors.transparent,
+                    width: 1.5,
+                  ),
                 ),
                 alignment: Alignment.center,
                 child: display != null 
@@ -1049,7 +1068,7 @@ class _FocusRow extends ConsumerWidget {
               ),
             ),
           );
-        }).toList(),
+        }),
       ],
     );
   }
@@ -1173,9 +1192,9 @@ class _FocusReportViewState extends ConsumerState<FocusReportView> {
           // The Table
           Container(
             decoration: BoxDecoration(
-              color: Colors.white,
+              color: Theme.of(context).colorScheme.surface,
               borderRadius: BorderRadius.circular(20),
-              border: Border.all(color: Colors.grey.shade200),
+              border: Border.all(color: Theme.of(context).colorScheme.outline),
               boxShadow: [
                 BoxShadow(
                   color: Colors.black.withValues(alpha: 0.03),
@@ -1217,13 +1236,13 @@ class _FocusReportViewState extends ConsumerState<FocusReportView> {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(CupertinoIcons.chart_bar, size: 64, color: Colors.grey.shade300),
+          Icon(CupertinoIcons.chart_bar, size: 64, color: Theme.of(context).colorScheme.onSurfaceVariant.withValues(alpha: 0.4)),
           const SizedBox(height: 16),
           Text(
             'Start focusing to see reports',
             style: GoogleFonts.poppins(
               fontSize: 16,
-              color: Colors.grey.shade500,
+              color: Theme.of(context).colorScheme.onSurfaceVariant,
               fontWeight: FontWeight.w500,
             ),
           ),
@@ -1244,14 +1263,14 @@ class _FocusReportViewState extends ConsumerState<FocusReportView> {
           style: GoogleFonts.poppins(
             fontSize: 22,
             fontWeight: FontWeight.bold,
-            color: const Color(0xFF2D264B),
+            color: Theme.of(context).colorScheme.onSurface,
           ),
         ),
         Text(
           range,
           style: GoogleFonts.poppins(
             fontSize: 14,
-            color: Colors.grey.shade600,
+            color: Theme.of(context).colorScheme.onSurfaceVariant,
           ),
         ),
       ],
@@ -1260,7 +1279,7 @@ class _FocusReportViewState extends ConsumerState<FocusReportView> {
 
   Widget _buildTableHeader() {
     return Container(
-      color: Colors.grey.shade50,
+      color: Theme.of(context).colorScheme.surfaceContainerHighest,
       padding: const EdgeInsets.symmetric(vertical: 14),
       child: Row(
         children: [
@@ -1280,7 +1299,7 @@ class _FocusReportViewState extends ConsumerState<FocusReportView> {
 
   Widget _buildTableRow(String name, List<int> days, int total, bool isEven) {
     return Container(
-      color: isEven ? Colors.white : Colors.grey.shade50.withValues(alpha: 0.5),
+      color: isEven ? Theme.of(context).colorScheme.surface : Theme.of(context).colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
       padding: const EdgeInsets.symmetric(vertical: 16),
       child: Row(
         children: [
@@ -1323,7 +1342,7 @@ class _FocusReportViewState extends ConsumerState<FocusReportView> {
           style: GoogleFonts.poppins(
             fontSize: isHeader ? 11 : 12,
             fontWeight: (isHeader || isBold) ? FontWeight.bold : FontWeight.w500,
-            color: color ?? (isHeader ? Colors.grey.shade500 : const Color(0xFF4B5563)),
+            color: color ?? (isHeader ? Theme.of(context).colorScheme.onSurfaceVariant : Theme.of(context).colorScheme.onSurface),
           ),
           overflow: TextOverflow.ellipsis,
         ),
@@ -1389,7 +1408,7 @@ class MoodReportView extends ConsumerWidget {
                 style: GoogleFonts.poppins(
                   fontSize: 18,
                   fontWeight: FontWeight.bold,
-                  color: const Color(0xFF374151),
+                  color: Theme.of(context).colorScheme.onSurface,
                 ),
               ),
               const SizedBox(width: 16),
@@ -1405,7 +1424,7 @@ class MoodReportView extends ConsumerWidget {
           Container(
             padding: const EdgeInsets.all(20),
             decoration: BoxDecoration(
-              color: Colors.white,
+              color: Theme.of(context).colorScheme.surface,
               borderRadius: BorderRadius.circular(24),
               boxShadow: [
                 BoxShadow(
@@ -1428,7 +1447,7 @@ class MoodReportView extends ConsumerWidget {
                           style: GoogleFonts.poppins(
                             fontSize: 12,
                             fontWeight: FontWeight.w600,
-                            color: const Color(0xFF9CA3AF),
+                            color: Theme.of(context).colorScheme.onSurfaceVariant,
                           ),
                         ),
                       ),
@@ -1462,7 +1481,7 @@ class MoodReportView extends ConsumerWidget {
                     return Container(
                       decoration: BoxDecoration(
                         shape: BoxShape.circle,
-                        color: isToday ? const Color(0xFFFEF3C7) : (emoji != null ? const Color(0xFFF9FAFB) : Colors.transparent),
+                        color: isToday ? Theme.of(context).colorScheme.primaryContainer : (emoji != null ? Theme.of(context).colorScheme.surfaceContainerHighest : Colors.transparent),
                       ),
                       alignment: Alignment.center,
                       child: emoji != null
@@ -1472,7 +1491,7 @@ class MoodReportView extends ConsumerWidget {
                               style: GoogleFonts.poppins(
                                 fontSize: 14,
                                 fontWeight: isToday ? FontWeight.bold : FontWeight.w500,
-                                color: isToday ? const Color(0xFFD97706) : const Color(0xFF4B5563),
+                                color: isToday ? Theme.of(context).colorScheme.primary : Theme.of(context).colorScheme.onSurface,
                               ),
                             ),
                     );
@@ -1513,17 +1532,17 @@ class MoodReportView extends ConsumerWidget {
               style: GoogleFonts.poppins(
                 fontSize: 18,
                 fontWeight: FontWeight.bold,
-                color: const Color(0xFF374151),
+                color: Theme.of(context).brightness == Brightness.dark ? Colors.white : const Color(0xFF374151),
               ),
             ),
           ),
           const SizedBox(height: 16),
           
           if (sortedDates.isEmpty)
-             const Center(
+           Center(
                child: Padding(
-                 padding: EdgeInsets.all(32),
-                 child: Text('No mood logs yet!', style: TextStyle(color: Colors.grey)),
+                 padding: const EdgeInsets.all(32),
+                 child: Text('No mood logs yet!', style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant)),
                ),
              )
           else
@@ -1536,9 +1555,10 @@ class MoodReportView extends ConsumerWidget {
                  margin: const EdgeInsets.only(bottom: 12),
                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
                  decoration: BoxDecoration(
-                   color: Colors.white,
+                   color: Theme.of(context).brightness == Brightness.dark ? const Color(0xFF1C1C1E) : Colors.white,
                    borderRadius: BorderRadius.circular(16),
-                   boxShadow: [
+                   border: Theme.of(context).brightness == Brightness.dark ? Border.all(color: Colors.white.withValues(alpha: 0.08)) : null,
+                   boxShadow: Theme.of(context).brightness == Brightness.dark ? null : [
                      BoxShadow(
                        color: Colors.black.withValues(alpha: 0.02),
                        blurRadius: 8,
@@ -1555,11 +1575,11 @@ class MoodReportView extends ConsumerWidget {
                        style: GoogleFonts.poppins(
                          fontSize: 14,
                          fontWeight: FontWeight.w600,
-                         color: const Color(0xFF4B5563),
+                         color: Theme.of(context).brightness == Brightness.dark ? const Color(0xFFB0B0B5) : Theme.of(context).colorScheme.onSurfaceVariant,
                        ),
                      ),
                      const Spacer(),
-                     const Icon(CupertinoIcons.heart_fill, color: Color(0xFFFCA5A5), size: 18),
+                     Icon(CupertinoIcons.heart_fill, color: Theme.of(context).brightness == Brightness.dark ? Colors.white : const Color(0xFFFCA5A5), size: 18),
                    ],
                  ),
                );

@@ -64,6 +64,7 @@ class _FocusDashboardScreenState extends ConsumerState<FocusDashboardScreen> {
   @override
   Widget build(BuildContext context) {
     final focusItems = ref.watch(focusDashboardProvider);
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     final h = MediaQuery.of(context).size.height;
     final topGap = h * 0.04;
 
@@ -73,14 +74,41 @@ class _FocusDashboardScreenState extends ConsumerState<FocusDashboardScreen> {
         padding: const EdgeInsets.only(bottom: 110), // Sub-dock clearance (88px) + 22px
         child: _ScaleOnTap(
           onTap: _showAddModal,
-          child: FloatingActionButton(
-            heroTag: 'focus_fab',
-            onPressed: null, // handled by _ScaleOnTap
-            backgroundColor: const Color(0xFF34C759), // Premium Soft Green
-            elevation: 8,
-            shape: const CircleBorder(),
-            child: const Icon(CupertinoIcons.add, color: Colors.white, size: 28),
-          ),
+          child: isDark 
+              ? Container(
+                  height: 56,
+                  width: 56,
+                  decoration: BoxDecoration(
+                    color: Colors.white.withValues(alpha: 0.06),
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(
+                      color: Colors.white.withValues(alpha: 0.12),
+                      width: 1,
+                    ),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.4),
+                        blurRadius: 20,
+                        spreadRadius: -4,
+                      )
+                    ]
+                  ),
+                  child: const Center(
+                    child: Icon(
+                      Icons.add,
+                      color: Colors.white,
+                      size: 24,
+                    ),
+                  ),
+                )
+              : const FloatingActionButton(
+                  heroTag: 'focus_fab',
+                  onPressed: null, // handled by _ScaleOnTap
+                  backgroundColor: Color(0xFF34C759), // Premium Soft Green
+                  elevation: 8,
+                  shape: CircleBorder(),
+                  child: Icon(CupertinoIcons.add, color: Colors.white, size: 28),
+                ),
         ),
       ),
       body: SafeArea(
@@ -96,7 +124,7 @@ class _FocusDashboardScreenState extends ConsumerState<FocusDashboardScreen> {
                   style: GoogleFonts.greatVibes(
                     fontSize: 40,
                     fontWeight: FontWeight.w600,
-                    color: const Color(0xFF2D264B),
+                    color: Theme.of(context).colorScheme.onSurface,
                   ),
                 ),
               ),
@@ -144,7 +172,7 @@ class _FocusDashboardScreenState extends ConsumerState<FocusDashboardScreen> {
           Container(
             padding: const EdgeInsets.all(24),
             decoration: BoxDecoration(
-              color: Colors.white.withValues(alpha: 0.6),
+              color: Theme.of(context).colorScheme.surface.withValues(alpha: 0.6),
               shape: BoxShape.circle,
             ),
             child: const Icon(
@@ -270,13 +298,15 @@ class _FocusCardState extends ConsumerState<_FocusCard>
   Widget build(BuildContext context) {
     final bool isActive = widget.item.isRunning;
     
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    
     // Active → Highlighted soft green. Inactive → Soft grey
     final bgColor = isActive 
-        ? const Color(0xFFE8F5E9) // Soft premium light green
-        : Colors.white;
+        ? (isDark ? const Color(0xFF2C2C2E) : const Color(0xFFE8F5E9))
+        : Theme.of(context).colorScheme.surface;
     
     final borderColor = isActive
-        ? const Color(0xFFA5D6A7) // Soft green border
+        ? (isDark ? Colors.white.withValues(alpha: 0.2) : const Color(0xFFA5D6A7))
         : Colors.transparent;
 
     return Padding(
@@ -312,9 +342,9 @@ class _FocusCardState extends ConsumerState<_FocusCard>
         boxShadow: isActive
             ? [
                 BoxShadow(
-                  color: const Color(0xFFA5D6A7).withValues(alpha: 0.3),
-                  blurRadius: 15,
-                  offset: const Offset(0, 4),
+                  color: isDark ? Colors.white.withValues(alpha: 0.08) : const Color(0xFFA5D6A7).withValues(alpha: 0.3),
+                  blurRadius: isDark ? 12 : 15,
+                  offset: isDark ? Offset.zero : const Offset(0, 4),
                 )
               ]
             : [
@@ -337,7 +367,7 @@ class _FocusCardState extends ConsumerState<_FocusCard>
               style: GoogleFonts.poppins(
                 fontSize: 16,
                 fontWeight: isActive ? FontWeight.w600 : FontWeight.w500,
-                color: const Color(0xFF2D264B),
+                color: isDark ? const Color(0xFFEAEAEA) : Theme.of(context).colorScheme.onSurface,
               ),
             ),
           ),
@@ -351,7 +381,7 @@ class _FocusCardState extends ConsumerState<_FocusCard>
                 style: GoogleFonts.spaceMono(
                   fontSize: 18,
                   fontWeight: FontWeight.w600,
-                  color: isActive ? const Color(0xFF388E3C) : const Color(0xFF2D264B),
+                  color: isDark ? Colors.white : (isActive ? const Color(0xFF388E3C) : const Color(0xFF2D264B)),
                   letterSpacing: -0.5,
                 ),
                 child: Text(_formatTime(_elapsed)),
@@ -378,11 +408,13 @@ class _FocusCardState extends ConsumerState<_FocusCard>
                     height: 36,
                     decoration: BoxDecoration(
                       shape: BoxShape.circle,
-                      color: isActive ? const Color(0xFF388E3C) : const Color(0xFFE0E0E0),
+                      color: isActive 
+                          ? (isDark ? Colors.white.withValues(alpha: 0.15) : const Color(0xFF388E3C)) 
+                          : (isDark ? Colors.white.withValues(alpha: 0.05) : const Color(0xFFE0E0E0)),
                     ),
                     child: Icon(
                       isActive ? CupertinoIcons.pause_fill : CupertinoIcons.play_fill,
-                      color: isActive ? Colors.white : Colors.grey.shade600,
+                      color: isActive ? Colors.white : Theme.of(context).colorScheme.onSurfaceVariant,
                       size: 18,
                     ),
                   ),
@@ -443,6 +475,8 @@ class _AddFocusModalState extends ConsumerState<_AddFocusModal> {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
     return Center(
       child: Material(
         color: Colors.transparent,
@@ -450,7 +484,7 @@ class _AddFocusModalState extends ConsumerState<_AddFocusModal> {
           width: MediaQuery.of(context).size.width * 0.85,
           padding: const EdgeInsets.all(24),
           decoration: BoxDecoration(
-            color: Colors.white.withValues(alpha: 0.9),
+            color: Theme.of(context).colorScheme.surface,
             borderRadius: BorderRadius.circular(24),
             boxShadow: [
               BoxShadow(
@@ -459,7 +493,7 @@ class _AddFocusModalState extends ConsumerState<_AddFocusModal> {
                 spreadRadius: 5,
               ),
             ],
-            border: Border.all(color: Colors.white.withValues(alpha: 0.5), width: 1.5),
+            border: Border.all(color: Theme.of(context).colorScheme.outline.withValues(alpha: 0.3), width: 1.5),
           ),
           child: Column(
             mainAxisSize: MainAxisSize.min,
@@ -471,7 +505,7 @@ class _AddFocusModalState extends ConsumerState<_AddFocusModal> {
                 style: GoogleFonts.poppins(
                   fontSize: 22,
                   fontWeight: FontWeight.w600,
-                  color: const Color(0xFF2D264B),
+                  color: Theme.of(context).colorScheme.onSurface,
                 ),
               ),
               const SizedBox(height: 20),
@@ -481,15 +515,15 @@ class _AddFocusModalState extends ConsumerState<_AddFocusModal> {
                 textCapitalization: TextCapitalization.words,
                 style: GoogleFonts.poppins(
                   fontSize: 16,
-                  color: const Color(0xFF2D264B),
+                  color: Theme.of(context).colorScheme.onSurface,
                 ),
                 decoration: InputDecoration(
                   hintText: 'e.g., DSA, Reading...',
                   hintStyle: GoogleFonts.poppins(
-                    color: Colors.grey.shade400,
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
                   ),
                   filled: true,
-                  fillColor: Colors.grey.shade100,
+                  fillColor: Theme.of(context).colorScheme.surfaceContainerHighest,
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(16),
                     borderSide: BorderSide.none,
@@ -502,46 +536,90 @@ class _AddFocusModalState extends ConsumerState<_AddFocusModal> {
               Row(
                 children: [
                   Expanded(
-                    child: TextButton(
-                      onPressed: () => Navigator.pop(context),
-                      style: TextButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(vertical: 16),
-                        backgroundColor: CupertinoColors.destructiveRed.withValues(alpha: 0.1),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(16),
+                    child: isDark 
+                      ? GestureDetector(
+                          onTap: () => Navigator.pop(context),
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(vertical: 12),
+                            alignment: Alignment.center,
+                            decoration: BoxDecoration(
+                              color: Colors.transparent,
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(
+                                color: Colors.white.withValues(alpha: 0.1),
+                              ),
+                            ),
+                            child: const Text(
+                              'Cancel',
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ),
+                        )
+                      : TextButton(
+                          onPressed: () => Navigator.pop(context),
+                          style: TextButton.styleFrom(
+                            padding: const EdgeInsets.symmetric(vertical: 16),
+                            backgroundColor: CupertinoColors.destructiveRed.withValues(alpha: 0.1),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(16),
+                            ),
+                          ),
+                          child: Text(
+                            'Cancel',
+                            style: GoogleFonts.poppins(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w600,
+                              color: CupertinoColors.destructiveRed,
+                            ),
+                          ),
                         ),
-                      ),
-                      child: Text(
-                        'Cancel',
-                        style: GoogleFonts.poppins(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w600,
-                          color: CupertinoColors.destructiveRed,
-                        ),
-                      ),
-                    ),
                   ),
                   const SizedBox(width: 12),
                   Expanded(
-                    child: ElevatedButton(
-                      onPressed: _save,
-                      style: ElevatedButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(vertical: 16),
-                        backgroundColor: const Color(0xFF2D264B),
-                        elevation: 0,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(16),
+                    child: isDark
+                      ? GestureDetector(
+                          onTap: _save,
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(vertical: 12),
+                            alignment: Alignment.center,
+                            decoration: BoxDecoration(
+                              color: Colors.transparent,
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(
+                                color: Colors.white.withValues(alpha: 0.25),
+                              ),
+                            ),
+                            child: const Text(
+                              'Save',
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ),
+                        )
+                      : ElevatedButton(
+                          onPressed: _save,
+                          style: ElevatedButton.styleFrom(
+                            padding: const EdgeInsets.symmetric(vertical: 16),
+                            backgroundColor: const Color(0xFF2D264B),
+                            elevation: 0,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(16),
+                            ),
+                          ),
+                          child: Text(
+                            'Save',
+                            style: GoogleFonts.poppins(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w600,
+                              color: Colors.white,
+                            ),
+                          ),
                         ),
-                      ),
-                      child: Text(
-                        'Save',
-                        style: GoogleFonts.poppins(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w600,
-                          color: Colors.white,
-                        ),
-                      ),
-                    ),
                   ),
                 ],
               ),

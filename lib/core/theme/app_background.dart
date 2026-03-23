@@ -1,8 +1,9 @@
 import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:habit_tracker_ios/core/theme/theme_provider.dart';
 
-// ── 5 Preset Pastel Gradient Themes ─────────────────────────────────────────
+// ── 5 Preset Light Pastel Gradient Themes ─────────────────────────────────────
 
 class AppGradientTheme {
   final String name;
@@ -55,17 +56,46 @@ const List<AppGradientTheme> kGradientThemes = [
   ),
 ];
 
+// ── 5 Preset Dark Gradient Themes ────────────────────────────────────────────
+// Deep, AMOLED-friendly near-black gradients — soft directional depth
+const List<AppGradientTheme> kDarkGradientThemes = [
+  AppGradientTheme(
+    name: 'Midnight',
+    start: Color(0xFF0D0D0F),
+    end: Color(0xFF1A1A2E),
+  ),
+  AppGradientTheme(
+    name: 'Deep Ocean',
+    start: Color(0xFF0A0E1A),
+    end: Color(0xFF141E30),
+  ),
+  AppGradientTheme(
+    name: 'Obsidian',
+    start: Color(0xFF0D0D0D),
+    end: Color(0xFF1C1C1E),
+  ),
+  AppGradientTheme(
+    name: 'Abyss',
+    start: Color(0xFF0F0A1A),
+    end: Color(0xFF1A1028),
+  ),
+  AppGradientTheme(
+    name: 'Carbon',
+    start: Color(0xFF0D100D),
+    end: Color(0xFF141A14),
+  ),
+];
+
 // ── Global Background Theme Provider ─────────────────────────────────────────
 
-/// Picked once at app launch and held for the entire session.
-final globalBackgroundThemeProvider = Provider<AppGradientTheme>((ref) {
-  final index = Random().nextInt(kGradientThemes.length);
-  return kGradientThemes[index];
+/// Picks once at app launch – same index for both light and dark variants.
+final globalBackgroundThemeProvider = Provider<int>((ref) {
+  return Random().nextInt(kGradientThemes.length);
 });
 
 // ── Reusable Background Widget ────────────────────────────────────────────────
 
-/// Wrap any Scaffold/page body with this to apply the app-wide gradient.
+/// Wrap any Scaffold/page body with this to apply the theme-aware gradient.
 /// All inner Scaffolds should set `backgroundColor: Colors.transparent`.
 class AppBackground extends ConsumerWidget {
   final Widget child;
@@ -73,10 +103,27 @@ class AppBackground extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final theme = ref.watch(globalBackgroundThemeProvider);
+    final themeIndex = ref.watch(globalBackgroundThemeProvider);
+    final themeMode = ref.watch(themeProvider);
+    final platformBrightness = MediaQuery.of(context).platformBrightness;
+
+    final isDark = themeMode == ThemeModeType.dark ||
+        (themeMode == ThemeModeType.system &&
+            platformBrightness == Brightness.dark);
+
+    if (isDark) {
+      // Dark mode: pure AMOLED black — no gradient
+      return Container(
+        color: const Color(0xFF000000),
+        child: child,
+      );
+    }
+
+    // Light mode: pastel gradient
+    final gradientTheme = kGradientThemes[themeIndex];
     return Container(
       decoration: BoxDecoration(
-        gradient: theme.toGradient(),
+        gradient: gradientTheme.toGradient(),
       ),
       child: child,
     );

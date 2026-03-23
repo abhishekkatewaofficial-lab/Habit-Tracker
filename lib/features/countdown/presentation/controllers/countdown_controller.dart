@@ -7,7 +7,8 @@ class CountdownController extends StateNotifier<List<CountdownEvent>> {
     _loadFromHive();
   }
 
-  static const String _boxKey = 'countdown_events';
+
+
 
   void _loadFromHive() {
     final box = HiveService.countdownBox;
