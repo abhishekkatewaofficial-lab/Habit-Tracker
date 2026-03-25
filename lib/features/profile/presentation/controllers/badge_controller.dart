@@ -47,6 +47,41 @@ class BadgeController extends StateNotifier<List<BadgeData>> {
     });
   }
 
+  int calculateGlobalStreak(List<Habit> habits) {
+    if (habits.isEmpty) return 0;
+    int currentStreak = 0;
+    final today = DateTime.now();
+    
+    for (int i = 0; i < 365; i++) {
+      final date = today.subtract(Duration(days: i));
+      final dateKey = '${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
+      
+      double dayPossible = 0;
+      double dayActual = 0;
+      
+      for (final habit in habits) {
+        final appWeekday = date.weekday % 7;
+        final isActiveDay = habit.isEveryDay || habit.selectedDays.contains(appWeekday);
+        
+        if (isActiveDay && !habit.isQuitHabit) {
+          double goal = habit.goalValue > 0 ? habit.goalValue.toDouble() : 1.0;
+          double prog = (habit.dailyProgress[dateKey] ?? 0).clamp(0, habit.goalValue).toDouble();
+          dayPossible += 1.0;
+          dayActual += prog / goal;
+        }
+      }
+      
+      if (dayPossible > 0) {
+         if (dayActual >= (dayPossible - 0.001)) { 
+            currentStreak++;
+         } else if (i > 0) {
+            break;
+         }
+      }
+    }
+    return currentStreak;
+  }
+
   void _evaluateBadges(List<Habit> habits) {
     // 1. Data Engine for Badges
     int bestStreak = 0;

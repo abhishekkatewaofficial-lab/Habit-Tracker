@@ -616,7 +616,7 @@ class _AddEditHabitScreenState extends ConsumerState<AddEditHabitScreen> {
                       Text('Every Day', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w500, color: Theme.of(context).colorScheme.onSurface)),
                       CupertinoSwitch(
                         value: _isEveryDay,
-                        activeTrackColor: AppColors.accent,
+                        activeTrackColor: Theme.of(context).brightness == Brightness.dark ? CupertinoColors.activeGreen : AppColors.accent,
                         onChanged: (val) {
                           setState(() {
                             _isEveryDay = val;
@@ -661,7 +661,7 @@ class _AddEditHabitScreenState extends ConsumerState<AddEditHabitScreen> {
                               color: Theme.of(context).colorScheme.onSurface)),
                       CupertinoSwitch(
                         value: _reminderEnabled,
-                        activeTrackColor: AppColors.accent,
+                        activeTrackColor: Theme.of(context).brightness == Brightness.dark ? CupertinoColors.activeGreen : AppColors.accent,
                         onChanged: (val) async {
                           if (val) {
                             // Show time picker immediately on enable
@@ -1197,6 +1197,7 @@ class _PremiumSaveButtonState extends State<_PremiumSaveButton> with SingleTicke
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return GestureDetector(
       onTapDown: (_) => _controller.forward(),
       onTapUp: (_) {
@@ -1209,9 +1210,9 @@ class _PremiumSaveButtonState extends State<_PremiumSaveButton> with SingleTicke
         child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
           decoration: BoxDecoration(
-            color: AppColors.accent,
+            color: isDark ? Colors.transparent : AppColors.accent,
             borderRadius: BorderRadius.circular(20),
-            boxShadow: [
+            boxShadow: isDark ? [] : [
               BoxShadow(
                 color: AppColors.accent.withValues(alpha: 0.3),
                 blurRadius: 8,
@@ -1219,15 +1220,15 @@ class _PremiumSaveButtonState extends State<_PremiumSaveButton> with SingleTicke
               ),
             ],
           ),
-          child: const Row(
+          child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(CupertinoIcons.check_mark, color: Colors.white, size: 16),
-              SizedBox(width: 6),
+              if (!isDark) const Icon(CupertinoIcons.check_mark, color: Colors.white, size: 16),
+              if (!isDark) const SizedBox(width: 6),
               Text(
                 'Save',
                 style: TextStyle(
-                  color: Colors.white,
+                  color: isDark ? const Color(0xFF32D74B) : Colors.white,
                   fontWeight: FontWeight.w700,
                   fontSize: 15,
                 ),

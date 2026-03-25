@@ -5,9 +5,11 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:habit_tracker_ios/core/constants/app_colors.dart';
 import 'package:habit_tracker_ios/core/constants/app_text_styles.dart';
 import 'package:habit_tracker_ios/core/theme/theme_provider.dart';
+import 'package:habit_tracker_ios/core/services/notification_provider.dart';
+import 'package:habit_tracker_ios/core/services/settings_provider.dart';
 import '../controllers/profile_controller.dart';
 import '../controllers/badge_controller.dart';
-import 'package:habit_tracker_ios/features/habits/presentation/controllers/habit_controller.dart';
+
 
 class ProfileScreen extends ConsumerStatefulWidget {
   const ProfileScreen({super.key});
@@ -50,6 +52,90 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     );
   }
 
+  Widget _buildPremiumHeader(BuildContext context, dynamic profile) {
+    return Stack(
+      clipBehavior: Clip.none,
+      alignment: Alignment.center,
+      children: [
+
+        Column(
+          children: [
+            GestureDetector(
+               onTapDown: (_) => setState(() => _isPressed = true),
+               onTapUp: (_) => setState(() => _isPressed = false),
+               onTapCancel: () => setState(() => _isPressed = false),
+               onTap: _openAvatarSelection,
+               child: Hero(
+                 tag: 'profile_avatar',
+                 child: AnimatedScale(
+                   scale: _isPressed ? 0.95 : 1.0,
+                   duration: const Duration(milliseconds: 150),
+                   child: Container(
+                     width: 140,
+                     height: 140,
+                     decoration: BoxDecoration(
+                       shape: BoxShape.circle,
+                       color: Theme.of(context).colorScheme.surface.withValues(alpha: 0.8),
+                       border: Border.all(color: Colors.white.withValues(alpha: 0.2), width: 4),
+                       boxShadow: [
+                         if (Theme.of(context).brightness == Brightness.dark)
+                           BoxShadow(color: Colors.black.withValues(alpha: 0.5), blurRadius: 20, offset: const Offset(0, 10))
+                         else
+                           BoxShadow(color: Colors.black.withValues(alpha: 0.1), blurRadius: 20, offset: const Offset(0, 10)),
+                       ],
+                       image: profile.imagePath != null
+                           ? DecorationImage(image: AssetImage(profile.imagePath!), fit: BoxFit.cover)
+                           : null,
+                     ),
+                     child: profile.imagePath == null
+                         ? const Icon(CupertinoIcons.person_fill, size: 60, color: Color(0xFF3A3A3C))
+                         : null,
+                   ),
+                 ),
+               ),
+            ),
+            const SizedBox(height: 24),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 40),
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 300),
+                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+                decoration: BoxDecoration(
+                  color: Theme.of(context).colorScheme.surface.withValues(alpha: _isEditing ? 0.5 : 0.0),
+                  borderRadius: BorderRadius.circular(24),
+                  border: Border.all(
+                    color: _isEditing ? Theme.of(context).colorScheme.outline.withValues(alpha: 0.6) : Colors.transparent,
+                    width: 1.5,
+                  ),
+                ),
+                child: TextField(
+                  controller: _nameController,
+                  focusNode: _focusNode,
+                  textAlign: TextAlign.center,
+                  style: GoogleFonts.poppins(
+                    fontSize: 24,
+                    fontWeight: FontWeight.bold,
+                    color: Theme.of(context).colorScheme.onSurface,
+                  ),
+                  decoration: InputDecoration(
+                    hintText: 'Enter your name',
+                    hintStyle: TextStyle(color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.4)),
+                    border: InputBorder.none,
+                    contentPadding: EdgeInsets.zero,
+                  ),
+                  onChanged: (val) {
+                    ref.read(profileProvider.notifier).updateName(val);
+                  },
+                  onSubmitted: (val) => _focusNode.unfocus(),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final profile = ref.watch(profileProvider);
@@ -65,8 +151,8 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
         ),
         title: Text(
           'Profile',
-          style: GoogleFonts.greatVibes(
-            fontSize: 32,
+          style: GoogleFonts.poppins(
+            fontSize: 20,
             fontWeight: FontWeight.w600,
             color: Theme.of(context).colorScheme.onSurface,
           ),
@@ -74,129 +160,27 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
         centerTitle: true,
       ),
       body: SingleChildScrollView(
-        padding: const EdgeInsets.symmetric(horizontal: 24),
+        physics: const BouncingScrollPhysics(),
         child: Column(
           children: [
-            const SizedBox(height: 40),
-            // Avatar
-            GestureDetector(
-              onTapDown: (_) => setState(() => _isPressed = true),
-              onTapUp: (_) => setState(() => _isPressed = false),
-              onTapCancel: () => setState(() => _isPressed = false),
-              onTap: _openAvatarSelection,
-              child: Hero(
-                tag: 'profile_avatar',
-                child: AnimatedScale(
-                  scale: _isPressed ? 0.95 : 1.0,
-                  duration: const Duration(milliseconds: 150),
-                  child: Container(
-                    width: 140,
-                    height: 140,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      color: Theme.of(context).colorScheme.surface.withValues(alpha: 0.2),
-                      border: Border.all(
-                        color: Theme.of(context).colorScheme.outline.withValues(alpha: 0.5),
-                        width: 3,
-                      ),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withValues(alpha: 0.1),
-                          blurRadius: 20,
-                          offset: const Offset(0, 10),
-                        ),
-                      ],
-                      image: profile.imagePath != null
-                          ? DecorationImage(
-                              image: AssetImage(profile.imagePath!),
-                              fit: BoxFit.cover,
-                            )
-                          : null,
-                    ),
-                    child: profile.imagePath == null
-                        ? const Icon(
-                            CupertinoIcons.person_fill,
-                            size: 60,
-                            color: Color(0xFF3A3A3C),
-                          )
-                        : null,
-                  ),
-                ),
-              ),
-            ),
-            const SizedBox(height: 16),
-            Text(
-              'Tap to change photo',
-              style: AppTextStyles.labelSmall.copyWith(
-                color: const Color(0xFF9CA3AF),
-                fontWeight: FontWeight.w500,
-              ),
-            ),
-            const SizedBox(height: 48),
-            // Name Field
-            AnimatedContainer(
-              duration: const Duration(milliseconds: 300),
-              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
-              decoration: BoxDecoration(
-                color: Theme.of(context).colorScheme.surface.withValues(alpha: _isEditing ? 0.5 : 0.3),
-                borderRadius: BorderRadius.circular(24),
-                border: Border.all(
-                  color: Theme.of(context).colorScheme.outline.withValues(alpha: _isEditing ? 0.6 : 0.3),
-                  width: 1.5,
-                ),
-                boxShadow: [
-                  if (_isEditing)
-                    BoxShadow(
-                      color: Colors.white.withValues(alpha: 0.2),
-                      blurRadius: 15,
-                      spreadRadius: 2,
-                    ),
-                ],
-              ),
+            const SizedBox(height: 20),
+            _buildPremiumHeader(context, profile),
+            const SizedBox(height: 32),
+            
+            const _BadgesShowcase(),
+            const SizedBox(height: 32),
+
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 24),
               child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
-                    'NAME',
-                    style: GoogleFonts.poppins(
-                      fontSize: 10,
-                      fontWeight: FontWeight.w700,
-                      letterSpacing: 1.2,
-                      color: const Color(0xFF9CA3AF),
-                    ),
-                  ),
-                  TextField(
-                    controller: _nameController,
-                    focusNode: _focusNode,
-                    textAlign: TextAlign.left,
-                    style: GoogleFonts.poppins(
-                      fontSize: 18,
-                      fontWeight: FontWeight.w600,
-                      color: Theme.of(context).colorScheme.onSurface,
-                    ),
-                    decoration: InputDecoration(
-                      hintText: 'Enter your name',
-                      hintStyle: TextStyle(color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.4)),
-                      border: InputBorder.none,
-                      contentPadding: EdgeInsets.zero,
-                    ),
-                    onChanged: (val) {
-                      ref.read(profileProvider.notifier).updateName(val);
-                    },
-                    onSubmitted: (val) {
-                      _focusNode.unfocus();
-                    },
-                  ),
+                  const _AppearanceSection(),
+                  const SizedBox(height: 32),
+                  const _GroupedSettings(),
+                  const SizedBox(height: 100),
                 ],
               ),
             ),
-            const SizedBox(height: 32),
-            // ─── Appearance Section ────────────────────────────────────────────
-            const _AppearanceSection(),
-            const SizedBox(height: 32),
-            // ─── Premium Badges Section ─────────────────────────────────────────
-            const _BadgesSection(),
-            const SizedBox(height: 100),
           ],
         ),
       ),
@@ -211,18 +195,17 @@ class _AppearanceSection extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final themeMode = ref.watch(themeProvider);
-    final cs = Theme.of(context).colorScheme;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
 
     const modes = [ThemeModeType.light, ThemeModeType.system, ThemeModeType.dark];
     const labels = ['Light', 'System', 'Dark'];
-    const icons = [CupertinoIcons.sun_max_fill, CupertinoIcons.circle_lefthalf_fill, CupertinoIcons.moon_fill];
 
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 20),
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
       decoration: BoxDecoration(
-        color: cs.surface.withValues(alpha: 0.4),
+        color: isDark ? const Color(0xFF1C1C1E) : Colors.white,
         borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: cs.outline.withValues(alpha: 0.3), width: 1.5),
+        border: Border.all(color: Theme.of(context).colorScheme.outline.withValues(alpha: 0.3), width: 1.5),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withValues(alpha: 0.05),
@@ -241,20 +224,20 @@ class _AppearanceSection extends ConsumerWidget {
               Text(
                 'Appearance',
                 style: GoogleFonts.poppins(
-                  fontSize: 15,
+                  fontSize: 16,
                   fontWeight: FontWeight.w700,
-                  color: cs.onSurface,
+                  color: Theme.of(context).colorScheme.onSurface,
                 ),
               ),
             ],
           ),
-          const SizedBox(height: 16),
-          // Segmented Control
+          const SizedBox(height: 24),
           Container(
-            height: 52,
+            height: 48,
             decoration: BoxDecoration(
-              color: cs.surfaceContainerHighest,
-              borderRadius: BorderRadius.circular(16),
+              color: isDark ? const Color(0xFF1C1C1E) : const Color(0xFFF3F4F6),
+              borderRadius: BorderRadius.circular(12),
+              border: isDark ? Border.all(color: Colors.white.withValues(alpha: 0.1), width: 1) : null,
             ),
             padding: const EdgeInsets.all(4),
             child: Row(
@@ -262,35 +245,29 @@ class _AppearanceSection extends ConsumerWidget {
                 final isSelected = themeMode == modes[i];
                 return Expanded(
                   child: GestureDetector(
+                    behavior: HitTestBehavior.opaque,
                     onTap: () => ref.read(themeProvider.notifier).setMode(modes[i]),
-                    child: AnimatedContainer(
-                      duration: const Duration(milliseconds: 250),
-                      curve: Curves.easeOutCubic,
+                    child: Container(
                       decoration: BoxDecoration(
-                        color: isSelected ? cs.primary : Colors.transparent,
-                        borderRadius: BorderRadius.circular(12),
-                        boxShadow: isSelected
-                            ? [BoxShadow(color: cs.primary.withValues(alpha: 0.3), blurRadius: 8, offset: const Offset(0, 3))]
+                        color: isSelected 
+                           ? (isDark ? const Color(0xFF2C2C2E) : Colors.white)
+                           : Colors.transparent,
+                        borderRadius: BorderRadius.circular(8),
+                        boxShadow: isSelected && !isDark
+                            ? [BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 4, offset: const Offset(0, 2))]
                             : [],
                       ),
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Icon(
-                            icons[i],
-                            size: 16,
-                            color: isSelected ? Colors.white : cs.onSurfaceVariant,
+                      child: Center(
+                        child: Text(
+                          labels[i],
+                          style: GoogleFonts.poppins(
+                            fontSize: 13,
+                            fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
+                            color: isSelected 
+                                ? (isDark ? Colors.white : Colors.black)
+                                : (isDark ? Colors.white.withValues(alpha: 0.5) : const Color(0xFF6B7280)),
                           ),
-                          const SizedBox(height: 2),
-                          Text(
-                            labels[i],
-                            style: GoogleFonts.poppins(
-                              fontSize: 10,
-                              fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
-                              color: isSelected ? Colors.white : cs.onSurfaceVariant,
-                            ),
-                          ),
-                        ],
+                        ),
                       ),
                     ),
                   ),
@@ -434,8 +411,184 @@ class _AvatarSelectionSheetState extends ConsumerState<_AvatarSelectionSheet> {
 // Premium Badges Engine & UI
 // ─────────────────────────────────────────────────────────────────────────────
 
-class _BadgesSection extends ConsumerWidget {
-  const _BadgesSection();
+
+class _GroupedSettings extends ConsumerWidget {
+  const _GroupedSettings();
+  
+  Widget _buildGroup(BuildContext context, String title, List<Widget> items) {
+     final isDark = Theme.of(context).brightness == Brightness.dark;
+     return Column(
+       crossAxisAlignment: CrossAxisAlignment.start,
+       children: [
+          Text(title, style: GoogleFonts.poppins(fontSize: 12, fontWeight: FontWeight.bold, color: const Color(0xFF9CA3AF))),
+          const SizedBox(height: 12),
+          Container(
+             decoration: BoxDecoration(
+                color: isDark ? const Color(0xFF1C1C1E) : Colors.white,
+                borderRadius: BorderRadius.circular(20),
+                border: Border.all(color: Theme.of(context).colorScheme.outline.withValues(alpha: 0.3)),
+                boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.02), blurRadius: 10, offset: const Offset(0, 5))],
+             ),
+             child: Column(children: items),
+          ),
+       ],
+     );
+  }
+
+  Widget _buildTile(BuildContext context, String title, IconData icon, [bool showToggle = false, bool isLast = false]) {
+     final isDark = Theme.of(context).brightness == Brightness.dark;
+     return Column(
+       children: [
+         ListTile(
+           leading: Icon(icon, color: isDark ? Colors.white : const Color(0xFF374151)),
+           title: Text(title, style: GoogleFonts.poppins(fontSize: 14, fontWeight: FontWeight.w500, color: Theme.of(context).colorScheme.onSurface)),
+           trailing: showToggle 
+               ? CupertinoSwitch(value: true, onChanged: (v){}, activeTrackColor: CupertinoColors.activeGreen)
+               : Icon(CupertinoIcons.chevron_right, size: 16, color: const Color(0xFF9CA3AF)),
+         ),
+         if (!isLast) Divider(height: 1, indent: 56, color: Theme.of(context).colorScheme.outline.withValues(alpha: 0.1)),
+       ],
+     );
+  }
+
+  Widget _buildNotificationTile(BuildContext context, WidgetRef ref, bool isLast) {
+     final isDark = Theme.of(context).brightness == Brightness.dark;
+     final isSettingsOn = ref.watch(notificationProvider);
+     
+     return Column(
+       children: [
+         ListTile(
+           contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+           leading: Padding(
+             padding: const EdgeInsets.only(top: 4),
+             child: Icon(CupertinoIcons.bell_fill, color: isDark ? Colors.white : const Color(0xFF374151)),
+           ),
+           title: Column(
+             crossAxisAlignment: CrossAxisAlignment.start,
+             children: [
+               Text('Reminders', style: GoogleFonts.poppins(fontSize: 14, fontWeight: FontWeight.w500, color: Theme.of(context).colorScheme.onSurface)),
+               const SizedBox(height: 2),
+               Text(
+                 isSettingsOn ? "You'll receive reminders for your habits" : "Reminders are turned off",
+                 style: GoogleFonts.poppins(fontSize: 10, fontWeight: FontWeight.w400, color: const Color(0xFF9CA3AF)),
+               ),
+             ],
+           ),
+           trailing: CupertinoSwitch(
+             value: isSettingsOn,
+             onChanged: (v) {
+               ref.read(notificationProvider.notifier).setEnabled(v);
+             },
+             activeTrackColor: CupertinoColors.activeGreen,
+           ),
+         ),
+         if (!isLast) Divider(height: 1, indent: 56, color: Theme.of(context).colorScheme.outline.withValues(alpha: 0.1)),
+       ],
+     );
+  }
+
+  Widget _buildSoundsTile(BuildContext context, WidgetRef ref) {
+     final isDark = Theme.of(context).brightness == Brightness.dark;
+     final isNotifOn = ref.watch(notificationProvider);
+     final isSoundsOn = ref.watch(soundsProvider);
+     
+     return Column(
+       children: [
+         Opacity(
+           opacity: isNotifOn ? 1.0 : 0.4,
+           child: ListTile(
+             contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+             leading: Padding(
+               padding: const EdgeInsets.only(top: 4),
+               child: Icon(CupertinoIcons.speaker_2_fill, color: isDark ? Colors.white : const Color(0xFF374151)),
+             ),
+             title: Column(
+               crossAxisAlignment: CrossAxisAlignment.start,
+               children: [
+                 Text('Sounds', style: GoogleFonts.poppins(fontSize: 14, fontWeight: FontWeight.w500, color: Theme.of(context).colorScheme.onSurface)),
+                 if (!isNotifOn) ...[
+                   const SizedBox(height: 2),
+                   Text("Enable reminders to use sounds", style: GoogleFonts.poppins(fontSize: 10, fontWeight: FontWeight.w400, color: const Color(0xFF9CA3AF))),
+                 ],
+               ],
+             ),
+             trailing: CupertinoSwitch(
+               value: isSoundsOn,
+               onChanged: isNotifOn ? (v) => ref.read(soundsProvider.notifier).setEnabled(v) : null,
+               activeTrackColor: CupertinoColors.activeGreen,
+             ),
+           ),
+         ),
+         Divider(height: 1, indent: 56, color: Theme.of(context).colorScheme.outline.withValues(alpha: 0.1)),
+       ],
+     );
+  }
+
+  Widget _buildHapticsTile(BuildContext context, WidgetRef ref) {
+     final isDark = Theme.of(context).brightness == Brightness.dark;
+     final isNotifOn = ref.watch(notificationProvider);
+     final isHapticsOn = ref.watch(hapticsProvider);
+     
+     return Column(
+       children: [
+         Opacity(
+           opacity: isNotifOn ? 1.0 : 0.4,
+           child: ListTile(
+             contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+             leading: Padding(
+               padding: const EdgeInsets.only(top: 4),
+               child: Icon(CupertinoIcons.waveform_path, color: isDark ? Colors.white : const Color(0xFF374151)), 
+             ),
+             title: Column(
+               crossAxisAlignment: CrossAxisAlignment.start,
+               children: [
+                 Text('Haptics', style: GoogleFonts.poppins(fontSize: 14, fontWeight: FontWeight.w500, color: Theme.of(context).colorScheme.onSurface)),
+                 if (!isNotifOn) ...[
+                   const SizedBox(height: 2),
+                   Text("Enable reminders to use haptics", style: GoogleFonts.poppins(fontSize: 10, fontWeight: FontWeight.w400, color: const Color(0xFF9CA3AF))),
+                 ],
+               ],
+             ),
+             trailing: CupertinoSwitch(
+               value: isHapticsOn,
+               onChanged: isNotifOn ? (v) => ref.read(hapticsProvider.notifier).setEnabled(v) : null,
+               activeTrackColor: CupertinoColors.activeGreen,
+             ),
+           ),
+         ),
+       ],
+     );
+  }
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+     return Column(
+       children: [
+         _buildGroup(context, 'APP SETTINGS', [
+            _buildNotificationTile(context, ref, false),
+            _buildSoundsTile(context, ref),
+            _buildHapticsTile(context, ref),
+         ]),
+         const SizedBox(height: 24),
+         _buildGroup(context, 'ACCOUNT', [
+            _buildTile(context, 'Edit Name', CupertinoIcons.pencil, false, false),
+            _buildTile(context, 'Backup & Sync', CupertinoIcons.cloud_upload_fill, false, false),
+            _buildTile(context, 'Export Data', CupertinoIcons.doc_text_fill, false, true),
+         ]),
+         const SizedBox(height: 24),
+         _buildGroup(context, 'PRIVACY', [
+            _buildTile(context, 'Data Control', CupertinoIcons.lock_shield_fill, false, false),
+            _buildTile(context, 'Permissions', CupertinoIcons.hand_draw_fill, false, true),
+         ]),
+       ],
+     );
+  }
+}
+
+
+
+class _BadgesShowcase extends ConsumerWidget {
+  const _BadgesShowcase();
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -443,50 +596,44 @@ class _BadgesSection extends ConsumerWidget {
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Row(
-          children: [
-            const Icon(CupertinoIcons.rosette, size: 24, color: AppColors.primary),
-            const SizedBox(width: 10),
-            Text(
-              'Premium Badges',
-              style: GoogleFonts.poppins(
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-                color: isDark ? Colors.white : const Color(0xFF374151),
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 24),
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
-          decoration: BoxDecoration(
-            color: Theme.of(context).colorScheme.surface.withValues(alpha: 0.4),
-            borderRadius: BorderRadius.circular(32),
-            border: Border.all(color: Theme.of(context).colorScheme.outline.withValues(alpha: 0.3), width: 1.5),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withValues(alpha: 0.05),
-                blurRadius: 20,
-                offset: const Offset(0, 8),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 24),
+          child: Row(
+            children: [
+              Row(
+                children: [
+                  const Icon(CupertinoIcons.rosette, size: 20, color: AppColors.primary),
+                  const SizedBox(width: 8),
+                  Text('Premium Badges', style: GoogleFonts.poppins(fontSize: 16, fontWeight: FontWeight.bold, color: Theme.of(context).colorScheme.onSurface)),
+                ],
               ),
             ],
           ),
-          child: GridView.builder(
-            shrinkWrap: true,
-            padding: EdgeInsets.zero,
-            physics: const NeverScrollableScrollPhysics(),
-            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-              crossAxisCount: 3,
-              mainAxisSpacing: 32,
-              crossAxisSpacing: 16,
-              childAspectRatio: 0.70,
-            ),
+        ),
+        const SizedBox(height: 16),
+        SizedBox(
+          height: 154, 
+          child: ListView.builder(
+            scrollDirection: Axis.horizontal,
+            physics: const BouncingScrollPhysics(),
+            padding: const EdgeInsets.symmetric(horizontal: 24),
             itemCount: badges.length,
             itemBuilder: (context, index) {
-              return _PremiumBadge(badge: badges[index], isDark: isDark);
+              return Padding(
+                padding: const EdgeInsets.only(right: 16),
+                child: Container(
+                  width: 110,
+                  padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 8),
+                  decoration: BoxDecoration(
+                    color: isDark ? const Color(0xFF1C1C1E) : Colors.white,
+                    borderRadius: BorderRadius.circular(24),
+                    border: Border.all(color: Theme.of(context).colorScheme.outline.withValues(alpha: 0.3)),
+                    boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.03), blurRadius: 10, offset: const Offset(0, 5))],
+                  ),
+                  child: _PremiumBadge(badge: badges[index], isDark: isDark),
+                ),
+              );
             },
           ),
         ),

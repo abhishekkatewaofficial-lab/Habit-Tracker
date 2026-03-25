@@ -3,6 +3,7 @@ import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:flutter_timezone/flutter_timezone.dart';
 import 'package:timezone/data/latest.dart' as tz;
 import 'package:timezone/timezone.dart' as tz;
+import 'package:shared_preferences/shared_preferences.dart';
 
 /// Wraps [FlutterLocalNotificationsPlugin] for habit and countdown reminders.
 /// Simple, stable notifications — no interaction actions.
@@ -65,28 +66,26 @@ class NotificationService {
   // Shared notification details
   // ──────────────────────────────────────────────────────────────
 
-  static const _androidDetails = AndroidNotificationDetails(
-    'premium_reminders',
-    'Reminders',
-    channelDescription: 'Important app reminders',
-    importance: Importance.max,
-    priority: Priority.high,
-    playSound: true,
-  );
-
-  static const _iosDetails = DarwinNotificationDetails(
-    presentAlert: true,
-    presentBadge: true,
-    presentSound: true,
-    presentBanner: true,
-    presentList: true,
-    interruptionLevel: InterruptionLevel.timeSensitive,
-  );
-
-  static const _notifDetails = NotificationDetails(
-    android: _androidDetails,
-    iOS: _iosDetails,
-  );
+  static NotificationDetails _buildNotificationDetails(bool playSound) {
+    return NotificationDetails(
+      android: AndroidNotificationDetails(
+        'premium_reminders',
+        'Reminders',
+        channelDescription: 'Important app reminders',
+        importance: Importance.max,
+        priority: Priority.high,
+        playSound: playSound,
+      ),
+      iOS: DarwinNotificationDetails(
+        presentAlert: true,
+        presentBadge: true,
+        presentSound: playSound,
+        presentBanner: true,
+        presentList: true,
+        interruptionLevel: InterruptionLevel.timeSensitive,
+      ),
+    );
+  }
 
   // ──────────────────────────────────────────────────────────────
   // Habit-level scheduling (per weekday)
@@ -109,6 +108,9 @@ class NotificationService {
     required bool isEveryDay,
     required List<int> selectedDays,
   }) async {
+    final prefs = await SharedPreferences.getInstance();
+    if (!(prefs.getBool('notifications_enabled') ?? false)) return;
+
     await cancelHabitReminders(habitId);
 
     // Build list of weekdays (DateTime weekday: Mon=1 ... Sun=7)
@@ -132,7 +134,7 @@ class NotificationService {
         habitName,
         'Time to complete your habit! ✅',
         scheduled,
-        _notifDetails,
+        _buildNotificationDetails(prefs.getBool('sounds_enabled') ?? true),
         androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
         uiLocalNotificationDateInterpretation:
             UILocalNotificationDateInterpretation.absoluteTime,
@@ -166,6 +168,9 @@ class NotificationService {
     required int hour,
     required int minute,
   }) async {
+    final prefs = await SharedPreferences.getInstance();
+    if (!(prefs.getBool('notifications_enabled') ?? false)) return;
+
     await cancelCountdownReminder(countdownId);
 
     final scheduledDate = tz.TZDateTime(
@@ -191,7 +196,7 @@ class NotificationService {
       countdownName,
       "Today is the day! 🎉 Your countdown has arrived.",
       scheduledDate,
-      _notifDetails,
+      _buildNotificationDetails(prefs.getBool('sounds_enabled') ?? true),
       androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
       uiLocalNotificationDateInterpretation:
           UILocalNotificationDateInterpretation.absoluteTime,
