@@ -11,6 +11,8 @@ class Habit extends Equatable {
   final bool isEveryDay;
   final List<int> selectedDays; // 0-6 (Sun-Sat)
   final bool reminderEnabled;
+  final int? reminderHour;   // null = no time selected
+  final int? reminderMinute;
   final int createdAt;
   final int sortOrder;
   final Map<String, int> dailyProgress; // Format: {yyyy-mm-dd: current_progress}
@@ -26,6 +28,8 @@ class Habit extends Equatable {
     required this.isEveryDay,
     this.selectedDays = const [],
     required this.reminderEnabled,
+    this.reminderHour,
+    this.reminderMinute,
     required this.createdAt,
     this.sortOrder = 0,
     this.dailyProgress = const {},
@@ -58,6 +62,8 @@ class Habit extends Equatable {
               .toList() ??
           const [],
       reminderEnabled: json['reminderEnabled'] as bool,
+      reminderHour: json['reminderHour'] as int?,
+      reminderMinute: json['reminderMinute'] as int?,
       createdAt: json['createdAt'] as int,
       sortOrder: json['sortOrder'] as int? ?? 0,
       dailyProgress: progress,
@@ -75,6 +81,8 @@ class Habit extends Equatable {
       'isEveryDay': isEveryDay,
       'selectedDays': selectedDays,
       'reminderEnabled': reminderEnabled,
+      'reminderHour': reminderHour,
+      'reminderMinute': reminderMinute,
       'createdAt': createdAt,
       'sortOrder': sortOrder,
       'dailyProgress': dailyProgress,
@@ -90,6 +98,8 @@ class Habit extends Equatable {
     bool? isEveryDay,
     List<int>? selectedDays,
     bool? reminderEnabled,
+    int? reminderHour,
+    int? reminderMinute,
     int? sortOrder,
     Map<String, int>? dailyProgress,
   }) {
@@ -104,6 +114,8 @@ class Habit extends Equatable {
       isEveryDay: isEveryDay ?? this.isEveryDay,
       selectedDays: selectedDays ?? this.selectedDays,
       reminderEnabled: reminderEnabled ?? this.reminderEnabled,
+      reminderHour: reminderHour ?? this.reminderHour,
+      reminderMinute: reminderMinute ?? this.reminderMinute,
       createdAt: createdAt,
       sortOrder: sortOrder ?? this.sortOrder,
       dailyProgress: dailyProgress ?? this.dailyProgress,
@@ -122,6 +134,8 @@ class Habit extends Equatable {
         isEveryDay,
         selectedDays,
         reminderEnabled,
+        reminderHour,
+        reminderMinute,
         createdAt,
         sortOrder,
         dailyProgress,

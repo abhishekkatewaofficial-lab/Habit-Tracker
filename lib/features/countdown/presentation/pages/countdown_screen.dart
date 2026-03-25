@@ -487,6 +487,9 @@ class _AddEditModalState extends State<_AddEditModal>
   bool _nameFocused = false;
   bool _savePressed = false;
   bool _cancelPressed = false;
+  bool _reminderEnabled = false;
+  int? _reminderHour;
+  int? _reminderMinute;
 
   late AnimationController _animCtrl;
   late Animation<double> _scaleAnim;
@@ -505,6 +508,9 @@ class _AddEditModalState extends State<_AddEditModal>
         e?.targetDate ?? DateTime.now().add(const Duration(days: 7));
     _selectedIcon =
         e != null ? _iconFromCode(e.iconCode) : _iconRegistry.first.icon;
+    _reminderHour = e?.reminderHour;
+    _reminderMinute = e?.reminderMinute;
+    _reminderEnabled = _reminderHour != null;
 
     _animCtrl = AnimationController(
       vsync: this,
@@ -786,6 +792,126 @@ class _AddEditModalState extends State<_AddEditModal>
                           ],
                         ),
                       ),
+                      const SizedBox(height: 24),
+
+                      // ── Enable Reminder ───────────────────────
+                      const _ModalLabel('Reminder'),
+                      const SizedBox(height: 10),
+                      _PremiumTapCard(
+                        onTap: () async {
+                          if (_reminderEnabled) {
+                            // Turn OFF
+                            setState(() {
+                              _reminderEnabled = false;
+                              _reminderHour = null;
+                              _reminderMinute = null;
+                            });
+                          } else {
+                            // Turn ON → show time picker
+                            final picked = await showTimePicker(
+                              context: context,
+                              initialTime: TimeOfDay(
+                                hour: _reminderHour ?? 9,
+                                minute: _reminderMinute ?? 0,
+                              ),
+                            );
+                            if (picked != null) {
+                              setState(() {
+                                _reminderEnabled = true;
+                                _reminderHour = picked.hour;
+                                _reminderMinute = picked.minute;
+                              });
+                            }
+                          }
+                        },
+                        child: Row(
+                          children: [
+                            Container(
+                              width: 38,
+                              height: 38,
+                              decoration: BoxDecoration(
+                                color: (_reminderEnabled
+                                        ? AppColors.primary
+                                        : Colors.grey.shade300)
+                                    .withValues(alpha: _reminderEnabled ? 0.15 : 0.6),
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              child: Icon(
+                                CupertinoIcons.bell_fill,
+                                size: 18,
+                                color: _reminderEnabled
+                                    ? AppColors.primary
+                                    : Colors.grey.shade500,
+                              ),
+                            ),
+                            const SizedBox(width: 14),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    'Enable Reminder',
+                                    style: GoogleFonts.poppins(
+                                      fontSize: 15,
+                                      fontWeight: FontWeight.w600,
+                                      color: isDark
+                                          ? Colors.white
+                                          : const Color(0xFF2D264B),
+                                    ),
+                                  ),
+                                  if (_reminderEnabled &&
+                                      _reminderHour != null)
+                                    Text(
+                                      _formatReminderTime(
+                                          _reminderHour!, _reminderMinute!),
+                                      style: GoogleFonts.poppins(
+                                        fontSize: 12,
+                                        color: AppColors.primary,
+                                        fontWeight: FontWeight.w500,
+                                      ),
+                                    )
+                                  else
+                                    Text(
+                                      'Tap to set a reminder time',
+                                      style: GoogleFonts.poppins(
+                                        fontSize: 12,
+                                        color: Colors.grey.shade400,
+                                      ),
+                                    ),
+                                ],
+                              ),
+                            ),
+                            Switch.adaptive(
+                              value: _reminderEnabled,
+                              activeTrackColor: AppColors.primary,
+                              onChanged: (_) async {
+                                if (_reminderEnabled) {
+                                  setState(() {
+                                    _reminderEnabled = false;
+                                    _reminderHour = null;
+                                    _reminderMinute = null;
+                                  });
+                                } else {
+                                  final picked = await showTimePicker(
+                                    context: context,
+                                    initialTime: TimeOfDay(
+                                      hour: _reminderHour ?? 9,
+                                      minute: _reminderMinute ?? 0,
+                                    ),
+                                  );
+                                  if (picked != null) {
+                                    setState(() {
+                                      _reminderEnabled = true;
+                                      _reminderHour = picked.hour;
+                                      _reminderMinute = picked.minute;
+                                    });
+                                  }
+                                }
+                              },
+                            ),
+                          ],
+                        ),
+                      ),
                       const SizedBox(height: 32),
 
                       // ── Action buttons ────────────────────────
@@ -1013,6 +1139,9 @@ class _AddEditModalState extends State<_AddEditModal>
               name: name,
               targetDate: _selectedDate,
               iconCode: _iconCode(_selectedIcon),
+              reminderHour: _reminderEnabled ? _reminderHour : null,
+              reminderMinute: _reminderEnabled ? _reminderMinute : null,
+              clearReminder: !_reminderEnabled,
             ),
           );
     } else {
@@ -1021,6 +1150,8 @@ class _AddEditModalState extends State<_AddEditModal>
               name: name,
               targetDate: _selectedDate,
               iconCode: _iconCode(_selectedIcon),
+              reminderHour: _reminderEnabled ? _reminderHour : null,
+              reminderMinute: _reminderEnabled ? _reminderMinute : null,
             ),
           );
     }
@@ -1034,6 +1165,13 @@ class _AddEditModalState extends State<_AddEditModal>
     ];
     const weekdays = ['', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
     return '${weekdays[d.weekday]}, ${months[d.month]} ${d.day}, ${d.year}';
+  }
+
+  String _formatReminderTime(int hour, int minute) {
+    final period = hour < 12 ? 'AM' : 'PM';
+    final h = hour % 12 == 0 ? 12 : hour % 12;
+    final m = minute.toString().padLeft(2, '0');
+    return 'Reminder at $h:$m $period  ·  Tap to change';
   }
 }
 

@@ -23,7 +23,13 @@ class ProfileNotifier extends Notifier<ProfileState> {
   ProfileState build() {
     final box = HiveService.settingsBox;
     final name = box.get(_nameKey, defaultValue: '') as String;
-    final imagePath = box.get(_imageKey) as String?;
+    String? imagePath = box.get(_imageKey) as String?;
+
+    // Migrate from legacy absolute file paths seamlessly
+    if (imagePath != null && !imagePath.startsWith('assets/images/avatars/')) {
+      imagePath = null;
+      box.delete(_imageKey);
+    }
     
     return ProfileState(name: name, imagePath: imagePath);
   }

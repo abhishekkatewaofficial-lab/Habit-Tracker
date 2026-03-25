@@ -1,8 +1,11 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'package:flutter_timezone/flutter_timezone.dart';
 import 'package:timezone/data/latest.dart' as tz;
 import 'package:timezone/timezone.dart' as tz;
 
-/// Wraps [FlutterLocalNotificationsPlugin] for habit reminders.
+/// Wraps [FlutterLocalNotificationsPlugin] for habit and countdown reminders.
+/// Simple, stable notifications — no interaction actions.
 class NotificationService {
   NotificationService._();
 
@@ -13,8 +16,22 @@ class NotificationService {
 
   static Future<void> init() async {
     if (_initialized) return;
+
+    // 1. Initialize timezone data
     tz.initializeTimeZones();
 
+    // 2. Set device local timezone
+    try {
+      final String currentTimeZone =
+          (await FlutterTimezone.getLocalTimezone()).identifier;
+      tz.setLocalLocation(tz.getLocation(currentTimeZone));
+      debugPrint('🔔 [NotificationService] Timezone set to: $currentTimeZone');
+    } catch (e) {
+      debugPrint(
+          '🔔 [NotificationService] Error getting local timezone: $e. Falling back to default.');
+    }
+
+    // 3. iOS init settings — clean, no action categories
     const iosSettings = DarwinInitializationSettings(
       requestAlertPermission: true,
       requestBadgePermission: true,
@@ -28,6 +45,9 @@ class NotificationService {
     );
 
     _initialized = true;
+
+    // 4. Request permissions explicitly
+    await requestPermission();
   }
 
   static Future<bool> requestPermission() async {
@@ -41,40 +61,160 @@ class NotificationService {
         false;
   }
 
-  /// Schedule a daily reminder at [hour]:[minute].
-  static Future<void> scheduleDailyReminder({
-    required int id,
-    required String title,
-    required String body,
+  // ──────────────────────────────────────────────────────────────
+  // Shared notification details
+  // ──────────────────────────────────────────────────────────────
+
+  static const _androidDetails = AndroidNotificationDetails(
+    'premium_reminders',
+    'Reminders',
+    channelDescription: 'Important app reminders',
+    importance: Importance.max,
+    priority: Priority.high,
+    playSound: true,
+  );
+
+  static const _iosDetails = DarwinNotificationDetails(
+    presentAlert: true,
+    presentBadge: true,
+    presentSound: true,
+    presentBanner: true,
+    presentList: true,
+    interruptionLevel: InterruptionLevel.timeSensitive,
+  );
+
+  static const _notifDetails = NotificationDetails(
+    android: _androidDetails,
+    iOS: _iosDetails,
+  );
+
+  // ──────────────────────────────────────────────────────────────
+  // Habit-level scheduling (per weekday)
+  // ──────────────────────────────────────────────────────────────
+
+  /// Returns a stable, unique notification ID for a habit on a given weekday.
+  /// weekday: 1 (Mon) ... 7 (Sun), matching DateTime.weekday.
+  static int _notifId(String habitId, int weekday) {
+    final base = habitId.hashCode.abs() & 0x3FFF;
+    return base * 10 + weekday;
+  }
+
+  /// Cancels existing notifications for [habitId] then schedules
+  /// one weekly notification per active weekday at [hour]:[minute].
+  static Future<void> scheduleHabitReminders({
+    required String habitId,
+    required String habitName,
+    required int hour,
+    required int minute,
+    required bool isEveryDay,
+    required List<int> selectedDays,
+  }) async {
+    await cancelHabitReminders(habitId);
+
+    // Build list of weekdays (DateTime weekday: Mon=1 ... Sun=7)
+    final List<int> weekdays;
+    if (isEveryDay) {
+      weekdays = [1, 2, 3, 4, 5, 6, 7];
+    } else {
+      // Convert app 0-6 (Sun=0 ... Sat=6) to DateTime weekday (Mon=1 ... Sun=7)
+      weekdays = selectedDays.map((d) => d == 0 ? 7 : d).toList();
+    }
+
+    for (final weekday in weekdays) {
+      final id = _notifId(habitId, weekday);
+      final scheduled = _nextInstanceOfWeekdayTime(weekday, hour, minute);
+
+      debugPrint(
+          '🔔 [Notification] Habit "$habitName" scheduled for: $scheduled (Timezone: ${tz.local.name})');
+
+      await _plugin.zonedSchedule(
+        id,
+        habitName,
+        'Time to complete your habit! ✅',
+        scheduled,
+        _notifDetails,
+        androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
+        uiLocalNotificationDateInterpretation:
+            UILocalNotificationDateInterpretation.absoluteTime,
+        matchDateTimeComponents: DateTimeComponents.dayOfWeekAndTime,
+      );
+    }
+  }
+
+  /// Cancels all 7 possible weekday notifications for a habit.
+  static Future<void> cancelHabitReminders(String habitId) async {
+    for (int weekday = 1; weekday <= 7; weekday++) {
+      await _plugin.cancel(_notifId(habitId, weekday));
+    }
+  }
+
+  // ──────────────────────────────────────────────────────────────
+  // Countdown-level scheduling (one-shot, fires once on target date)
+  // ──────────────────────────────────────────────────────────────
+
+  /// Stable ID for a countdown notification — bit 16 set to avoid habit ID collisions.
+  static int _countdownNotifId(String countdownId) {
+    return (countdownId.hashCode.abs() & 0xFFFF) | 0x10000;
+  }
+
+  /// Schedules a single notification at [targetDate] on [hour]:[minute].
+  /// Cancels any existing notification for this countdown first.
+  static Future<void> scheduleCountdownReminder({
+    required String countdownId,
+    required String countdownName,
+    required DateTime targetDate,
     required int hour,
     required int minute,
   }) async {
+    await cancelCountdownReminder(countdownId);
+
+    final scheduledDate = tz.TZDateTime(
+      tz.local,
+      targetDate.year,
+      targetDate.month,
+      targetDate.day,
+      hour,
+      minute,
+    );
+
+    if (scheduledDate.isBefore(tz.TZDateTime.now(tz.local))) {
+      debugPrint(
+          '🔔 [Notification] Countdown "$countdownName" time $scheduledDate is in the past. Skipping.');
+      return;
+    }
+
+    debugPrint(
+        '🔔 [Notification] Countdown "$countdownName" scheduled ONE-SHOT for: $scheduledDate (Timezone: ${tz.local.name})');
+
     await _plugin.zonedSchedule(
-      id,
-      title,
-      body,
-      _nextInstanceOfTime(hour, minute),
-      const NotificationDetails(
-        iOS: DarwinNotificationDetails(
-          presentAlert: true,
-          presentBadge: true,
-          presentSound: true,
-          interruptionLevel: InterruptionLevel.active,
-        ),
-      ),
+      _countdownNotifId(countdownId),
+      countdownName,
+      "Today is the day! 🎉 Your countdown has arrived.",
+      scheduledDate,
+      _notifDetails,
       androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
       uiLocalNotificationDateInterpretation:
           UILocalNotificationDateInterpretation.absoluteTime,
-      matchDateTimeComponents: DateTimeComponents.time,
+      // No matchDateTimeComponents → fires exactly once
     );
   }
+
+  /// Cancels the single countdown notification for [countdownId].
+  static Future<void> cancelCountdownReminder(String countdownId) async {
+    await _plugin.cancel(_countdownNotifId(countdownId));
+  }
+
+  // ──────────────────────────────────────────────────────────────
+  // Generic helpers
+  // ──────────────────────────────────────────────────────────────
 
   static Future<void> cancel(int id) async => _plugin.cancel(id);
   static Future<void> cancelAll() async => _plugin.cancelAll();
 
-  static tz.TZDateTime _nextInstanceOfTime(int hour, int minute) {
+  static tz.TZDateTime _nextInstanceOfWeekdayTime(
+      int weekday, int hour, int minute) {
     final now = tz.TZDateTime.now(tz.local);
-    var scheduled = tz.TZDateTime(
+    var candidate = tz.TZDateTime(
       tz.local,
       now.year,
       now.month,
@@ -82,13 +222,13 @@ class NotificationService {
       hour,
       minute,
     );
-    if (scheduled.isBefore(now)) {
-      scheduled = scheduled.add(const Duration(days: 1));
+    while (candidate.weekday != weekday || candidate.isBefore(now)) {
+      candidate = candidate.add(const Duration(days: 1));
     }
-    return scheduled;
+    return candidate;
   }
 
   static void _onNotificationTap(NotificationResponse response) {
-    // TODO: navigate via router
+    // Tap opens the app — navigation can be added here later if needed
   }
 }

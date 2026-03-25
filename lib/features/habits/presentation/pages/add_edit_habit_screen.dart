@@ -1,3 +1,4 @@
+import 'dart:math';
 import 'dart:ui';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
@@ -27,6 +28,8 @@ class _AddEditHabitScreenState extends ConsumerState<AddEditHabitScreen> {
   late bool _isEveryDay;
   late List<int> _selectedDays;
   late bool _reminderEnabled;
+  int? _reminderHour;
+  int? _reminderMinute;
 
   final Map<String, List<String>> _emojiCategories = {
     'Fitness': ['🏃', '💪', '🧘', '🚴', '🏊', '🚶', '🤸', '⚽', '🏀', '🎾', '🚵', '🏸', '🥋', '🥊', '🛹'],
@@ -52,18 +55,41 @@ class _AddEditHabitScreenState extends ConsumerState<AddEditHabitScreen> {
   double _getMaxForUnit(String unit) => _unitMaxValues[unit] ?? 100;
 
   final List<Color> _colors = [
-    const Color(0xFFA5C9FF), // Light Blue
-    const Color(0xFFFFA5A5), // Light Red/Coral
-    const Color(0xFF7B8DCC), // Purplish Blue
-    const Color(0xFFCEA0E6), // Light Purple
-    const Color(0xFF90D590), // Light Green
-    const Color(0xFFFFB347), // Orange
-    const Color(0xFF6AB7FF), // Brighter Blue
-    const Color(0xFFFFE380), // Yellow
-    const Color(0xFFFF8AB3), // Pink
+    // ── Pink / Rose ──────────────────────────────────────
+    const Color(0xFFFFD6E0), // Rose Quartz (lightest)
+    const Color(0xFFFFB3C1), // Blush Pink
+    const Color(0xFFF4A0C8), // Berry Pink
+    const Color(0xFFF0B8E8), // Lilac Pink
+
+    // ── Purple / Violet ──────────────────────────────────
+    const Color(0xFFDDB8F5), // Lavender
+    const Color(0xFFCEA0E6), // Soft Violet
+    const Color(0xFFC8B8F8), // Soft Plum
+    const Color(0xFFB0A8E0), // Wisteria
+
+    // ── Blue / Indigo ────────────────────────────────────
+    const Color(0xFFB0C4F8), // Soft Indigo
+    const Color(0xFFA5C9FF), // Cornflower Blue
+    const Color(0xFF80CFEA), // Sky Blue
+    const Color(0xFF5AAFD4), // Ocean Blue
+
+    // ── Teal / Seafoam ───────────────────────────────────
+    const Color(0xFF7B8DCC), // Periwinkle
+    const Color(0xFF80DBC8), // Seafoam
     const Color(0xFF5CC0B0), // Teal
-    const Color(0xFFFFCC80), // Peach
-    const Color(0xFFB39DDB), // Lavender
+    const Color(0xFFA8E6CF), // Mint Green
+
+    // ── Green / Sage ─────────────────────────────────────
+    const Color(0xFFF0FFF0), // Honeydew (lightest)
+    const Color(0xFFD4F5A0), // Lime Pastel
+    const Color(0xFFB5D5A8), // Sage Green
+    const Color(0xFF90C98A), // Deeper Sage
+
+    // ── Yellow / Orange / Peach ──────────────────────────
+    const Color(0xFFFFE680), // Butter Yellow
+    const Color(0xFFFFCBA4), // Peach
+    const Color(0xFFF5C2A0), // Coral Peach
+    const Color(0xFFFFB347), // Soft Orange
   ];
 
   final List<String> _units = [
@@ -87,9 +113,11 @@ class _AddEditHabitScreenState extends ConsumerState<AddEditHabitScreen> {
     _selectedEmoji = h?.icon ?? '🎯';
     _isQuitHabit = h?.isQuitHabit ?? false;
     
-    // Find color index or default to 0
-    _selectedColorIndex = 0;
-    if (h != null) {
+    // Randomize initial color for new habits; find index for existing ones
+    if (h == null) {
+      _selectedColorIndex = Random().nextInt(_colors.length);
+    } else {
+      _selectedColorIndex = 0; // fallback
       for (int i = 0; i < _colors.length; i++) {
         if (_colors[i].toARGB32() == h.colorValue) {
           _selectedColorIndex = i;
@@ -103,12 +131,22 @@ class _AddEditHabitScreenState extends ConsumerState<AddEditHabitScreen> {
     _isEveryDay = h?.isEveryDay ?? true;
     _selectedDays = List<int>.from(h?.selectedDays ?? []);
     _reminderEnabled = h?.reminderEnabled ?? false;
+    _reminderHour = h?.reminderHour;
+    _reminderMinute = h?.reminderMinute;
   }
 
   @override
   void dispose() {
     _nameController.dispose();
     super.dispose();
+  }
+
+  String _formatTime(int hour, int minute) {
+    final tod = TimeOfDay(hour: hour, minute: minute);
+    final h = tod.hourOfPeriod == 0 ? 12 : tod.hourOfPeriod;
+    final m = tod.minute.toString().padLeft(2, '0');
+    final period = tod.period == DayPeriod.am ? 'AM' : 'PM';
+    return '$h:$m $period';
   }
 
   void _save() {
@@ -130,6 +168,8 @@ class _AddEditHabitScreenState extends ConsumerState<AddEditHabitScreen> {
       isEveryDay: _isEveryDay,
       selectedDays: _isEveryDay ? [] : _selectedDays,
       reminderEnabled: _reminderEnabled,
+      reminderHour: _reminderEnabled ? _reminderHour : null,
+      reminderMinute: _reminderEnabled ? _reminderMinute : null,
       createdAt: widget.existingHabit?.createdAt ?? DateTime.now().millisecondsSinceEpoch,
       dailyProgress: widget.existingHabit?.dailyProgress ?? {},
     );
@@ -460,10 +500,10 @@ class _AddEditHabitScreenState extends ConsumerState<AddEditHabitScreen> {
                         child: SliderTheme(
                           data: SliderTheme.of(context).copyWith(
                             activeTrackColor: Theme.of(context).brightness == Brightness.dark ? Colors.white : AppColors.accent,
-                            inactiveTrackColor: Theme.of(context).brightness == Brightness.dark ? Colors.white.withOpacity(0.1) : Theme.of(context).colorScheme.surfaceContainerHighest,
+                            inactiveTrackColor: Theme.of(context).brightness == Brightness.dark ? Colors.white.withValues(alpha: 0.1) : Theme.of(context).colorScheme.surfaceContainerHighest,
                             thumbColor: Theme.of(context).brightness == Brightness.dark ? Colors.white : AppColors.accent,
                             trackHeight: 6,
-                            overlayColor: Theme.of(context).brightness == Brightness.dark ? Colors.white.withOpacity(0.1) : AppColors.accent.withAlpha(40),
+                            overlayColor: Theme.of(context).brightness == Brightness.dark ? Colors.white.withValues(alpha: 0.1) : AppColors.accent.withAlpha(40),
                           ),
                             child: Slider(
                               value: _goalValue,
@@ -609,15 +649,99 @@ class _AddEditHabitScreenState extends ConsumerState<AddEditHabitScreen> {
                 color: Theme.of(context).colorScheme.surface,
                 borderRadius: BorderRadius.circular(20),
               ),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              child: Column(
                 children: [
-                  Text('Enable Reminders', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Theme.of(context).colorScheme.onSurface)),
-                  CupertinoSwitch(
-                    value: _reminderEnabled,
-                    activeTrackColor: AppColors.accent,
-                    onChanged: (val) => setState(() => _reminderEnabled = val),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text('Enable Reminders',
+                          style: TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.bold,
+                              color: Theme.of(context).colorScheme.onSurface)),
+                      CupertinoSwitch(
+                        value: _reminderEnabled,
+                        activeTrackColor: AppColors.accent,
+                        onChanged: (val) async {
+                          if (val) {
+                            // Show time picker immediately on enable
+                            final picked = await showTimePicker(
+                              context: context,
+                              initialTime: TimeOfDay(
+                                hour: _reminderHour ?? 8,
+                                minute: _reminderMinute ?? 0,
+                              ),
+                              helpText: 'Set reminder time',
+                            );
+                            if (picked != null) {
+                              setState(() {
+                                _reminderEnabled = true;
+                                _reminderHour = picked.hour;
+                                _reminderMinute = picked.minute;
+                              });
+                            }
+                            // If user dismissed the picker, don't enable reminder
+                          } else {
+                            setState(() {
+                              _reminderEnabled = false;
+                              _reminderHour = null;
+                              _reminderMinute = null;
+                            });
+                          }
+                        },
+                      ),
+                    ],
                   ),
+                  // Show selected time + tap-to-change when enabled
+                  if (_reminderEnabled && _reminderHour != null)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 10),
+                      child: InkWell(
+                        onTap: () async {
+                          final picked = await showTimePicker(
+                            context: context,
+                            initialTime: TimeOfDay(
+                                hour: _reminderHour!, minute: _reminderMinute!),
+                            helpText: 'Update reminder time',
+                          );
+                          if (picked != null) {
+                            setState(() {
+                              _reminderHour = picked.hour;
+                              _reminderMinute = picked.minute;
+                            });
+                          }
+                        },
+                        borderRadius: BorderRadius.circular(12),
+                        child: Container(
+                          width: double.infinity,
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 16, vertical: 10),
+                          decoration: BoxDecoration(
+                            color: Theme.of(context)
+                                .colorScheme
+                                .surfaceContainerHighest,
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: Row(
+                            children: [
+                              const Icon(CupertinoIcons.bell_fill,
+                                  size: 16,
+                                  color: AppColors.accent),
+                              const SizedBox(width: 8),
+                              Text(
+                                'Daily reminder at ${_formatTime(_reminderHour!, _reminderMinute!)}  ·  Tap to change',
+                                style: TextStyle(
+                                  fontSize: 13,
+                                  color: Theme.of(context)
+                                      .colorScheme
+                                      .onSurfaceVariant,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
                 ],
               ),
             ),
@@ -941,7 +1065,7 @@ class _ManualValueDialogState extends State<_ManualValueDialog> {
                               decoration: BoxDecoration(
                                 color: Colors.transparent,
                                 borderRadius: BorderRadius.circular(12),
-                                border: Border.all(color: Theme.of(context).brightness == Brightness.dark ? Colors.white.withOpacity(0.15) : Colors.grey.withValues(alpha: 0.3)),
+                                border: Border.all(color: Theme.of(context).brightness == Brightness.dark ? Colors.white.withValues(alpha: 0.15) : Colors.grey.withValues(alpha: 0.3)),
                               ),
                               child: Text(
                                 'Cancel',
@@ -964,7 +1088,7 @@ class _ManualValueDialogState extends State<_ManualValueDialog> {
                               decoration: BoxDecoration(
                                 color: Theme.of(context).brightness == Brightness.dark ? Colors.transparent : AppColors.accent,
                                 borderRadius: BorderRadius.circular(12),
-                                border: Theme.of(context).brightness == Brightness.dark ? Border.all(color: Colors.white.withOpacity(0.15)) : null,
+                                border: Theme.of(context).brightness == Brightness.dark ? Border.all(color: Colors.white.withValues(alpha: 0.15)) : null,
                               ),
                               child: const Text(
                                 'Save',

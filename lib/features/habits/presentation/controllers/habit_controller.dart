@@ -2,6 +2,7 @@ import 'package:intl/intl.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:habit_tracker_ios/features/habits/data/models/habit.dart';
 import 'package:habit_tracker_ios/features/habits/data/repositories/habit_repository.dart';
+import 'package:habit_tracker_ios/core/services/notification_service.dart';
 
 final habitRepositoryProvider = Provider((ref) => HabitRepository());
 
@@ -27,6 +28,20 @@ class HabitNotifier extends StateNotifier<List<Habit>> {
     final habitWithOrder = habit.copyWith(sortOrder: nextOrder);
     await _repository.saveHabit(habitWithOrder);
     state = [...state, habitWithOrder];
+
+    // Schedule notifications if reminder is enabled and time is set
+    if (habitWithOrder.reminderEnabled &&
+        habitWithOrder.reminderHour != null &&
+        habitWithOrder.reminderMinute != null) {
+      await NotificationService.scheduleHabitReminders(
+        habitId: habitWithOrder.id,
+        habitName: habitWithOrder.name,
+        hour: habitWithOrder.reminderHour!,
+        minute: habitWithOrder.reminderMinute!,
+        isEveryDay: habitWithOrder.isEveryDay,
+        selectedDays: habitWithOrder.selectedDays,
+      );
+    }
   }
 
   Future<void> reorderHabits(int oldIndex, int newIndex) async {
@@ -55,10 +70,26 @@ class HabitNotifier extends StateNotifier<List<Habit>> {
       for (final h in state)
         if (h.id == habit.id) habit else h
     ];
+
+    // Always cancel old notifications first, then reschedule if still enabled
+    await NotificationService.cancelHabitReminders(habit.id);
+    if (habit.reminderEnabled &&
+        habit.reminderHour != null &&
+        habit.reminderMinute != null) {
+      await NotificationService.scheduleHabitReminders(
+        habitId: habit.id,
+        habitName: habit.name,
+        hour: habit.reminderHour!,
+        minute: habit.reminderMinute!,
+        isEveryDay: habit.isEveryDay,
+        selectedDays: habit.selectedDays,
+      );
+    }
   }
 
   Future<void> deleteHabit(String id) async {
     await _repository.deleteHabit(id);
+    await NotificationService.cancelHabitReminders(id);
     state = state.where((h) => h.id != id).toList();
   }
 

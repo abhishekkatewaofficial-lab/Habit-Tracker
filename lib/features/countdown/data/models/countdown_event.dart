@@ -7,6 +7,8 @@ class CountdownEvent {
   final DateTime targetDate;
   final String iconCode; // codePoint of CupertinoIconData as string
   final int createdAt; // milliseconds since epoch
+  final int? reminderHour;   // null = no reminder
+  final int? reminderMinute; // null = no reminder
 
   CountdownEvent({
     String? id,
@@ -14,6 +16,8 @@ class CountdownEvent {
     required this.targetDate,
     required this.iconCode,
     int? createdAt,
+    this.reminderHour,
+    this.reminderMinute,
   })  : id = id ?? const Uuid().v4(),
         createdAt = createdAt ?? DateTime.now().millisecondsSinceEpoch;
 
@@ -29,6 +33,9 @@ class CountdownEvent {
     String? name,
     DateTime? targetDate,
     String? iconCode,
+    int? reminderHour,
+    int? reminderMinute,
+    bool clearReminder = false,
   }) {
     return CountdownEvent(
       id: id,
@@ -36,6 +43,8 @@ class CountdownEvent {
       targetDate: targetDate ?? this.targetDate,
       iconCode: iconCode ?? this.iconCode,
       createdAt: createdAt,
+      reminderHour: clearReminder ? null : (reminderHour ?? this.reminderHour),
+      reminderMinute: clearReminder ? null : (reminderMinute ?? this.reminderMinute),
     );
   }
 
@@ -45,6 +54,8 @@ class CountdownEvent {
         'targetDate': targetDate.millisecondsSinceEpoch,
         'iconCode': iconCode,
         'createdAt': createdAt,
+        'reminderHour': reminderHour,
+        'reminderMinute': reminderMinute,
       };
 
   factory CountdownEvent.fromJson(Map<dynamic, dynamic> json) {
@@ -54,6 +65,8 @@ class CountdownEvent {
       targetDate: DateTime.fromMillisecondsSinceEpoch(json['targetDate'] as int),
       iconCode: json['iconCode'] as String,
       createdAt: json['createdAt'] as int,
+      reminderHour: json['reminderHour'] as int?,
+      reminderMinute: json['reminderMinute'] as int?,
     );
   }
 }

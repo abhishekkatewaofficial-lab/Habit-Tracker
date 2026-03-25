@@ -1,4 +1,3 @@
-import 'dart:io';
 import 'dart:ui';
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
@@ -1285,7 +1284,7 @@ class _ProfileButton extends ConsumerWidget {
             ],
             image: profile.imagePath != null
                 ? DecorationImage(
-                    image: FileImage(File(profile.imagePath!)),
+                    image: AssetImage(profile.imagePath!),
                     fit: BoxFit.cover,
                   )
                 : null,
