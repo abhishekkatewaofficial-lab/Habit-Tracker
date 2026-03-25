@@ -272,7 +272,7 @@ class _AddEditHabitScreenState extends ConsumerState<AddEditHabitScreen> {
           widget.existingHabit == null ? 'Add New Habit' : 'Edit Habit',
           style: AppTextStyles.headlineMedium.copyWith(
             fontWeight: FontWeight.bold,
-            color: const Color(0xFF2D3142),
+            color: Theme.of(context).brightness == Brightness.dark ? Colors.white : const Color(0xFF2D3142),
             fontSize: 18,
           ),
         ),

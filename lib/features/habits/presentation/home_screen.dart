@@ -25,6 +25,7 @@ import 'package:habit_tracker_ios/features/eisenhower/presentation/pages/eisenho
 import 'package:habit_tracker_ios/features/countdown/presentation/pages/countdown_screen.dart';
 import 'package:habit_tracker_ios/features/focus_timer/presentation/pages/stopwatch_screen.dart';
 import 'package:habit_tracker_ios/features/profile/presentation/controllers/profile_controller.dart';
+import 'package:habit_tracker_ios/features/profile/presentation/controllers/badge_controller.dart';
 import 'package:habit_tracker_ios/features/profile/presentation/pages/profile_screen.dart';
 
 /// Root scaffold that owns the bottom nav and swaps feature screens.
@@ -47,6 +48,33 @@ class HomeScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    // ── Badge Unlock Listener (Event-Driven Popup System) ──
+    ref.listen<List<BadgeData>>(badgePopupQueueProvider, (previous, next) {
+      if (next.isNotEmpty && (previous == null || previous.length < next.length || previous.first.id != next.first.id)) {
+        final badge = next.first;
+        showGeneralDialog(
+          context: context,
+          barrierDismissible: true,
+          barrierLabel: 'Badge Unlocked',
+          barrierColor: Colors.black.withValues(alpha: 0.85),
+          transitionDuration: const Duration(milliseconds: 600),
+          pageBuilder: (context, anim1, anim2) => _BadgeUnlockPopup(badge: badge),
+          transitionBuilder: (context, anim1, anim2, child) {
+            return ScaleTransition(
+              scale: CurvedAnimation(parent: anim1, curve: Curves.elasticOut),
+              child: FadeTransition(opacity: anim1, child: child),
+            );
+          },
+        ).then((_) {
+          // Dequeue after popup is dismissed
+          final currentQueue = ref.read(badgePopupQueueProvider);
+          if (currentQueue.isNotEmpty) {
+            ref.read(badgePopupQueueProvider.notifier).state = currentQueue.sublist(1);
+          }
+        });
+      }
+    });
+
     final index = ref.watch(navigationIndexProvider);
     return Scaffold(
       backgroundColor: Colors.transparent,
@@ -1973,6 +2001,129 @@ class _GlassAddButtonState extends State<_GlassAddButton> {
                 ),
               ),
             ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// ── Badge Unlock Popup ──
+class _BadgeUnlockPopup extends StatelessWidget {
+  final BadgeData badge;
+
+  const _BadgeUnlockPopup({required this.badge});
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return Center(
+      child: Material(
+        color: Colors.transparent,
+        child: Container(
+          width: 320,
+          padding: const EdgeInsets.all(32),
+          decoration: BoxDecoration(
+            color: isDark ? const Color(0xFF1C1C1E) : Colors.white,
+            borderRadius: BorderRadius.circular(32),
+            border: Border.all(color: Colors.white.withValues(alpha: 0.1), width: 1.5),
+            boxShadow: [
+              BoxShadow(
+                color: badge.glowColor.withValues(alpha: 0.35),
+                blurRadius: 50,
+                spreadRadius: 15,
+              ),
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.4),
+                blurRadius: 30,
+                offset: const Offset(0, 15),
+              ),
+            ],
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                'BADGE UNLOCKED!',
+                style: GoogleFonts.poppins(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: 2.5,
+                  color: badge.gradientColors.first,
+                ),
+              ),
+              const SizedBox(height: 32),
+              // The exact premium badge UI
+              Container(
+                width: 150,
+                height: 150,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  gradient: LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: badge.gradientColors,
+                    stops: const [0.0, 0.45, 0.55, 1.0],
+                  ),
+                  boxShadow: [
+                    BoxShadow(color: badge.glowColor.withValues(alpha: 0.8), blurRadius: 40, spreadRadius: 5),
+                    BoxShadow(color: Colors.black.withValues(alpha: 0.4), blurRadius: 15, offset: const Offset(0, 10)),
+                  ],
+                  border: Border.all(color: Colors.white.withValues(alpha: 0.9), width: 2),
+                ),
+                child: Center(
+                  child: ShaderMask(
+                    shaderCallback: (bounds) => LinearGradient(
+                      begin: Alignment.topCenter,
+                      end: Alignment.bottomCenter,
+                      colors: [Colors.white, Colors.white.withValues(alpha: 0.8)],
+                    ).createShader(bounds),
+                    child: Icon(badge.icon, color: Colors.white, size: 70),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 40),
+              Text(
+                badge.title,
+                style: GoogleFonts.poppins(
+                  fontSize: 28,
+                  fontWeight: FontWeight.bold,
+                  color: isDark ? Colors.white : Colors.black,
+                ),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 8),
+              Text(
+                'You earned the ${badge.subtitle} tier!',
+                style: GoogleFonts.poppins(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w500,
+                  color: isDark ? Colors.grey[400] : Colors.grey[600],
+                ),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 40),
+              SizedBox(
+                width: double.infinity,
+                height: 56,
+                child: ElevatedButton(
+                  onPressed: () => Navigator.of(context).pop(),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: isDark ? Colors.white.withValues(alpha: 0.1) : Colors.black.withValues(alpha: 0.05),
+                    elevation: 0,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+                  ),
+                  child: Text(
+                    'Awesome',
+                    style: GoogleFonts.poppins(
+                      fontSize: 18,
+                      fontWeight: FontWeight.w700,
+                      color: isDark ? Colors.white : Colors.black,
+                    ),
+                  ),
+                ),
+              ),
+            ],
           ),
         ),
       ),

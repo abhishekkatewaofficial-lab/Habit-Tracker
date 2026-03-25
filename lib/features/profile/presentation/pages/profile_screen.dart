@@ -6,6 +6,8 @@ import 'package:habit_tracker_ios/core/constants/app_colors.dart';
 import 'package:habit_tracker_ios/core/constants/app_text_styles.dart';
 import 'package:habit_tracker_ios/core/theme/theme_provider.dart';
 import '../controllers/profile_controller.dart';
+import '../controllers/badge_controller.dart';
+import 'package:habit_tracker_ios/features/habits/presentation/controllers/habit_controller.dart';
 
 class ProfileScreen extends ConsumerStatefulWidget {
   const ProfileScreen({super.key});
@@ -191,6 +193,9 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
             const SizedBox(height: 32),
             // ─── Appearance Section ────────────────────────────────────────────
             const _AppearanceSection(),
+            const SizedBox(height: 32),
+            // ─── Premium Badges Section ─────────────────────────────────────────
+            const _BadgesSection(),
             const SizedBox(height: 100),
           ],
         ),
@@ -421,6 +426,189 @@ class _AvatarSelectionSheetState extends ConsumerState<_AvatarSelectionSheet> {
           ],
         ),
       ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Premium Badges Engine & UI
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _BadgesSection extends ConsumerWidget {
+  const _BadgesSection();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final badges = ref.watch(badgeControllerProvider);
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            const Icon(CupertinoIcons.rosette, size: 24, color: AppColors.primary),
+            const SizedBox(width: 10),
+            Text(
+              'Premium Badges',
+              style: GoogleFonts.poppins(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+                color: isDark ? Colors.white : const Color(0xFF374151),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 24),
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
+          decoration: BoxDecoration(
+            color: Theme.of(context).colorScheme.surface.withValues(alpha: 0.4),
+            borderRadius: BorderRadius.circular(32),
+            border: Border.all(color: Theme.of(context).colorScheme.outline.withValues(alpha: 0.3), width: 1.5),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.05),
+                blurRadius: 20,
+                offset: const Offset(0, 8),
+              ),
+            ],
+          ),
+          child: GridView.builder(
+            shrinkWrap: true,
+            padding: EdgeInsets.zero,
+            physics: const NeverScrollableScrollPhysics(),
+            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+              crossAxisCount: 3,
+              mainAxisSpacing: 32,
+              crossAxisSpacing: 16,
+              childAspectRatio: 0.70,
+            ),
+            itemCount: badges.length,
+            itemBuilder: (context, index) {
+              return _PremiumBadge(badge: badges[index], isDark: isDark);
+            },
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _PremiumBadge extends StatelessWidget {
+  final BadgeData badge;
+  final bool isDark;
+
+  const _PremiumBadge({required this.badge, required this.isDark});
+
+  @override
+  Widget build(BuildContext context) {
+    if (!badge.isUnlocked) {
+      // 🔒 LOCKED STATE
+      return Opacity(
+        opacity: 0.5,
+        child: Column(
+          children: [
+            Container(
+              width: 76,
+              height: 76,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: isDark ? const Color(0xFF2C2C2E) : const Color(0xFFE5E5EA),
+                border: Border.all(color: isDark ? Colors.white.withValues(alpha: 0.1) : Colors.black.withValues(alpha: 0.1), width: 2),
+              ),
+              child: Center(
+                child: Icon(CupertinoIcons.lock_fill, color: isDark ? const Color(0xFF636366) : const Color(0xFF9CA3AF), size: 28),
+              ),
+            ),
+            const SizedBox(height: 12),
+            Text(
+              badge.title,
+              style: GoogleFonts.poppins(fontSize: 11, fontWeight: FontWeight.w600, color: isDark ? const Color(0xFF8E8E93) : const Color(0xFF6B7280)),
+              textAlign: TextAlign.center,
+              maxLines: 1,
+            ),
+            Text(
+              badge.subtitle,
+              style: GoogleFonts.poppins(fontSize: 9, fontWeight: FontWeight.w500, color: isDark ? const Color(0xFF636366) : const Color(0xFF9CA3AF)),
+              textAlign: TextAlign.center,
+              maxLines: 1,
+            ),
+          ],
+        ),
+      );
+    }
+
+    // ✨ UNLOCKED STATE (DOPAMINE LEVEL)
+    return Column(
+      children: [
+        Container(
+          width: 76,
+          height: 76,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            gradient: LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: badge.gradientColors,
+              stops: const [0.0, 0.45, 0.55, 1.0], // Creates a sharp metallic reflection band
+            ),
+            boxShadow: [
+              // Outer Premium Glow
+              BoxShadow(
+                color: badge.glowColor.withValues(alpha: isDark ? 0.4 : 0.6),
+                blurRadius: 24,
+                spreadRadius: 2,
+              ),
+              // Inner Depth Drop Shadow
+              BoxShadow(
+                color: Colors.black.withValues(alpha: isDark ? 0.6 : 0.2),
+                blurRadius: 10,
+                offset: const Offset(0, 6),
+              ),
+            ],
+            border: Border.all(
+              color: Colors.white.withValues(alpha: 0.8), // Inner shine highlight edge
+              width: 1.5,
+            ),
+          ),
+          child: Center(
+            child: ShaderMask(
+              shaderCallback: (bounds) => LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                colors: [Colors.white, Colors.white.withValues(alpha: 0.8)],
+              ).createShader(bounds),
+              child: Icon(
+                badge.icon,
+                color: Colors.white,
+                size: 38,
+              ),
+            ),
+          ),
+        ),
+        const SizedBox(height: 12),
+        Text(
+          badge.title,
+          style: GoogleFonts.poppins(
+            fontSize: 11,
+            fontWeight: FontWeight.w700,
+            color: isDark ? Colors.white : const Color(0xFF1F2937),
+          ),
+          textAlign: TextAlign.center,
+          maxLines: 1,
+        ),
+        Text(
+          badge.subtitle,
+          style: GoogleFonts.poppins(
+            fontSize: 9,
+            fontWeight: FontWeight.w600,
+            color: badge.gradientColors[0], // Subtitle matches the metallic primary color
+          ),
+          textAlign: TextAlign.center,
+          maxLines: 1,
+        ),
+      ],
     );
   }
 }
