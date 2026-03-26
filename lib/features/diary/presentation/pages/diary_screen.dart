@@ -7,6 +7,7 @@ import 'package:habit_tracker_ios/features/diary/data/models/diary_entry.dart';
 import 'package:habit_tracker_ios/features/diary/presentation/controllers/diary_controller.dart';
 import 'package:intl/intl.dart';
 import 'package:uuid/uuid.dart';
+import 'package:habit_tracker_ios/shared_widgets/adaptive_layout.dart';
 
 class DiaryScreen extends ConsumerStatefulWidget {
   const DiaryScreen({super.key});
@@ -106,9 +107,10 @@ class _DiaryScreenState extends ConsumerState<DiaryScreen> {
 
     return Scaffold(
       backgroundColor: Colors.transparent,
-      body: SafeArea(
-        bottom: false,
-        child: Stack(
+      body: AdaptiveBody(
+        child: SafeArea(
+          bottom: false,
+          child: Stack(
           children: [
             Column(
               children: [
@@ -474,6 +476,7 @@ class _DiaryScreenState extends ConsumerState<DiaryScreen> {
             ),
           ],
         ),
+      ),
       ),
     );
   }

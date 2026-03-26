@@ -7,6 +7,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:habit_tracker_ios/core/constants/app_colors.dart';
 import '../controllers/pomodoro_controller.dart';
 import 'pomodoro_fullscreen.dart';
+import 'package:habit_tracker_ios/shared_widgets/adaptive_layout.dart';
 
 class FocusTimerScreen extends ConsumerStatefulWidget {
   const FocusTimerScreen({super.key});
@@ -115,8 +116,9 @@ class _FocusTimerScreenState extends ConsumerState<FocusTimerScreen>
         final bottomPad = isCompact ? 50.0 : 120.0;
         final headerFontSize = isCompact ? 26.0 : 40.0;
 
-        return ClipRect(
-          child: Container(
+        return AdaptiveBody(
+          child: ClipRect(
+            child: Container(
           color: Colors.transparent,
           child: SafeArea(
             bottom: false,
@@ -309,6 +311,7 @@ class _FocusTimerScreenState extends ConsumerState<FocusTimerScreen>
             ),
           ),
          ),  // ClipRect
+          ), // AdaptiveBody
         );
       },
     );

@@ -7,6 +7,7 @@ import 'package:flutter/scheduler.dart';
 import 'package:flutter_slidable/flutter_slidable.dart';
 import 'package:habit_tracker_ios/features/focus_timer/data/models/focus_item.dart';
 import 'package:habit_tracker_ios/features/focus_timer/presentation/controllers/focus_dashboard_controller.dart';
+import 'package:habit_tracker_ios/shared_widgets/adaptive_layout.dart';
 
 class FocusDashboardScreen extends ConsumerStatefulWidget {
   const FocusDashboardScreen({super.key});
@@ -70,6 +71,7 @@ class _FocusDashboardScreenState extends ConsumerState<FocusDashboardScreen> {
 
     return Scaffold(
       backgroundColor: Colors.transparent, // rely on parent
+      resizeToAvoidBottomInset: false,
       floatingActionButton: Padding(
         padding: const EdgeInsets.only(bottom: 110), // Sub-dock clearance (88px) + 22px
         child: _ScaleOnTap(
@@ -111,54 +113,56 @@ class _FocusDashboardScreenState extends ConsumerState<FocusDashboardScreen> {
                 ),
         ),
       ),
-      body: SafeArea(
-        bottom: false,
-        child: Column(
-          children: [
-            // Header
-            Padding(
-              padding: EdgeInsets.fromLTRB(20, topGap, 20, 24),
-              child: Center(
-                child: Text(
-                  'Focus',
-                  style: GoogleFonts.greatVibes(
-                    fontSize: 40,
-                    fontWeight: FontWeight.w600,
-                    color: Theme.of(context).colorScheme.onSurface,
+      body: AdaptiveBody(
+        child: SafeArea(
+          bottom: false,
+          child: Column(
+            children: [
+              // Header
+              Padding(
+                padding: EdgeInsets.fromLTRB(20, topGap, 20, 24),
+                child: Center(
+                  child: Text(
+                    'Focus',
+                    style: GoogleFonts.greatVibes(
+                      fontSize: 40,
+                      fontWeight: FontWeight.w600,
+                      color: Theme.of(context).colorScheme.onSurface,
+                    ),
                   ),
                 ),
               ),
-            ),
 
-            // Content
-            Expanded(
-              child: focusItems.isEmpty
-                  ? _buildEmptyState()
-                  : Theme(
-                      data: Theme.of(context).copyWith(
-                        canvasColor: Colors.transparent, // Prevents white background during drag
+              // Content
+              Expanded(
+                child: focusItems.isEmpty
+                    ? _buildEmptyState()
+                    : Theme(
+                        data: Theme.of(context).copyWith(
+                          canvasColor: Colors.transparent,
+                        ),
+                        child: ReorderableListView.builder(
+                          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8)
+                              .copyWith(bottom: 120),
+                          itemCount: focusItems.length,
+                          buildDefaultDragHandles: false,
+                          proxyDecorator: _proxyDecorator,
+                          onReorder: (oldIndex, newIndex) {
+                            ref.read(focusDashboardProvider.notifier).reorderFocus(oldIndex, newIndex);
+                          },
+                          itemBuilder: (context, index) {
+                            final item = focusItems[index];
+                            return _FocusCard(
+                              key: ValueKey(item.id),
+                              item: item,
+                              index: index,
+                            );
+                          },
+                        ),
                       ),
-                      child: ReorderableListView.builder(
-                        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8)
-                            .copyWith(bottom: 120),
-                        itemCount: focusItems.length,
-                        buildDefaultDragHandles: false,
-                        proxyDecorator: _proxyDecorator,
-                        onReorder: (oldIndex, newIndex) {
-                          ref.read(focusDashboardProvider.notifier).reorderFocus(oldIndex, newIndex);
-                        },
-                        itemBuilder: (context, index) {
-                          final item = focusItems[index];
-                          return _FocusCard(
-                            key: ValueKey(item.id),
-                            item: item,
-                            index: index,
-                          );
-                        },
-                      ),
-                    ),
-            ),
-          ],
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -518,7 +522,7 @@ class _AddFocusModalState extends ConsumerState<_AddFocusModal> {
                   color: Theme.of(context).colorScheme.onSurface,
                 ),
                 decoration: InputDecoration(
-                  hintText: 'e.g., DSA, Reading...',
+                  hintText: 'e.g., Study, Workout, Reading...',
                   hintStyle: GoogleFonts.poppins(
                     color: Theme.of(context).colorScheme.onSurfaceVariant,
                   ),
@@ -601,12 +605,11 @@ class _AddFocusModalState extends ConsumerState<_AddFocusModal> {
                             ),
                           ),
                         )
-                      : ElevatedButton(
+                      : TextButton(
                           onPressed: _save,
-                          style: ElevatedButton.styleFrom(
+                          style: TextButton.styleFrom(
                             padding: const EdgeInsets.symmetric(vertical: 16),
-                            backgroundColor: const Color(0xFF2D264B),
-                            elevation: 0,
+                            backgroundColor: CupertinoColors.activeGreen.withValues(alpha: 0.1),
                             shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(16),
                             ),
@@ -616,7 +619,7 @@ class _AddFocusModalState extends ConsumerState<_AddFocusModal> {
                             style: GoogleFonts.poppins(
                               fontSize: 16,
                               fontWeight: FontWeight.w600,
-                              color: Colors.white,
+                              color: CupertinoColors.activeGreen,
                             ),
                           ),
                         ),

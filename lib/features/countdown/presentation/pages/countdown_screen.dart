@@ -7,6 +7,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:habit_tracker_ios/core/constants/app_colors.dart';
 import '../../data/models/countdown_event.dart';
 import '../controllers/countdown_controller.dart';
+import 'package:habit_tracker_ios/shared_widgets/adaptive_layout.dart';
 
 // ── Colored icon data model ────────────────────────────────────────────────────
 class _CountdownIcon {
@@ -126,31 +127,33 @@ class CountdownScreen extends ConsumerWidget {
                 ),
         ),
       ),
-      body: SafeArea(
-        bottom: false,
-        child: Column(
-          children: [
-            // Header (Calligraphy style)
-            Padding(
-              padding: const EdgeInsets.fromLTRB(20, 30, 20, 20),
-              child: Center(
-                child: Text(
-                  'Countdown',
-                  style: GoogleFonts.greatVibes(
-                    fontSize: 40,
-                    fontWeight: FontWeight.w600,
-                    color: isDark ? Colors.white : const Color(0xFF2D264B),
+      body: AdaptiveBody(
+        child: SafeArea(
+          bottom: false,
+          child: Column(
+            children: [
+              // Header (Calligraphy style)
+              Padding(
+                padding: const EdgeInsets.fromLTRB(20, 30, 20, 20),
+                child: Center(
+                  child: Text(
+                    'Countdown',
+                    style: GoogleFonts.greatVibes(
+                      fontSize: 40,
+                      fontWeight: FontWeight.w600,
+                      color: isDark ? Colors.white : const Color(0xFF2D264B),
+                    ),
                   ),
                 ),
               ),
-            ),
-            
-            Expanded(
-              child: events.isEmpty
-                  ? _buildEmptyState()
-                  : _buildEventsList(context, ref, events),
-            ),
-          ],
+              
+              Expanded(
+                child: events.isEmpty
+                    ? _buildEmptyState()
+                    : _buildEventsList(context, ref, events),
+              ),
+            ],
+          ),
         ),
       ),
     );

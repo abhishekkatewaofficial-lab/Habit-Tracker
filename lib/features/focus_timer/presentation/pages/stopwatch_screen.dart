@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:habit_tracker_ios/core/constants/app_colors.dart';
 import '../controllers/stopwatch_controller.dart';
+import 'package:habit_tracker_ios/shared_widgets/adaptive_layout.dart';
 
 class StopwatchScreen extends ConsumerStatefulWidget {
   const StopwatchScreen({super.key});
@@ -114,9 +115,10 @@ class _StopwatchScreenState extends ConsumerState<StopwatchScreen>
     final Color rightColor =
         isRunning ? const Color(0xFFEF4444) : const Color(0xFF22C55E);
 
-    return Container(
-      color: Colors.transparent,
-      child: SafeArea(
+    return AdaptiveBody(
+      child: Container(
+        color: Colors.transparent,
+        child: SafeArea(
         bottom: false,
         child: Column(
           children: [
@@ -236,6 +238,7 @@ class _StopwatchScreenState extends ConsumerState<StopwatchScreen>
             ),
           ],
         ),
+      ),
       ),
     );
   }

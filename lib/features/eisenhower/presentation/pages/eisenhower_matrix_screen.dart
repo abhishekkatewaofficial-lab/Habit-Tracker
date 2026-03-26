@@ -6,6 +6,7 @@ import '../../data/models/eisenhower_task.dart';
 import '../controllers/eisenhower_controller.dart';
 import '../widgets/matrix_components.dart';
 import 'quadrant_detail_screen.dart';
+import 'package:habit_tracker_ios/shared_widgets/adaptive_layout.dart';
 
 class EisenhowerMatrixScreen extends ConsumerWidget {
   const EisenhowerMatrixScreen({super.key});
@@ -16,41 +17,43 @@ class EisenhowerMatrixScreen extends ConsumerWidget {
 
     return Scaffold(
       backgroundColor: Colors.transparent,
-      body: SafeArea(
-          child: Column(
-            children: [
-              _buildHeader(context),
-              const Expanded(
-                child: Padding(
-                  padding: EdgeInsets.fromLTRB(16, 0, 16, 16),
-                  child: Column(
-                    children: [
-                      Expanded(
-                        child: Row(
-                          children: [
-                            Expanded(child: _MatrixQuadrant(type: QuadrantType.doNow)),
-                            SizedBox(width: 12),
-                            Expanded(child: _MatrixQuadrant(type: QuadrantType.schedule)),
-                          ],
+      body: AdaptiveBody(
+        child: SafeArea(
+            child: Column(
+              children: [
+                _buildHeader(context),
+                const Expanded(
+                  child: Padding(
+                    padding: EdgeInsets.fromLTRB(16, 0, 16, 16),
+                    child: Column(
+                      children: [
+                        Expanded(
+                          child: Row(
+                            children: [
+                              Expanded(child: _MatrixQuadrant(type: QuadrantType.doNow)),
+                              SizedBox(width: 12),
+                              Expanded(child: _MatrixQuadrant(type: QuadrantType.schedule)),
+                            ],
+                          ),
                         ),
-                      ),
-                      SizedBox(height: 12),
-                      Expanded(
-                        child: Row(
-                          children: [
-                            Expanded(child: _MatrixQuadrant(type: QuadrantType.delegate)),
-                            SizedBox(width: 12),
-                            Expanded(child: _MatrixQuadrant(type: QuadrantType.eliminate)),
-                          ],
+                        SizedBox(height: 12),
+                        Expanded(
+                          child: Row(
+                            children: [
+                              Expanded(child: _MatrixQuadrant(type: QuadrantType.delegate)),
+                              SizedBox(width: 12),
+                              Expanded(child: _MatrixQuadrant(type: QuadrantType.eliminate)),
+                            ],
+                          ),
                         ),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
-        ),
+      ),
     );
   }
 

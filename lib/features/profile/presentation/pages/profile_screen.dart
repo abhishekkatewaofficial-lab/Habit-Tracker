@@ -7,6 +7,7 @@ import 'package:habit_tracker_ios/core/constants/app_text_styles.dart';
 import 'package:habit_tracker_ios/core/theme/theme_provider.dart';
 import 'package:habit_tracker_ios/core/services/notification_provider.dart';
 import 'package:habit_tracker_ios/core/services/settings_provider.dart';
+import 'package:habit_tracker_ios/shared_widgets/adaptive_layout.dart';
 import '../controllers/profile_controller.dart';
 import '../controllers/badge_controller.dart';
 
@@ -159,10 +160,11 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
         ),
         centerTitle: true,
       ),
-      body: SingleChildScrollView(
-        physics: const BouncingScrollPhysics(),
-        child: Column(
-          children: [
+      body: AdaptiveBody(
+        child: SingleChildScrollView(
+          physics: const BouncingScrollPhysics(),
+          child: Column(
+            children: [
             const SizedBox(height: 20),
             _buildPremiumHeader(context, profile),
             const SizedBox(height: 32),
@@ -183,6 +185,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
             ),
           ],
         ),
+      ),
       ),
     );
   }

@@ -211,6 +211,35 @@ class _AddEditHabitScreenState extends ConsumerState<AddEditHabitScreen> {
     );
   }
 
+  void _showColorPickerPopup(BuildContext context) {
+    showGeneralDialog(
+      context: context,
+      barrierDismissible: true,
+      barrierLabel: 'Color Picker',
+      barrierColor: Colors.black.withValues(alpha: 0.2),
+      transitionDuration: const Duration(milliseconds: 300),
+      pageBuilder: (context, anim1, anim2) {
+        return _ColorPickerDialog(
+          colors: _colors,
+          selectedColorIndex: _selectedColorIndex,
+          onColorSelected: (index) {
+            setState(() => _selectedColorIndex = index);
+            Navigator.pop(context);
+          },
+        );
+      },
+      transitionBuilder: (context, anim1, anim2, child) {
+        return ScaleTransition(
+          scale: CurvedAnimation(parent: anim1, curve: Curves.easeOutBack),
+          child: FadeTransition(
+            opacity: anim1,
+            child: child,
+          ),
+        );
+      },
+    );
+  }
+
   void _showManualValueDialog() {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     showModalBottomSheet(
@@ -410,76 +439,67 @@ class _AddEditHabitScreenState extends ConsumerState<AddEditHabitScreen> {
               ),
               
               const SizedBox(height: 24),
-              const _SectionLabel(label: 'Color'),
-              const SizedBox(height: 16),
-            
-            // Color Picker — only visible in light mode; dark mode inherits accent automatically
-            if (Theme.of(context).brightness != Brightness.dark) ...[  
-              Container(
-                padding: const EdgeInsets.all(20),
-                decoration: BoxDecoration(
-                  color: Theme.of(context).colorScheme.surface,
-                  borderRadius: BorderRadius.circular(24),
-                ),
-                child: Wrap(
-                  spacing: 16,
-                  runSpacing: 16,
-                  children: List.generate(_colors.length, (index) {
-                    final isSelected = _selectedColorIndex == index;
-                    return GestureDetector(
-                      onTap: () => setState(() => _selectedColorIndex = index),
-                      child: Container(
-                        width: 44,
-                        height: 44,
+              // Color — compact row that opens a centered popup picker
+              GestureDetector(
+                onTap: () => _showColorPickerPopup(context),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+                  decoration: BoxDecoration(
+                    color: Theme.of(context).colorScheme.surface,
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  child: Row(
+                    children: [
+                      // Section icon
+                      Container(
+                        width: 36,
+                        height: 36,
                         decoration: BoxDecoration(
-                          color: _colors[index],
-                          shape: BoxShape.circle,
-                          border: isSelected ? Border.all(color: Colors.blue.withAlpha(100), width: 2) : null,
+                          color: _colors[_selectedColorIndex].withValues(alpha: 0.25),
+                          borderRadius: BorderRadius.circular(10),
                         ),
-                        child: isSelected
-                          ? const Icon(Icons.check, color: Colors.blue, size: 20)
-                          : null,
+                        child: Icon(
+                          Icons.palette_rounded,
+                          size: 20,
+                          color: Theme.of(context).brightness == Brightness.dark
+                              ? Colors.white70
+                              : _colors[_selectedColorIndex].withValues(alpha: 1),
+                        ),
                       ),
-                    );
-                  }),
-                ),
-              ),
-            ] else ...[  
-              // Dark mode: show a minimal indicator instead of pastel picker
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 18),
-                decoration: BoxDecoration(
-                  color: Theme.of(context).colorScheme.surfaceContainerHighest,
-                  borderRadius: BorderRadius.circular(16),
-                  border: Border.all(
-                    color: Colors.white.withValues(alpha: 0.08),
-                    width: 1,
+                      const SizedBox(width: 14),
+                      Expanded(
+                        child: Text(
+                          'Color',
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w600,
+                            color: Theme.of(context).colorScheme.onSurface,
+                          ),
+                        ),
+                      ),
+                      // Selected color preview
+                      Container(
+                        width: 26,
+                        height: 26,
+                        decoration: BoxDecoration(
+                          color: _colors[_selectedColorIndex],
+                          shape: BoxShape.circle,
+                          border: Border.all(
+                            color: Theme.of(context).colorScheme.outline.withValues(alpha: 0.3),
+                            width: 1.5,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Icon(
+                        CupertinoIcons.chevron_right,
+                        size: 16,
+                        color: Theme.of(context).colorScheme.onSurfaceVariant.withValues(alpha: 0.5),
+                      ),
+                    ],
                   ),
                 ),
-                child: Row(
-                  children: [
-                    Container(
-                      width: 20,
-                      height: 20,
-                      decoration: BoxDecoration(
-                        color: _colors[_selectedColorIndex],
-                        shape: BoxShape.circle,
-                      ),
-                    ),
-                    const SizedBox(width: 10),
-                    Text(
-                      'Theme accent (auto-adapted for dark mode)',
-                      style: TextStyle(
-                        color: Theme.of(context).colorScheme.onSurfaceVariant,
-                        fontSize: 12,
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
-                  ],
-                ),
               ),
-            ],
             
             const SizedBox(height: 24),
             const _SectionLabel(label: 'Goal'),
@@ -499,11 +519,11 @@ class _AddEditHabitScreenState extends ConsumerState<AddEditHabitScreen> {
                       Expanded(
                         child: SliderTheme(
                           data: SliderTheme.of(context).copyWith(
-                            activeTrackColor: Theme.of(context).brightness == Brightness.dark ? Colors.white : AppColors.accent,
+                            activeTrackColor: Theme.of(context).brightness == Brightness.dark ? Colors.white : const Color(0xFF1B94FF),
                             inactiveTrackColor: Theme.of(context).brightness == Brightness.dark ? Colors.white.withValues(alpha: 0.1) : Theme.of(context).colorScheme.surfaceContainerHighest,
-                            thumbColor: Theme.of(context).brightness == Brightness.dark ? Colors.white : AppColors.accent,
+                            thumbColor: Theme.of(context).brightness == Brightness.dark ? Colors.white : const Color(0xFF1B94FF),
                             trackHeight: 6,
-                            overlayColor: Theme.of(context).brightness == Brightness.dark ? Colors.white.withValues(alpha: 0.1) : AppColors.accent.withAlpha(40),
+                            overlayColor: Theme.of(context).brightness == Brightness.dark ? Colors.white.withValues(alpha: 0.1) : const Color(0xFF1B94FF).withAlpha(40),
                           ),
                             child: Slider(
                               value: _goalValue,
@@ -573,12 +593,12 @@ class _AddEditHabitScreenState extends ConsumerState<AddEditHabitScreen> {
                           alignment: Alignment.center,
                           decoration: BoxDecoration(
                             color: isSelected 
-                              ? Theme.of(context).brightness == Brightness.dark ? Colors.transparent : AppColors.accent 
+                              ? Theme.of(context).brightness == Brightness.dark ? Colors.transparent : const Color(0xFF1B94FF)
                               : Theme.of(context).colorScheme.surface,
                             borderRadius: BorderRadius.circular(100),
                             border: Border.all(
                                 color: isSelected
-                                    ? Theme.of(context).brightness == Brightness.dark ? Colors.white.withValues(alpha: 0.15) : AppColors.accent
+                                    ? Theme.of(context).brightness == Brightness.dark ? Colors.white.withValues(alpha: 0.15) : const Color(0xFF1B94FF)
                                     : Theme.of(context).colorScheme.outline),
                           ),
                           child: Text(
@@ -616,7 +636,7 @@ class _AddEditHabitScreenState extends ConsumerState<AddEditHabitScreen> {
                       Text('Every Day', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w500, color: Theme.of(context).colorScheme.onSurface)),
                       CupertinoSwitch(
                         value: _isEveryDay,
-                        activeTrackColor: Theme.of(context).brightness == Brightness.dark ? CupertinoColors.activeGreen : AppColors.accent,
+                        activeTrackColor: CupertinoColors.activeGreen,
                         onChanged: (val) {
                           setState(() {
                             _isEveryDay = val;
@@ -661,7 +681,7 @@ class _AddEditHabitScreenState extends ConsumerState<AddEditHabitScreen> {
                               color: Theme.of(context).colorScheme.onSurface)),
                       CupertinoSwitch(
                         value: _reminderEnabled,
-                        activeTrackColor: Theme.of(context).brightness == Brightness.dark ? CupertinoColors.activeGreen : AppColors.accent,
+                        activeTrackColor: CupertinoColors.activeGreen,
                         onChanged: (val) async {
                           if (val) {
                             // Show time picker immediately on enable
@@ -1210,30 +1230,97 @@ class _PremiumSaveButtonState extends State<_PremiumSaveButton> with SingleTicke
         child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
           decoration: BoxDecoration(
-            color: isDark ? Colors.transparent : AppColors.accent,
+            color: Colors.transparent,
             borderRadius: BorderRadius.circular(20),
-            boxShadow: isDark ? [] : [
-              BoxShadow(
-                color: AppColors.accent.withValues(alpha: 0.3),
-                blurRadius: 8,
-                offset: const Offset(0, 4),
-              ),
-            ],
           ),
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              if (!isDark) const Icon(CupertinoIcons.check_mark, color: Colors.white, size: 16),
+              if (!isDark) const Icon(CupertinoIcons.check_mark, color: Color(0xFF1B94FF), size: 16),
               if (!isDark) const SizedBox(width: 6),
               Text(
                 'Save',
                 style: TextStyle(
-                  color: isDark ? const Color(0xFF32D74B) : Colors.white,
+                  color: isDark ? const Color(0xFF32D74B) : const Color(0xFF1B94FF),
                   fontWeight: FontWeight.w700,
                   fontSize: 15,
                 ),
               ),
             ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _ColorPickerDialog extends StatelessWidget {
+  final List<Color> colors;
+  final int selectedColorIndex;
+  final Function(int) onColorSelected;
+
+  const _ColorPickerDialog({
+    super.key,
+    required this.colors,
+    required this.selectedColorIndex,
+    required this.onColorSelected,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    
+    return Center(
+      child: Container(
+        margin: const EdgeInsets.all(24),
+        constraints: const BoxConstraints(maxWidth: 320),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(32),
+          child: BackdropFilter(
+            filter: ImageFilter.blur(sigmaX: 15, sigmaY: 15),
+            child: Material(
+              color: isDark ? const Color(0xFF1C1C1E).withValues(alpha: 0.9) : Colors.white.withValues(alpha: 0.9),
+              child: Container(
+                padding: const EdgeInsets.fromLTRB(24, 28, 24, 28),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      'Select Color',
+                      style: TextStyle(
+                        fontSize: 20,
+                        fontWeight: FontWeight.bold,
+                        color: isDark ? Colors.white : const Color(0xFF2D3142),
+                      ),
+                    ),
+                    const SizedBox(height: 24),
+                    Wrap(
+                      spacing: 16,
+                      runSpacing: 16,
+                      alignment: WrapAlignment.center,
+                      children: List.generate(colors.length, (index) {
+                        final isSelected = selectedColorIndex == index;
+                        return GestureDetector(
+                          onTap: () => onColorSelected(index),
+                          child: Container(
+                            width: 44,
+                            height: 44,
+                            decoration: BoxDecoration(
+                              color: colors[index],
+                              shape: BoxShape.circle,
+                              border: isSelected ? Border.all(color: Colors.blue.withValues(alpha: 0.4), width: 2) : null,
+                            ),
+                            child: isSelected
+                              ? const Icon(Icons.check, color: Colors.blue, size: 20)
+                              : null,
+                          ),
+                        );
+                      }),
+                    ),
+                  ],
+                ),
+              ),
+            ),
           ),
         ),
       ),

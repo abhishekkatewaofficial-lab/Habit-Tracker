@@ -16,35 +16,46 @@ class AppBottomNavBar extends ConsumerWidget {
     final isPlannerMode = ref.watch(plannerModeProvider);
     final isFocusMode = ref.watch(focusModeProvider);
 
+    final isTablet = MediaQuery.of(context).size.shortestSide >= 600;
+
+    Widget dock = Container(
+      color: Colors.transparent,
+      padding: const EdgeInsets.only(left: 20, right: 20, bottom: 12),
+      child: AnimatedSwitcher(
+        duration: const Duration(milliseconds: 500),
+        switchInCurve: Curves.easeOutBack,
+        switchOutCurve: Curves.easeInCubic,
+        transitionBuilder: (child, animation) {
+          final offsetAnimation = Tween<Offset>(
+            begin: const Offset(0, 0.5),
+            end: Offset.zero,
+          ).animate(animation);
+          return FadeTransition(
+            opacity: animation,
+            child: SlideTransition(
+              position: offsetAnimation,
+              child: child,
+            ),
+          );
+        },
+        child: isPlannerMode 
+          ? _buildSubDock(context, ref, currentIndex)
+          : isFocusMode
+              ? _buildFocusSubDock(context, ref, currentIndex)
+              : _buildMainDock(context, ref, currentIndex),
+      ),
+    );
+
     return SafeArea(
       bottom: true,
-      child: Container(
-        color: Colors.transparent,
-        padding: const EdgeInsets.only(left: 20, right: 20, bottom: 12),
-        child: AnimatedSwitcher(
-          duration: const Duration(milliseconds: 500),
-          switchInCurve: Curves.easeOutBack,
-          switchOutCurve: Curves.easeInCubic,
-          transitionBuilder: (child, animation) {
-            final offsetAnimation = Tween<Offset>(
-              begin: const Offset(0, 0.5),
-              end: Offset.zero,
-            ).animate(animation);
-            return FadeTransition(
-              opacity: animation,
-              child: SlideTransition(
-                position: offsetAnimation,
-                child: child,
+      child: isTablet
+          ? Center(
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 540),
+                child: dock,
               ),
-            );
-          },
-          child: isPlannerMode 
-            ? _buildSubDock(context, ref, currentIndex)
-            : isFocusMode
-                ? _buildFocusSubDock(context, ref, currentIndex)
-                : _buildMainDock(context, ref, currentIndex),
-        ),
-      ),
+            )
+          : dock,
     );
   }
 
@@ -214,50 +225,60 @@ class AppBottomNavBar extends ConsumerWidget {
               ),
             ),
             child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                   crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
                 // 1. Focus
-                _SubNavItem(
-                  icon: CupertinoIcons.sparkles,
-                  label: 'Focus',
-                  isSelected: currentIndex == AppConstants.navIndexFocusDashboard,
-                  onTap: () => ref.read(navigationIndexProvider.notifier).state = AppConstants.navIndexFocusDashboard,
+                Expanded(
+                  child: _SubNavItem(
+                    icon: CupertinoIcons.sparkles,
+                    label: 'Focus',
+                    isSelected: currentIndex == AppConstants.navIndexFocusDashboard,
+                    onTap: () => ref.read(navigationIndexProvider.notifier).state = AppConstants.navIndexFocusDashboard,
+                  ),
                 ),
                 
                 // 2. Pomodoro
-                _SubNavItem(
-                  icon: CupertinoIcons.stopwatch,
-                  label: 'Pomodoro',
-                  isSelected: currentIndex == AppConstants.navIndexFocusPomodoro,
-                  onTap: () => ref.read(navigationIndexProvider.notifier).state = AppConstants.navIndexFocusPomodoro,
+                Expanded(
+                  child: _SubNavItem(
+                    icon: CupertinoIcons.stopwatch,
+                    label: 'Pomodoro',
+                    isSelected: currentIndex == AppConstants.navIndexFocusPomodoro,
+                    onTap: () => ref.read(navigationIndexProvider.notifier).state = AppConstants.navIndexFocusPomodoro,
+                  ),
                 ),
 
                 // 3. Home (Center Elevated Removed -> Flat)
-                _SubNavItem(
-                  icon: CupertinoIcons.house_fill,
-                  label: 'Home',
-                  isSelected: false,
-                  onTap: () {
-                    ref.read(focusModeProvider.notifier).state = false;
-                    ref.read(navigationIndexProvider.notifier).state = AppConstants.navIndexHome;
-                  },
+                Expanded(
+                  child: _SubNavItem(
+                    icon: CupertinoIcons.house_fill,
+                    label: 'Home',
+                    isSelected: false,
+                    onTap: () {
+                      ref.read(focusModeProvider.notifier).state = false;
+                      ref.read(navigationIndexProvider.notifier).state = AppConstants.navIndexHome;
+                    },
+                  ),
                 ),
 
                 // 4. Stopwatch
-                _SubNavItem(
-                  icon: CupertinoIcons.timer,
-                  label: 'Stopwatch',
-                  isSelected: currentIndex == AppConstants.navIndexFocusStopwatch,
-                  onTap: () => ref.read(navigationIndexProvider.notifier).state = AppConstants.navIndexFocusStopwatch,
+                Expanded(
+                  child: _SubNavItem(
+                    icon: CupertinoIcons.timer,
+                    label: 'Stopwatch',
+                    isSelected: currentIndex == AppConstants.navIndexFocusStopwatch,
+                    onTap: () => ref.read(navigationIndexProvider.notifier).state = AppConstants.navIndexFocusStopwatch,
+                  ),
                 ),
 
                 // 5. Countdown
-                _SubNavItem(
-                  icon: CupertinoIcons.hourglass,
-                  label: 'Countdown',
-                  isSelected: currentIndex == AppConstants.navIndexFocusCountdown,
-                  onTap: () => ref.read(navigationIndexProvider.notifier).state = AppConstants.navIndexFocusCountdown,
+                Expanded(
+                  child: _SubNavItem(
+                    icon: CupertinoIcons.hourglass,
+                    label: 'Countdown',
+                    isSelected: currentIndex == AppConstants.navIndexFocusCountdown,
+                    onTap: () => ref.read(navigationIndexProvider.notifier).state = AppConstants.navIndexFocusCountdown,
+                  ),
                 ),
               ],
             ),
@@ -389,23 +410,25 @@ class _SubNavItem extends StatelessWidget {
           isSelected ? 1.05 : 1.0, 
           1.0
         ),
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 8),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
             Icon(
               icon,
               color: color,
-              size: 26,
+              size: 24,
             ),
-            const SizedBox(height: 4),
+            const SizedBox(height: 3),
             Text(
               label,
               style: AppTextStyles.labelSmall.copyWith(
                 color: color,
-                fontSize: 10,
+                fontSize: 9,
                 fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
               ),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
             ),
           ],
         ),

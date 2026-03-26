@@ -24,9 +24,11 @@ import 'package:habit_tracker_ios/features/todo/presentation/pages/todo_home_scr
 import 'package:habit_tracker_ios/features/eisenhower/presentation/pages/eisenhower_matrix_screen.dart';
 import 'package:habit_tracker_ios/features/countdown/presentation/pages/countdown_screen.dart';
 import 'package:habit_tracker_ios/features/focus_timer/presentation/pages/stopwatch_screen.dart';
-import 'package:habit_tracker_ios/features/profile/presentation/controllers/profile_controller.dart';
 import 'package:habit_tracker_ios/features/profile/presentation/controllers/badge_controller.dart';
 import 'package:habit_tracker_ios/features/profile/presentation/pages/profile_screen.dart';
+import 'package:habit_tracker_ios/features/profile/presentation/controllers/profile_controller.dart';
+import 'package:habit_tracker_ios/shared_widgets/adaptive_layout.dart';
+
 
 /// Root scaffold that owns the bottom nav and swaps feature screens.
 class HomeScreen extends ConsumerWidget {
@@ -112,87 +114,88 @@ class _HabitsTab extends ConsumerWidget {
     final selectedMidnight = DateTime(selectedDate.year, selectedDate.month, selectedDate.day);
     final isFuture = selectedMidnight.isAfter(todayMidnight);
 
-    return SafeArea(
-      bottom: false, // CRITICAL: Stop SafeArea from adding background block behind dock
-      child: CustomScrollView(
-        slivers: [
-          SliverToBoxAdapter(
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(20, 10, 20, 16),
-              child: SizedBox(
-                height: 48,
-                child: Stack(
-                  alignment: Alignment.center,
-                  children: [
-                    // Left: Filter Button
-                    Align(
-                      alignment: Alignment.centerLeft,
-                      child: _FilterButton(activeFilter: activeFilter),
-                    ),
-                    // Center: Title
-                    Text(
-                      DateFormat('d MMM').format(selectedDate) == DateFormat('d MMM').format(DateTime.now()) 
-                          ? 'Today' 
-                          : DateFormat('d MMM').format(selectedDate), 
-                      style: AppTextStyles.headlineMedium.copyWith(
-                        fontWeight: FontWeight.w800, 
-                        fontSize: 18,
-                        color: Theme.of(context).colorScheme.onSurface,
-                      ),
-                    ),
-                    // Right: Daily Mood & Profile
-                    const Align(
-                      alignment: Alignment.centerRight,
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          _ProfileButton(),
-                          SizedBox(width: 12),
-                          _MoodSelectorButton(),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ),
-          const SliverToBoxAdapter(child: _DateStrip()),
-          const SliverToBoxAdapter(child: SizedBox(height: 16)),
-          if (habits.isEmpty)
+    return AdaptiveBody(
+      child: SafeArea(
+        bottom: false,
+        child: CustomScrollView(
+          slivers: [
             SliverToBoxAdapter(
               child: Padding(
-                padding: const EdgeInsets.symmetric(vertical: 60),
-                child: Center(
-                  child: Text(
-                    'No habits yet. Tap + to start!',
-                    style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant, fontSize: 16),
+                padding: const EdgeInsets.fromLTRB(20, 10, 20, 16),
+                child: SizedBox(
+                  height: 48,
+                  child: Stack(
+                    alignment: Alignment.center,
+                    children: [
+                      // Left: Filter Button
+                      Align(
+                        alignment: Alignment.centerLeft,
+                        child: _FilterButton(activeFilter: activeFilter),
+                      ),
+                      // Center: Title
+                      Text(
+                        DateFormat('d MMM').format(selectedDate) == DateFormat('d MMM').format(DateTime.now()) 
+                            ? 'Today' 
+                            : DateFormat('d MMM').format(selectedDate), 
+                        style: AppTextStyles.headlineMedium.copyWith(
+                          fontWeight: FontWeight.w800, 
+                          fontSize: 18,
+                          color: Theme.of(context).colorScheme.onSurface,
+                        ),
+                      ),
+                      // Right: Daily Mood & Profile
+                      const Align(
+                        alignment: Alignment.centerRight,
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            _ProfileButton(),
+                            SizedBox(width: 12),
+                            _MoodSelectorButton(),
+                          ],
+                        ),
+                      ),
+                    ],
                   ),
                 ),
               ),
-            )
-          else
-            SliverReorderableList(
-              itemBuilder: (context, i) => ReorderableDelayedDragStartListener(
-                key: ValueKey(habits[i].id),
-                index: i,
-                child: _HabitCard(
-                  habit: habits[i], 
-                  dateStr: todayStr, 
-                  isFuture: isFuture,
-                  index: i
-                ),
-              ),
-              itemCount: habits.length,
-              onReorder: (oldIndex, newIndex) {
-                ref.read(habitProvider.notifier).reorderHabits(oldIndex, newIndex);
-              },
             ),
-          const SliverToBoxAdapter(child: SizedBox(height: 120)), // Increased bottom padding
-        ],
+            const SliverToBoxAdapter(child: _DateStrip()),
+            const SliverToBoxAdapter(child: SizedBox(height: 16)),
+            if (habits.isEmpty)
+              SliverToBoxAdapter(
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 60),
+                  child: Center(
+                    child: Text(
+                      'No habits yet. Tap + to start!',
+                      style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant, fontSize: 16),
+                    ),
+                  ),
+                ),
+              )
+            else
+              SliverReorderableList(
+                itemBuilder: (context, i) => ReorderableDelayedDragStartListener(
+                  key: ValueKey(habits[i].id),
+                  index: i,
+                  child: _HabitCard(
+                    habit: habits[i], 
+                    dateStr: todayStr, 
+                    isFuture: isFuture,
+                    index: i
+                  ),
+                ),
+                itemCount: habits.length,
+                onReorder: (oldIndex, newIndex) {
+                  ref.read(habitProvider.notifier).reorderHabits(oldIndex, newIndex);
+                },
+              ),
+            const SliverToBoxAdapter(child: SizedBox(height: 120)),
+          ],
+        ),
       ),
-    );
-  }
+    );  }
 }
 
 // ── Date Strip ────────────────────────────────────────────────────────────────

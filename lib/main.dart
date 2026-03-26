@@ -12,11 +12,28 @@ import 'features/habits/presentation/home_screen.dart';
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  // ── Lock to portrait ──────────────────────────────────────────────────────
-  await SystemChrome.setPreferredOrientations([
-    DeviceOrientation.portraitUp,
-    DeviceOrientation.portraitDown,
-  ]);
+  // ── Orientation: portrait-only on iPhone, all on iPad ────────────────────
+  final view = WidgetsBinding.instance.platformDispatcher.views.first;
+  final shortestSide = view.physicalSize.shortestSide / view.devicePixelRatio;
+  try {
+    if (shortestSide < 600) {
+      // iPhone — portrait lock
+      await SystemChrome.setPreferredOrientations([
+        DeviceOrientation.portraitUp,
+      ]);
+    } else {
+      // iPad — all orientations
+      await SystemChrome.setPreferredOrientations([
+        DeviceOrientation.portraitUp,
+        DeviceOrientation.portraitDown,
+        DeviceOrientation.landscapeLeft,
+        DeviceOrientation.landscapeRight,
+      ]);
+    }
+  } catch (_) {
+    // Silently ignore UISceneErrorDomain orientation errors
+    // (occurs in Split View / Stage Manager windowing modes)
+  }
 
   // ── iOS status/nav bar ────────────────────────────────────────────────────
   SystemChrome.setSystemUIOverlayStyle(const SystemUiOverlayStyle(

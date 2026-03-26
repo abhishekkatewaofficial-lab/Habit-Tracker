@@ -12,6 +12,7 @@ import 'package:habit_tracker_ios/features/focus_timer/presentation/controllers/
 import 'package:habit_tracker_ios/features/habits/presentation/controllers/habit_filter_controller.dart';
 import 'package:habit_tracker_ios/core/services/hive_service.dart';
 import 'package:habit_tracker_ios/features/focus_timer/data/models/focus_daily_summary.dart';
+import 'package:habit_tracker_ios/shared_widgets/adaptive_layout.dart';
 
 final reportDateProvider = StateProvider<DateTime>((ref) => DateTime.now());
 
@@ -31,43 +32,45 @@ class _ReportsScreenState extends State<ReportsScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.transparent,
-      body: Stack(
-        children: [
-          // Content Area
-          Padding(
-            padding: const EdgeInsets.only(top: 100),
-            child: IndexedStack(
-              index: _selectedIndex,
-              children: const [
-                WeeklyReportView(),
-                MonthlyReportView(),
-                YearlyReportView(),
-                InsightsReportView(),
-                FocusReportView(),
-                MoodReportView(),
-              ],
+      body: AdaptiveBody(
+        child: Stack(
+          children: [
+            // Content Area
+            Padding(
+              padding: const EdgeInsets.only(top: 100),
+              child: IndexedStack(
+                index: _selectedIndex,
+                children: const [
+                  WeeklyReportView(),
+                  MonthlyReportView(),
+                  YearlyReportView(),
+                  InsightsReportView(),
+                  FocusReportView(),
+                  MoodReportView(),
+                ],
+              ),
             ),
-          ),
 
-          // Top Floating Dock
-          SafeArea(
-            child: Align(
-              alignment: Alignment.topCenter,
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                child: _ReportsTopDock(
-                  tabs: _tabs,
-                  selectedIndex: _selectedIndex,
-                  onTabSelected: (index) {
-                    setState(() {
-                      _selectedIndex = index;
-                    });
-                  },
+            // Top Floating Dock
+            SafeArea(
+              child: Align(
+                alignment: Alignment.topCenter,
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                  child: _ReportsTopDock(
+                    tabs: _tabs,
+                    selectedIndex: _selectedIndex,
+                    onTabSelected: (index) {
+                      setState(() {
+                        _selectedIndex = index;
+                      });
+                    },
+                  ),
                 ),
               ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
