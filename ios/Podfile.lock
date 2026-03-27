@@ -9,9 +9,13 @@ PODS:
   - geolocator_apple (1.2.0):
     - Flutter
     - FlutterMacOS
+  - package_info_plus (0.4.5):
+    - Flutter
   - shared_preferences_foundation (0.0.1):
     - Flutter
     - FlutterMacOS
+  - wakelock_plus (0.0.1):
+    - Flutter
 
 DEPENDENCIES:
   - Flutter (from `Flutter`)
@@ -19,7 +23,9 @@ DEPENDENCIES:
   - flutter_native_splash (from `.symlinks/plugins/flutter_native_splash/ios`)
   - flutter_timezone (from `.symlinks/plugins/flutter_timezone/ios`)
   - geolocator_apple (from `.symlinks/plugins/geolocator_apple/darwin`)
+  - package_info_plus (from `.symlinks/plugins/package_info_plus/ios`)
   - shared_preferences_foundation (from `.symlinks/plugins/shared_preferences_foundation/darwin`)
+  - wakelock_plus (from `.symlinks/plugins/wakelock_plus/ios`)
 
 EXTERNAL SOURCES:
   Flutter:
@@ -32,8 +38,12 @@ EXTERNAL SOURCES:
     :path: ".symlinks/plugins/flutter_timezone/ios"
   geolocator_apple:
     :path: ".symlinks/plugins/geolocator_apple/darwin"
+  package_info_plus:
+    :path: ".symlinks/plugins/package_info_plus/ios"
   shared_preferences_foundation:
     :path: ".symlinks/plugins/shared_preferences_foundation/darwin"
+  wakelock_plus:
+    :path: ".symlinks/plugins/wakelock_plus/ios"
 
 SPEC CHECKSUMS:
   Flutter: cabc95a1d2626b1b06e7179b784ebcf0c0cde467
@@ -41,7 +51,9 @@ SPEC CHECKSUMS:
   flutter_native_splash: df59bb2e1421aa0282cb2e95618af4dcb0c56c29
   flutter_timezone: ac3da59ac941ff1c98a2e1f0293420e020120282
   geolocator_apple: 66b711889fd333205763b83c9dcf0a57a28c7afd
+  package_info_plus: c0502532a26c7662a62a356cebe2692ec5fe4ec4
   shared_preferences_foundation: 5086985c1d43c5ba4d5e69a4e8083a389e2909e6
+  wakelock_plus: 76957ab028e12bfa4e66813c99e46637f367fc7e
 
 PODFILE CHECKSUM: 251cb053df7158f337c0712f2ab29f4e0fa474ce
 

@@ -304,6 +304,37 @@ class _FocusTimerScreenState extends ConsumerState<FocusTimerScreen>
                           }
                         },
                       ),
+                      if (state.isBreak) ...[
+                        const SizedBox(width: 24),
+                        GestureDetector(
+                          onTap: () => ref.read(pomodoroProvider.notifier).skipBreak(),
+                          child: Container(
+                            height: 48,
+                            padding: const EdgeInsets.symmetric(horizontal: 16),
+                            alignment: Alignment.center,
+                            decoration: BoxDecoration(
+                              borderRadius: BorderRadius.circular(24),
+                              border: Border.all(color: isDark ? Colors.white.withValues(alpha: 0.3) : Colors.black.withValues(alpha: 0.2)),
+                              color: Colors.transparent,
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Text(
+                                  'Skip Break',
+                                  style: GoogleFonts.poppins(
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.w600,
+                                    color: isDark ? Colors.white : Colors.black87,
+                                  ),
+                                ),
+                                const SizedBox(width: 6),
+                                Icon(Icons.skip_next_rounded, size: 18, color: isDark ? Colors.white : Colors.black87),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ],
                     ],
                   ),
                 SizedBox(height: bottomPad),

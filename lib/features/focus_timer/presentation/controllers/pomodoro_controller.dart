@@ -1,5 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:habit_tracker_ios/core/services/hive_service.dart';
+import 'package:wakelock_plus/wakelock_plus.dart';
 
 class PomodoroState {
   // Configuration
@@ -161,6 +162,7 @@ class PomodoroNotifier extends StateNotifier<PomodoroState> {
 
   void start() {
     if (state.isRunning) return;
+    WakelockPlus.enable();
     final newState = state.copyWith(
       isRunning: true,
       targetEndTime: DateTime.now().add(state.remainingBeforePause),
@@ -172,6 +174,7 @@ class PomodoroNotifier extends StateNotifier<PomodoroState> {
 
   void pause() {
     if (!state.isRunning) return;
+    WakelockPlus.disable();
     final remaining = state.currentRemaining;
     final newState = state.copyWith(
       isRunning: false,
@@ -183,6 +186,7 @@ class PomodoroNotifier extends StateNotifier<PomodoroState> {
   }
 
   void reset() {
+    WakelockPlus.disable();
     final newState = PomodoroState(
       focusMinutes: state.focusMinutes,
       breakMinutes: state.breakMinutes,
@@ -211,6 +215,26 @@ class PomodoroNotifier extends StateNotifier<PomodoroState> {
     );
     state = newState;
     _saveState(newState);
+  }
+
+  void skipBreak() {
+    if (!state.isBreak) return;
+    final bool wasRunning = state.isRunning;
+    
+    if (state.currentSessionIndex + 1 >= state.totalSessions) {
+      reset();
+    } else {
+      final nextRemaining = Duration(minutes: state.focusMinutes);
+      final newState = state.copyWith(
+        isBreak: false,
+        currentSessionIndex: state.currentSessionIndex + 1,
+        remainingBeforePause: nextRemaining,
+        targetEndTime: wasRunning ? DateTime.now().add(nextRemaining) : null,
+      );
+      state = newState;
+      _saveState(newState);
+      if (wasRunning) checkTick();
+    }
   }
 }
 

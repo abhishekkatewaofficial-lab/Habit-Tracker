@@ -52,6 +52,15 @@ class NotificationService {
   }
 
   static Future<bool> requestPermission() async {
+    // Android 13+ request
+    final android = _plugin.resolvePlatformSpecificImplementation<
+        AndroidFlutterLocalNotificationsPlugin>();
+    if (android != null) {
+      await android.requestNotificationsPermission();
+      await android.requestExactAlarmsPermission();
+    }
+
+    // iOS request
     final ios = _plugin.resolvePlatformSpecificImplementation<
         IOSFlutterLocalNotificationsPlugin>();
     return await ios?.requestPermissions(
@@ -59,7 +68,7 @@ class NotificationService {
           badge: true,
           sound: true,
         ) ??
-        false;
+        true;
   }
 
   // ──────────────────────────────────────────────────────────────
@@ -69,12 +78,13 @@ class NotificationService {
   static NotificationDetails _buildNotificationDetails(bool playSound) {
     return NotificationDetails(
       android: AndroidNotificationDetails(
-        'premium_reminders',
-        'Reminders',
-        channelDescription: 'Important app reminders',
+        'premium_alerts_v2',
+        'Direct Alerts',
+        channelDescription: 'Time-sensitive app reminders',
         importance: Importance.max,
         priority: Priority.high,
         playSound: playSound,
+        enableVibration: true,
       ),
       iOS: DarwinNotificationDetails(
         presentAlert: true,

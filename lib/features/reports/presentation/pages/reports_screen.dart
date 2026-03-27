@@ -12,7 +12,6 @@ import 'package:habit_tracker_ios/features/focus_timer/presentation/controllers/
 import 'package:habit_tracker_ios/features/habits/presentation/controllers/habit_filter_controller.dart';
 import 'package:habit_tracker_ios/core/services/hive_service.dart';
 import 'package:habit_tracker_ios/features/focus_timer/data/models/focus_daily_summary.dart';
-import 'package:habit_tracker_ios/shared_widgets/adaptive_layout.dart';
 
 final reportDateProvider = StateProvider<DateTime>((ref) => DateTime.now());
 
@@ -32,30 +31,18 @@ class _ReportsScreenState extends State<ReportsScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.transparent,
-      body: AdaptiveBody(
-        child: Stack(
-          children: [
-            // Content Area
-            Padding(
-              padding: const EdgeInsets.only(top: 100),
-              child: IndexedStack(
-                index: _selectedIndex,
-                children: const [
-                  WeeklyReportView(),
-                  MonthlyReportView(),
-                  YearlyReportView(),
-                  InsightsReportView(),
-                  FocusReportView(),
-                  MoodReportView(),
-                ],
-              ),
+      body: SafeArea(
+        child: Container(
+          width: double.infinity,
+          alignment: Alignment.topCenter,
+          child: ConstrainedBox(
+            constraints: BoxConstraints(
+              maxWidth: MediaQuery.of(context).size.width > 600 ? 700 : double.infinity,
             ),
-
-            // Top Floating Dock
-            SafeArea(
-              child: Align(
-                alignment: Alignment.topCenter,
-                child: Padding(
+            child: Column(
+              children: [
+                // Top Floating Dock
+                Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
                   child: _ReportsTopDock(
                     tabs: _tabs,
@@ -67,9 +54,23 @@ class _ReportsScreenState extends State<ReportsScreen> {
                     },
                   ),
                 ),
-              ),
+                // Content Area
+                Expanded(
+                  child: IndexedStack(
+                    index: _selectedIndex,
+                    children: const [
+                      WeeklyReportView(),
+                      MonthlyReportView(),
+                      YearlyReportView(),
+                      InsightsReportView(),
+                      FocusReportView(),
+                      MoodReportView(),
+                    ],
+                  ),
+                ),
+              ],
             ),
-          ],
+          ),
         ),
       ),
     );
@@ -316,52 +317,6 @@ class _HeatmapCard extends StatelessWidget {
           // Focus Row (Dynamic)
           const SizedBox(height: 16),
           _FocusRow(weekDays: weekDays),
-        ],
-      ),
-    );
-  }
-}
-
-class _StatCard extends StatelessWidget {
-  final String value;
-  final String label;
-  final Color color;
-
-  const _StatCard({required this.value, required this.label, required this.color});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 8),
-      decoration: BoxDecoration(
-        color: Theme.of(context).colorScheme.surface,
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.02),
-            blurRadius: 10,
-            offset: const Offset(0, 5),
-          ),
-        ],
-      ),
-      child: Column(
-        children: [
-          Text(
-            value,
-            style: GoogleFonts.poppins(
-              fontSize: 24,
-              fontWeight: FontWeight.w800,
-              color: color,
-            ),
-          ),
-          const SizedBox(height: 4),
-          Text(
-            label,
-            style: GoogleFonts.poppins(
-              fontSize: 11,
-              fontWeight: FontWeight.w500,
-              color: Theme.of(context).colorScheme.onSurfaceVariant,
-            ),
-          ),
         ],
       ),
     );
@@ -1118,6 +1073,7 @@ class FocusReportView extends ConsumerStatefulWidget {
 
 class _FocusReportViewState extends ConsumerState<FocusReportView> {
   Timer? _ticker;
+  int _weekOffset = 0;
 
   @override
   void initState() {
@@ -1147,17 +1103,16 @@ class _FocusReportViewState extends ConsumerState<FocusReportView> {
 
   @override
   Widget build(BuildContext context) {
-    final baseDate = ref.watch(reportDateProvider);
     final focusItems = ref.watch(focusDashboardProvider);
     
-    // Calculate Monday-start week using normalized dates
-    final normalizedBase = DateTime(baseDate.year, baseDate.month, baseDate.day);
-    final int mondayOffset = normalizedBase.weekday - 1;
-    final DateTime monday = normalizedBase.subtract(Duration(days: mondayOffset));
-    final weekDays = List.generate(7, (i) => monday.add(Duration(days: i)));
-
-    
     final today = DateTime.now();
+    final normalizedToday = DateTime(today.year, today.month, today.day);
+    final int mondayOffsetDay = normalizedToday.weekday - 1;
+    final DateTime currentMonday = normalizedToday.subtract(Duration(days: mondayOffsetDay));
+    final DateTime targetMonday = currentMonday.add(Duration(days: 7 * _weekOffset));
+    
+    final weekDays = List.generate(7, (i) => targetMonday.add(Duration(days: i)));
+
     final todayStr = DateFormat('yyyy-MM-dd').format(today);
 
     // Data aggregation
@@ -1186,7 +1141,7 @@ class _FocusReportViewState extends ConsumerState<FocusReportView> {
         int cellSeconds = 0;
         int historicalSeconds = summary?.focusDurations[item.name] ?? 0;
 
-        if (dateStr == todayStr) {
+        if (dateStr == todayStr && _weekOffset == 0) {
           // For today: Use live elapsed time (includes accumulated + running)
           cellSeconds = (item.currentElapsedMs / 1000).floor();
         } else {
@@ -1220,9 +1175,9 @@ class _FocusReportViewState extends ConsumerState<FocusReportView> {
       physics: const BouncingScrollPhysics(),
       padding: const EdgeInsets.fromLTRB(16, 20, 16, 120),
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          _buildHeaderSection(monday),
+          _buildHeaderSection(targetMonday),
           const SizedBox(height: 24),
           
           // The Table
@@ -1289,25 +1244,48 @@ class _FocusReportViewState extends ConsumerState<FocusReportView> {
 
   Widget _buildHeaderSection(DateTime monday) {
     final sunday = monday.add(const Duration(days: 6));
-    final range = "${DateFormat('MMM d').format(monday)} - ${DateFormat('MMM d').format(sunday)}, ${monday.year}";
-    
+    final range = "${DateFormat('d MMM').format(monday)} - ${DateFormat('d MMM').format(sunday)}";
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final textColor = isDark ? Colors.white : Colors.black87;
+    final iconColor = isDark ? Colors.white : Colors.black87;
+
     return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
+      crossAxisAlignment: CrossAxisAlignment.center,
       children: [
-        Text(
-          'Weekly Focus Breakdown',
-          style: GoogleFonts.poppins(
-            fontSize: 22,
-            fontWeight: FontWeight.bold,
-            color: Theme.of(context).colorScheme.onSurface,
+        Center(
+          child: Text(
+            'Weekly Focus Breakdown',
+            style: GoogleFonts.fredoka(
+              fontSize: 22,
+              fontWeight: FontWeight.w600, // Simulates Fredoka One weight
+              color: textColor,
+            ),
+            textAlign: TextAlign.center,
           ),
         ),
-        Text(
-          range,
-          style: GoogleFonts.poppins(
-            fontSize: 14,
-            color: Theme.of(context).colorScheme.onSurfaceVariant,
-          ),
+        const SizedBox(height: 12),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            IconButton(
+              icon: Icon(Icons.chevron_left, color: iconColor),
+              onPressed: () => setState(() => _weekOffset--),
+            ),
+            const SizedBox(width: 8),
+            Text(
+              "Week $range",
+              style: GoogleFonts.poppins(
+                fontSize: 14,
+                fontWeight: FontWeight.w600,
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
+              ),
+            ),
+            const SizedBox(width: 8),
+            IconButton(
+              icon: Icon(Icons.chevron_right, color: _weekOffset < 0 ? iconColor : Colors.transparent),
+              onPressed: _weekOffset < 0 ? () => setState(() => _weekOffset++) : null,
+            ),
+          ],
         ),
       ],
     );
@@ -1404,26 +1382,6 @@ class MoodReportView extends ConsumerWidget {
     final firstDayOffset = firstDay.weekday % 7; 
     
     final todayStr = DateFormat('yyyy-MM-dd').format(DateTime.now());
-
-    int daysLogged = moods.length;
-    int currentStreak = 0;
-    
-    final sortedDates = moods.keys.toList()..sort((a,b) => b.compareTo(a));
-    
-    if (sortedDates.isNotEmpty) {
-      DateTime checkDate = DateTime.now();
-      String checkStr = DateFormat('yyyy-MM-dd').format(checkDate);
-      if (!moods.containsKey(checkStr)) {
-        checkDate = checkDate.subtract(const Duration(days: 1));
-        checkStr = DateFormat('yyyy-MM-dd').format(checkDate);
-      }
-      
-      while (moods.containsKey(checkStr)) {
-        currentStreak++;
-        checkDate = checkDate.subtract(const Duration(days: 1));
-        checkStr = DateFormat('yyyy-MM-dd').format(checkDate);
-      }
-    }
 
     return SingleChildScrollView(
       physics: const BouncingScrollPhysics(),
@@ -1538,93 +1496,248 @@ class MoodReportView extends ConsumerWidget {
           ),
           const SizedBox(height: 24),
           
-          // Bottom Stats
-          Row(
-            children: [
-              Expanded(
-                child: _StatCard(
-                  label: 'Days Logged',
-                  value: '$daysLogged',
-                  color: const Color(0xFF6366F1), // Indigo
+          // --- NEW: Premium Average Mood Card ---
+          if (moods.isNotEmpty) ...[
+            Builder(builder: (context) {
+              int totalScore = 0;
+              int count = 0;
+              
+              int getMoodScore(String emoji) {
+                const high = ['🤩','🥰','😁','🥳','✨','🔥'];
+                const good = ['🙂','😊','😌','✌️','🎉'];
+                const neutral = ['😐','😶','☁️','🤔'];
+                const low = ['😕','🫤','🥱','🌧️'];
+                const veryLow = ['😭','😢','😞','☹️','😠','💔'];
+              
+                if (high.contains(emoji)) return 10;
+                if (good.contains(emoji)) return 7;
+                if (neutral.contains(emoji)) return 5;
+                if (low.contains(emoji)) return 3;
+                if (veryLow.contains(emoji)) return 1;
+                return 5; // fallback
+              }
+
+              // Only calculate for current month
+              moods.forEach((dateStr, emoji) {
+                final date = DateTime.tryParse(dateStr);
+                if (date != null && date.month == month && date.year == year) {
+                  totalScore += getMoodScore(emoji);
+                  count++;
+                }
+              });
+
+              if (count == 0) return const SizedBox.shrink();
+
+              final avg = (totalScore / count).round();
+              
+              String label = 'Neutral';
+              List<Color> bgColors = [const Color(0xFFEFEFEF), const Color(0xFFE0E0E0)];
+              
+              if (avg >= 9) {
+                label = 'Excellent';
+                bgColors = [const Color(0xFFFFF0C2), const Color(0xFFFFD1A9)]; // Warm peach/yellow
+              } else if (avg >= 6) {
+                label = 'Positive';
+                bgColors = [const Color(0xFFE8F5E9), const Color(0xFFC8E6C9)]; // Soft fresh green
+              } else if (avg >= 3) {
+                label = 'Neutral';
+                bgColors = [const Color(0xFFF5F5F5), const Color(0xFFE0E0E0)]; // Beige/light grey
+              } else {
+                label = 'Low';
+                bgColors = [const Color(0xFFE3F2FD), const Color(0xFFD1C4E9)]; // Soft blue/lavender
+              }
+
+              final isDark = Theme.of(context).brightness == Brightness.dark;
+
+              return Container(
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 28),
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(20),
+                  color: isDark ? const Color(0xFF0D0D0D) : null,
+                  gradient: isDark 
+                      ? null 
+                      : LinearGradient(
+                          colors: bgColors,
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                        ),
+                  boxShadow: [
+                    if (!isDark)
+                      BoxShadow(
+                        color: bgColors.last.withValues(alpha: 0.3),
+                        blurRadius: 20,
+                        offset: const Offset(0, 8),
+                      )
+                  ],
                 ),
-              ),
-              const SizedBox(width: 16),
-              Expanded(
-                child: _StatCard(
-                  label: 'Current Streak',
-                  value: '${currentStreak}d',
-                  color: const Color(0xFFF59E0B), // Amber
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  children: [
+                    // Left Text Side
+                    Expanded(
+                      flex: isDark ? 100 : 60,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Average Mood',
+                            style: GoogleFonts.fredoka(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w500,
+                              color: isDark ? Colors.white.withValues(alpha: 0.85) : Colors.black54,
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          Text(
+                            label,
+                            style: GoogleFonts.fredoka(
+                              fontSize: 36,
+                              fontWeight: FontWeight.bold,
+                              height: 1.1,
+                              color: isDark ? Colors.white : const Color(0xFF2D264B),
+                            ),
+                          ),
+                          const SizedBox(height: 6),
+                          Text(
+                            'This month so far',
+                            style: GoogleFonts.fredoka(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w400,
+                              color: isDark ? Colors.white.withValues(alpha: 0.70) : Colors.black45,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    // Right Art Side (Light Mode Only)
+                    if (!isDark)
+                      Expanded(
+                        flex: 40,
+                        child: Container(
+                          height: 90,
+                          alignment: Alignment.centerRight,
+                          child: _PremiumMoodArt(moodLabel: label, isDark: isDark),
+                        ),
+                      ),
+                  ],
                 ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 32),
-          
-          // Recent Logs
-          Align(
-            alignment: Alignment.centerLeft,
-            child: Text(
-              'Recent Logs',
-              style: GoogleFonts.poppins(
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-                color: Theme.of(context).brightness == Brightness.dark ? Colors.white : const Color(0xFF374151),
-              ),
-            ),
-          ),
-          const SizedBox(height: 16),
-          
-          if (sortedDates.isEmpty)
-           Center(
-               child: Padding(
-                 padding: const EdgeInsets.all(32),
-                 child: Text('No mood logs yet!', style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant)),
-               ),
-             )
-          else
-            ...sortedDates.map((dateStr) {
-               final date = DateTime.parse(dateStr);
-               final formattedDate = DateFormat('MMMM d, yyyy').format(date);
-               final emoji = moods[dateStr];
-               
-               return Container(
-                 margin: const EdgeInsets.only(bottom: 12),
-                 padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-                 decoration: BoxDecoration(
-                   color: Theme.of(context).brightness == Brightness.dark ? const Color(0xFF1C1C1E) : Colors.white,
-                   borderRadius: BorderRadius.circular(16),
-                   border: Theme.of(context).brightness == Brightness.dark ? Border.all(color: Colors.white.withValues(alpha: 0.08)) : null,
-                   boxShadow: Theme.of(context).brightness == Brightness.dark ? null : [
-                     BoxShadow(
-                       color: Colors.black.withValues(alpha: 0.02),
-                       blurRadius: 8,
-                       offset: const Offset(0, 4),
-                     ),
-                   ],
-                 ),
-                 child: Row(
-                   children: [
-                     Text(emoji ?? '😐', style: const TextStyle(fontSize: 24)),
-                     const SizedBox(width: 16),
-                     Text(
-                       formattedDate,
-                       style: GoogleFonts.poppins(
-                         fontSize: 14,
-                         fontWeight: FontWeight.w600,
-                         color: Theme.of(context).brightness == Brightness.dark ? const Color(0xFFB0B0B5) : Theme.of(context).colorScheme.onSurfaceVariant,
-                       ),
-                     ),
-                     const Spacer(),
-                     Icon(CupertinoIcons.heart_fill, color: Theme.of(context).brightness == Brightness.dark ? Colors.white : const Color(0xFFFCA5A5), size: 18),
-                   ],
-                 ),
-               );
+              );
             }),
+          ],
             
           const SizedBox(height: 120),
         ],
       ),
     );
+  }
+}
+
+// ── Premium Abstract Mood Art (No Emojis, Wallpaper Style) ──────────────────
+
+class _PremiumMoodArt extends StatelessWidget {
+  final String moodLabel;
+  final bool isDark;
+
+  const _PremiumMoodArt({required this.moodLabel, required this.isDark});
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: double.infinity,
+      height: double.infinity,
+      child: CustomPaint(
+        painter: _MoodArtPainter(moodLabel: moodLabel, isDark: isDark),
+      ),
+    );
+  }
+}
+
+class _MoodArtPainter extends CustomPainter {
+  final String moodLabel;
+  final bool isDark;
+
+  _MoodArtPainter({required this.moodLabel, required this.isDark});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    // Determine visual style based on label mapping
+    if (moodLabel == 'Excellent' || moodLabel == 'Positive') {
+      _drawPositive(canvas, size);
+    } else if (moodLabel == 'Neutral') {
+      _drawNeutral(canvas, size);
+    } else {
+      _drawLow(canvas, size);
+    }
+  }
+
+  void _drawPositive(Canvas canvas, Size size) {
+    // Warm sun glow + fresh flowing wave
+    final sunColor = (isDark ? const Color(0xFFFDE68A) : const Color(0xFFFFD166)).withValues(alpha: 0.85);
+    final waveColor = (isDark ? const Color(0xFFFCA5A5) : const Color(0xFFFF9F1C)).withValues(alpha: 0.65);
+    
+    final paint1 = Paint()
+      ..color = sunColor
+      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 10);
+      
+    final paint2 = Paint()
+      ..color = waveColor
+      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 12);
+
+    // Glowing sun top right
+    canvas.drawCircle(Offset(size.width * 0.7, size.height * 0.25), size.height * 0.45, paint1);
+
+    // Flowing smooth wave
+    final path = Path();
+    path.moveTo(size.width * 0.1, size.height * 0.9);
+    path.quadraticBezierTo(size.width * 0.4, size.height * 0.4, size.width * 0.9, size.height * 0.7);
+    path.lineTo(size.width * 0.9, size.height * 1.2);
+    path.lineTo(size.width * 0.1, size.height * 1.2);
+    path.close();
+    canvas.drawPath(path, paint2);
+  }
+
+  void _drawNeutral(Canvas canvas, Size size) {
+    // Balanced, airy cloud-like shapes / symmetry
+    final baseColor = (isDark ? const Color(0xFF9CA3AF) : const Color(0xFFB0BEC5)).withValues(alpha: 0.75);
+    final accentColor = (isDark ? const Color(0xFF6B7280) : const Color(0xFFCFD8DC)).withValues(alpha: 0.6);
+
+    final paint1 = Paint()
+      ..color = baseColor
+      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 8);
+    final paint2 = Paint()
+      ..color = accentColor
+      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 10);
+
+    // Two balanced interlocking blobs
+    canvas.drawCircle(Offset(size.width * 0.4, size.height * 0.5), size.height * 0.4, paint1);
+    canvas.drawCircle(Offset(size.width * 0.7, size.height * 0.6), size.height * 0.35, paint2);
+  }
+
+  void _drawLow(Canvas canvas, Size size) {
+    // Soft, minimal, blurred wave at bottom
+    final toneColor = (isDark ? const Color(0xFF3B82F6).withValues(alpha: 0.4) : const Color(0xFF90CAF9).withValues(alpha: 0.7));
+    final darkColor = (isDark ? const Color(0xFF1E3A8A).withValues(alpha: 0.5) : const Color(0xFF64B5F6).withValues(alpha: 0.6));
+
+    final paint1 = Paint()
+      ..color = toneColor
+      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 16);
+      
+    final paint2 = Paint()
+      ..color = darkColor
+      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 14);
+
+    // Drooping soft abstract oval
+    canvas.drawOval(
+      Rect.fromCenter(center: Offset(size.width * 0.5, size.height * 0.7), width: size.width * 0.8, height: size.height * 0.5),
+      paint2,
+    );
+    canvas.drawCircle(Offset(size.width * 0.3, size.height * 0.6), size.height * 0.35, paint1);
+  }
+
+  @override
+  bool shouldRepaint(covariant _MoodArtPainter oldDelegate) {
+    return oldDelegate.moodLabel != moodLabel || oldDelegate.isDark != isDark;
   }
 }
 
