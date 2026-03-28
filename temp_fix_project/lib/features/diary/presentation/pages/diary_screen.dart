@@ -205,20 +205,38 @@ class _DiaryScreenState extends ConsumerState<DiaryScreen> {
                                   color: Theme.of(context).colorScheme.surfaceContainerHighest,
                                   borderRadius: BorderRadius.circular(20),
                                 ),
-                                child: TextField(
-                                  controller: _contentController,
-                                  focusNode: _contentFocusNode,
-                                  maxLines: 3, // Reduced from 5 (approx 60% visual height)
-                                  style: AppTextStyles.bodyMedium.copyWith(color: Theme.of(context).colorScheme.onSurface, fontSize: 14),
-                                  decoration: InputDecoration(
-                                    hintText: 'Describe your day, feelings, or anything on your mind...',
-                                    hintStyle: AppTextStyles.bodyMedium.copyWith(
-                                      color: Theme.of(context).colorScheme.onSurfaceVariant, 
-                                      fontSize: 12, // Reduced from 13
+                                child: Stack(
+                                  children: [
+                                    TextField(
+                                      controller: _contentController,
+                                      focusNode: _contentFocusNode,
+                                      maxLines: 3, // Reduced from 5 (approx 60% visual height)
+                                      style: AppTextStyles.bodyMedium.copyWith(color: Theme.of(context).colorScheme.onSurface, fontSize: 14),
+                                      decoration: InputDecoration(
+                                        hintText: 'Describe your day, feelings, or anything on your mind...',
+                                        hintStyle: AppTextStyles.bodyMedium.copyWith(
+                                          color: Theme.of(context).colorScheme.onSurfaceVariant, 
+                                          fontSize: 12, // Reduced from 13
+                                        ),
+                                        border: InputBorder.none,
+                                        contentPadding: const EdgeInsets.all(20),
+                                      ),
                                     ),
-                                    border: InputBorder.none,
-                                    contentPadding: const EdgeInsets.all(20),
-                                  ),
+                                    Positioned(
+                                      top: 8,
+                                      right: 8,
+                                      child: IconButton(
+                                        icon: Icon(
+                                          Icons.keyboard_hide_rounded,
+                                          color: (Theme.of(context).brightness == Brightness.dark ? Colors.white : Colors.black).withValues(alpha: 0.75),
+                                          size: 20,
+                                        ),
+                                        onPressed: () => FocusScope.of(context).unfocus(),
+                                        padding: const EdgeInsets.all(8),
+                                        constraints: const BoxConstraints(), 
+                                      ),
+                                    ),
+                                  ],
                                 ),
                               ),
                               

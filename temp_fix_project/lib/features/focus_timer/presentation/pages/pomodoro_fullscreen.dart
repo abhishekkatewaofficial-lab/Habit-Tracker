@@ -1,5 +1,6 @@
 import 'dart:math';
 import 'package:flutter/material.dart';
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -159,34 +160,94 @@ class _PomodoroFullscreenState extends ConsumerState<PomodoroFullscreen>
               ),
             ),
 
-            // Session Dots (Bottom Center)
+            // Controls & Session Dots (Bottom Center)
             Align(
               alignment: Alignment.bottomCenter,
               child: Padding(
                 padding: const EdgeInsets.only(bottom: 32),
-                child: Row(
+                child: Column(
                   mainAxisSize: MainAxisSize.min,
-                  children: List.generate(state.totalSessions, (index) {
-                    final isCompleted = index < state.currentSessionIndex;
-                    final isCurrent = index == state.currentSessionIndex;
+                  children: [
+                    // Playback Controls
+                    Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        GestureDetector(
+                          onTap: () {
+                            if (state.isRunning) {
+                              ref.read(pomodoroProvider.notifier).pause();
+                            } else {
+                              ref.read(pomodoroProvider.notifier).start();
+                            }
+                          },
+                          child: Container(
+                            padding: const EdgeInsets.all(8),
+                            color: Colors.transparent,
+                            child: Icon(
+                              state.isRunning ? CupertinoIcons.pause_circle : CupertinoIcons.play_circle,
+                              color: Colors.white,
+                              size: 56,
+                            ),
+                          ),
+                        ),
+                        if (state.isBreak) ...[
+                          const SizedBox(width: 24),
+                          GestureDetector(
+                            onTap: () => ref.read(pomodoroProvider.notifier).skipBreak(),
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                              decoration: BoxDecoration(
+                                borderRadius: BorderRadius.circular(24),
+                                border: Border.all(color: Colors.white.withValues(alpha: 0.3)),
+                                color: Colors.transparent,
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Text(
+                                    'Skip Break',
+                                    style: GoogleFonts.poppins(
+                                      fontSize: 14,
+                                      fontWeight: FontWeight.w600,
+                                      color: Colors.white,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 6),
+                                  const Icon(Icons.skip_next_rounded, size: 20, color: Colors.white),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
+                    const SizedBox(height: 24),
+                    // Session Dots
+                    Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: List.generate(state.totalSessions, (index) {
+                        final isCompleted = index < state.currentSessionIndex;
+                        final isCurrent = index == state.currentSessionIndex;
 
-                    return Container(
-                      margin: const EdgeInsets.symmetric(horizontal: 8),
-                      width: 12,
-                      height: 12,
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        color: isCompleted
-                            ? Colors.grey.shade600
-                            : (isCurrent && !state.isBreak
-                                ? Colors.white
-                                : Colors.grey.shade800),
-                        border: isCompleted || (isCurrent && !state.isBreak)
-                            ? null
-                            : Border.all(color: Colors.grey.shade800, width: 2),
-                      ),
-                    );
-                  }),
+                        return Container(
+                          margin: const EdgeInsets.symmetric(horizontal: 8),
+                          width: 12,
+                          height: 12,
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            color: isCompleted
+                                ? Colors.grey.shade600
+                                : (isCurrent && !state.isBreak
+                                    ? Colors.white
+                                    : Colors.grey.shade800),
+                            border: isCompleted || (isCurrent && !state.isBreak)
+                                ? null
+                                : Border.all(color: Colors.grey.shade800, width: 2),
+                          ),
+                        );
+                      }),
+                    ),
+                  ],
                 ),
               ),
             ),

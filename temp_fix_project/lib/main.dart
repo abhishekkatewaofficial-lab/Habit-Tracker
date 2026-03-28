@@ -4,10 +4,12 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'core/services/hive_service.dart';
 import 'core/services/notification_service.dart';
+import 'core/services/smart_nudge_service.dart';
 import 'core/theme/app_theme.dart';
 import 'core/theme/app_background.dart';
 import 'core/theme/theme_provider.dart';
 import 'features/habits/presentation/home_screen.dart';
+import 'features/habits/presentation/controllers/habit_controller.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -55,11 +57,38 @@ Future<void> main() async {
   );
 }
 
-class HabitTrackerApp extends ConsumerWidget {
+class HabitTrackerApp extends ConsumerStatefulWidget {
   const HabitTrackerApp({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<HabitTrackerApp> createState() => _HabitTrackerAppState();
+}
+
+class _HabitTrackerAppState extends ConsumerState<HabitTrackerApp>
+    with WidgetsBindingObserver {
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      // Re-evaluate and pre-schedule today's nudges each time app comes to foreground
+      final habits = ref.read(habitProvider);
+      SmartNudgeService.scheduleForToday(habits);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
     // Eagerly initialise background provider
     ref.watch(globalBackgroundThemeProvider);
 
@@ -100,3 +129,4 @@ class HabitTrackerApp extends ConsumerWidget {
     );
   }
 }
+

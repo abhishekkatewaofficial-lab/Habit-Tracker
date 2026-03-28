@@ -527,6 +527,46 @@ class _GroupedSettings extends ConsumerWidget {
      );
   }
 
+  Widget _buildSmartNudgesTile(BuildContext context, WidgetRef ref) {
+     final isDark = Theme.of(context).brightness == Brightness.dark;
+     final isNotifOn = ref.watch(notificationProvider);
+     final isSmartOn = ref.watch(smartNudgesProvider);
+
+     return Column(
+       children: [
+         Opacity(
+           opacity: isNotifOn ? 1.0 : 0.4,
+           child: ListTile(
+             contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+             leading: Padding(
+               padding: const EdgeInsets.only(top: 4),
+               child: Icon(CupertinoIcons.lightbulb_fill, color: isDark ? Colors.white : const Color(0xFF374151)),
+             ),
+             title: Column(
+               crossAxisAlignment: CrossAxisAlignment.start,
+               children: [
+                 Text('Smart Nudges', style: GoogleFonts.poppins(fontSize: 14, fontWeight: FontWeight.w500, color: Theme.of(context).colorScheme.onSurface)),
+                 const SizedBox(height: 2),
+                 Text(
+                   isNotifOn
+                       ? (isSmartOn ? 'Intelligent reminders based on your habits' : 'Smart nudges are off')
+                       : 'Enable reminders to use smart nudges',
+                   style: GoogleFonts.poppins(fontSize: 10, fontWeight: FontWeight.w400, color: const Color(0xFF9CA3AF)),
+                 ),
+               ],
+             ),
+             trailing: CupertinoSwitch(
+               value: isSmartOn,
+               onChanged: isNotifOn ? (v) => ref.read(smartNudgesProvider.notifier).setEnabled(v) : null,
+               activeTrackColor: CupertinoColors.activeGreen,
+             ),
+           ),
+         ),
+         Divider(height: 1, indent: 56, color: Theme.of(context).colorScheme.outline.withValues(alpha: 0.1)),
+       ],
+     );
+  }
+
   Widget _buildHapticsTile(BuildContext context, WidgetRef ref) {
      final isDark = Theme.of(context).brightness == Brightness.dark;
      final isNotifOn = ref.watch(notificationProvider);
@@ -570,6 +610,7 @@ class _GroupedSettings extends ConsumerWidget {
          _buildGroup(context, 'APP SETTINGS', [
             _buildNotificationTile(context, ref, false),
             _buildSoundsTile(context, ref),
+            _buildSmartNudgesTile(context, ref),
             _buildHapticsTile(context, ref),
          ]),
          const SizedBox(height: 24),

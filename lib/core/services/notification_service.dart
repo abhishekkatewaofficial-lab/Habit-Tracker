@@ -223,6 +223,47 @@ class NotificationService {
   // Generic helpers
   // ──────────────────────────────────────────────────────────────
 
+  /// Fires a notification immediately (no scheduling).
+  /// Used by SmartNudgeService for context-aware nudges.
+  static Future<void> showImmediate({
+    required int id,
+    required String title,
+    required String body,
+  }) async {
+    final prefs = await SharedPreferences.getInstance();
+    if (!_initialized) return;
+    await _plugin.show(
+      id,
+      title,
+      body,
+      _buildNotificationDetails(prefs.getBool('sounds_enabled') ?? true),
+    );
+  }
+
+  /// Schedules a single smart nudge at [scheduledTime].
+  /// Used by SmartNudgeService to pre-schedule nudges that fire even when
+  /// the app is closed or the screen is locked.
+  static Future<void> scheduleSmartNudge({
+    required int id,
+    required String title,
+    required String body,
+    required tz.TZDateTime scheduledTime,
+    required SharedPreferences prefs,
+  }) async {
+    if (!_initialized) return;
+    await _plugin.zonedSchedule(
+      id,
+      title,
+      body,
+      scheduledTime,
+      _buildNotificationDetails(prefs.getBool('sounds_enabled') ?? true),
+      androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
+      uiLocalNotificationDateInterpretation:
+          UILocalNotificationDateInterpretation.absoluteTime,
+      // No matchDateTimeComponents → one-shot, fires exactly once today
+    );
+  }
+
   static Future<void> cancel(int id) async => _plugin.cancel(id);
   static Future<void> cancelAll() async => _plugin.cancelAll();
 

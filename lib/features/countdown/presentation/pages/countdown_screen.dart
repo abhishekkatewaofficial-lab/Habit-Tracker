@@ -1,12 +1,15 @@
 import 'dart:ui';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_slidable/flutter_slidable.dart';
 import 'package:google_fonts/google_fonts.dart';
+import '../../../../shared_widgets/cupertino_date_picker_sheet.dart';
 import 'package:habit_tracker_ios/core/constants/app_colors.dart';
 import '../../data/models/countdown_event.dart';
 import '../controllers/countdown_controller.dart';
+import 'package:habit_tracker_ios/shared_widgets/cupertino_time_picker_sheet.dart';
 import 'package:habit_tracker_ios/shared_widgets/adaptive_layout.dart';
 
 // ── Colored icon data model ────────────────────────────────────────────────────
@@ -811,7 +814,7 @@ class _AddEditModalState extends State<_AddEditModal>
                             });
                           } else {
                             // Turn ON → show time picker
-                            final picked = await showTimePicker(
+                            final picked = await showCupertinoTimePickerSheet(
                               context: context,
                               initialTime: TimeOfDay(
                                 hour: _reminderHour ?? 9,
@@ -895,7 +898,7 @@ class _AddEditModalState extends State<_AddEditModal>
                                     _reminderMinute = null;
                                   });
                                 } else {
-                                  final picked = await showTimePicker(
+                                  final picked = await showCupertinoTimePickerSheet(
                                     context: context,
                                     initialTime: TimeOfDay(
                                       hour: _reminderHour ?? 9,
@@ -1073,37 +1076,17 @@ class _AddEditModalState extends State<_AddEditModal>
   }
 
   Future<void> _pickDate() async {
-    final picked = await showDatePicker(
+    final picked = await showCupertinoDatePickerSheet(
       context: context,
       initialDate: _selectedDate,
       firstDate: DateTime(2020),
       lastDate: DateTime(2040),
-      builder: (context, child) {
-        bool isDark = Theme.of(context).brightness == Brightness.dark;
-        return Theme(
-          data: isDark 
-            ? ThemeData.dark().copyWith(
-                colorScheme: const ColorScheme.dark(
-                  primary: Colors.white,
-                  onPrimary: Colors.black,
-                  surface: Color(0xFF1C1C1E),
-                  onSurface: Colors.white,
-                ),
-                dialogBackgroundColor: const Color(0xFF1C1C1E),
-              )
-            : Theme.of(context).copyWith(
-                colorScheme: ColorScheme.light(
-                  primary: AppColors.primary,
-                  onPrimary: Colors.white,
-                  surface: Theme.of(context).colorScheme.surface,
-                  onSurface: const Color(0xFF2D264B),
-                ),
-              ),
-          child: child!,
-        );
-      },
     );
-    if (picked != null) setState(() => _selectedDate = picked);
+
+    if (picked != null) {
+      HapticFeedback.selectionClick();
+      setState(() => _selectedDate = picked);
+    }
   }
 
   void _showIconPicker() {

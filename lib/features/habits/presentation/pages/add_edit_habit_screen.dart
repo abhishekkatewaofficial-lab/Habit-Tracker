@@ -4,6 +4,7 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:habit_tracker_ios/shared_widgets/cupertino_time_picker_sheet.dart';
 import 'package:habit_tracker_ios/core/constants/app_colors.dart';
 import 'package:habit_tracker_ios/core/constants/app_text_styles.dart';
 import 'package:habit_tracker_ios/features/habits/data/models/habit.dart';
@@ -43,66 +44,64 @@ class _AddEditHabitScreenState extends ConsumerState<AddEditHabitScreen> {
     'times': 10,
     'hours': 24,
     'minutes': 120,
+    'sec': 300,
     'Glass': 15,
     'Cup': 15,
+    'oz': 20,
     'steps': 20000,
     'km': 10,
+    'm': 5000,
+    'miles': 20,
     'pages': 50,
     'ml': 5000,
+    'g': 5000,
+    'mg': 5000,
     'calories': 5000,
+    'drink': 50,
   };
 
   double _getMaxForUnit(String unit) => _unitMaxValues[unit] ?? 100;
 
   final List<Color> _colors = [
-    // ── Pink / Rose ──────────────────────────────────────
-    const Color(0xFFFFD6E0), // Rose Quartz (lightest)
-    const Color(0xFFFFB3C1), // Blush Pink
-    const Color(0xFFF4A0C8), // Berry Pink
-    const Color(0xFFF0B8E8), // Lilac Pink
-
-    // ── Purple / Violet ──────────────────────────────────
-    const Color(0xFFDDB8F5), // Lavender
-    const Color(0xFFCEA0E6), // Soft Violet
-    const Color(0xFFC8B8F8), // Soft Plum
-    const Color(0xFFB0A8E0), // Wisteria
-
-    // ── Blue / Indigo ────────────────────────────────────
-    const Color(0xFFB0C4F8), // Soft Indigo
-    const Color(0xFFA5C9FF), // Cornflower Blue
-    const Color(0xFF80CFEA), // Sky Blue
-    const Color(0xFF5AAFD4), // Ocean Blue
-
-    // ── Teal / Seafoam ───────────────────────────────────
-    const Color(0xFF7B8DCC), // Periwinkle
-    const Color(0xFF80DBC8), // Seafoam
-    const Color(0xFF5CC0B0), // Teal
-    const Color(0xFFA8E6CF), // Mint Green
-
-    // ── Green / Sage ─────────────────────────────────────
-    const Color(0xFFF0FFF0), // Honeydew (lightest)
-    const Color(0xFFD4F5A0), // Lime Pastel
-    const Color(0xFFB5D5A8), // Sage Green
-    const Color(0xFF90C98A), // Deeper Sage
-
-    // ── Yellow / Orange / Peach ──────────────────────────
-    const Color(0xFFFFE680), // Butter Yellow
-    const Color(0xFFFFCBA4), // Peach
-    const Color(0xFFF5C2A0), // Coral Peach
-    const Color(0xFFFFB347), // Soft Orange
+    // 🔴 RED / PINK FAMILY
+    const Color(0xFFBF3B31), const Color(0xFFC62D42), const Color(0xFFF03651), const Color(0xFFBF3552),
+    const Color(0xFFE83C70), const Color(0xFFF6688E), const Color(0xFFE66771), const Color(0xFFFD9FA2),
+    const Color(0xFFFDB0C0), const Color(0xFFFFC5CB), const Color(0xFFFFB2D0), const Color(0xFFF653A6),
+    
+    // 🟠 ORANGE FAMILY
+    const Color(0xFFF66B37), const Color(0xFFF87217), const Color(0xFFE67451), const Color(0xFFE4854F),
+    const Color(0xFFFF9966),
+    
+    // 🟡 YELLOW FAMILY
+    const Color(0xFFFFD801), const Color(0xFFFCC01E), const Color(0xFFF9BF58), const Color(0xFFD5B60A),
+    
+    // 🟢 GREEN FAMILY
+    const Color(0xFF004726), const Color(0xFF579A70), const Color(0xFF5EBCA0), const Color(0xFFA6C875),
+    const Color(0xFF99C68E), const Color(0xFFD8E68B), const Color(0xFF90B134),
+    
+    // 🔵 BLUE FAMILY
+    const Color(0xFF082567), const Color(0xFF157DEC), const Color(0xFF069AF3), const Color(0xFF45B1E8),
+    const Color(0xFF93CCEA), const Color(0xFF99BADD), const Color(0xFF9DBCD4), const Color(0xFFBCD4E6),
+    const Color(0xFF728FCE),
+    
+    // 🟣 PURPLE FAMILY
+    const Color(0xFF7563A8), const Color(0xFFC39FE6), const Color(0xFFB2A5D8),
+    
+    // 🟦 CYAN / TEAL FAMILY
+    const Color(0xFF21BFC5), const Color(0xFF1CD9D2), const Color(0xFF96DED1), const Color(0xFF1E9AB0),
+    const Color(0xFF105858),
+    
+    // 🌿 NEUTRAL / MUTED TONES
+    const Color(0xFF96BBAB), const Color(0xFFE3A857),
   ];
 
   final List<String> _units = [
-    'times',
-    'hours',
-    'minutes',
-    'Glass',
-    'Cup',
-    'steps',
-    'km',
-    'pages',
-    'ml',
-    'calories',
+    'times', 'steps', 'pages', 'drink', // Count
+    'km', 'm', 'miles',                // Distance
+    'ml', 'Glass', 'Cup', 'oz',        // Volume
+    'g', 'mg',                         // Weight
+    'hours', 'minutes', 'sec',         // Time
+    'calories',                        // Misc
   ];
 
   @override
@@ -330,49 +329,136 @@ class _AddEditHabitScreenState extends ConsumerState<AddEditHabitScreen> {
               ),
               const SizedBox(height: 24), // Premium Breathing Room before input fields
             ],
-            // Habit Name Input
+            // Unified Identity Card (Name, Emoji, Color)
             Container(
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
-                color: Theme.of(context).colorScheme.surface,
-                borderRadius: BorderRadius.circular(20),
-              ),
-              child: Row(
-                children: [
-                  GestureDetector(
-                    onTap: _showEmojiPicker,
-                    child: Container(
-                      width: 50,
-                      height: 50,
-                      decoration: BoxDecoration(
-                        color: _colors[_selectedColorIndex].withAlpha(50),
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      alignment: Alignment.center,
-                      child: Text(
-                        _selectedEmoji,
-                        style: const TextStyle(fontSize: 28),
-                      ),
-                    ),
+                color: Theme.of(context).brightness == Brightness.dark ? const Color(0xFF1C1C1E) : Colors.white,
+                borderRadius: BorderRadius.circular(16),
+                boxShadow: Theme.of(context).brightness == Brightness.light ? [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.05),
+                    blurRadius: 10,
+                    offset: const Offset(0, 4),
                   ),
-                  const SizedBox(width: 16),
-                  Expanded(
-                    child: TextField(
-                      controller: _nameController,
-                      style: TextStyle(
-                        color: Theme.of(context).brightness == Brightness.dark ? Colors.white : Colors.black,
-                        fontSize: 18, 
-                        fontWeight: FontWeight.w500,
-                      ),
-                      cursorColor: Theme.of(context).brightness == Brightness.dark ? Colors.white : Colors.blue,
-                      decoration: InputDecoration(
-                        hintText: 'Habit name...',
-                        hintStyle: TextStyle(
-                          color: Theme.of(context).brightness == Brightness.dark 
-                              ? const Color(0xFF6B6B70) 
-                              : const Color(0xFFB0B0B5),
+                ] : [],
+                border: Theme.of(context).brightness == Brightness.dark 
+                    ? Border.all(color: Colors.white.withValues(alpha: 0.1), width: 1) 
+                    : null,
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Top Section: Emoji + Name Input
+                  Row(
+                    children: [
+                      GestureDetector(
+                        onTap: _showEmojiPicker,
+                        child: Container(
+                          width: 54,
+                          height: 54,
+                          decoration: BoxDecoration(
+                            color: _colors[_selectedColorIndex].withValues(alpha: 0.15),
+                            borderRadius: BorderRadius.circular(14),
+                            border: Border.all(
+                              color: _colors[_selectedColorIndex].withValues(alpha: 0.3),
+                              width: 1,
+                            ),
+                          ),
+                          alignment: Alignment.center,
+                          child: Text(
+                            _selectedEmoji,
+                            style: const TextStyle(fontSize: 30),
+                          ),
                         ),
-                        border: InputBorder.none,
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: TextField(
+                          controller: _nameController,
+                          style: GoogleFonts.poppins(
+                            color: Theme.of(context).brightness == Brightness.dark ? Colors.white : Colors.black,
+                            fontSize: 18, 
+                            fontWeight: FontWeight.w600,
+                          ),
+                          cursorColor: _colors[_selectedColorIndex],
+                          decoration: InputDecoration(
+                            hintText: 'Habit name...',
+                            hintStyle: GoogleFonts.poppins(
+                              color: Theme.of(context).brightness == Brightness.dark 
+                                  ? const Color(0xFF6B6B70) 
+                                  : const Color(0xFFB0B0B5),
+                              fontSize: 18,
+                            ),
+                            border: InputBorder.none,
+                            contentPadding: const EdgeInsets.symmetric(horizontal: 4),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  
+                  const SizedBox(height: 12),
+                  // Divider
+                  const Divider(
+                    height: 1,
+                    thickness: 1,
+                    color: Color(0xFFE0E0E0),
+                  ),
+                  const SizedBox(height: 12),
+                  
+                  const SizedBox(height: 12),
+                  // Bottom Section: Color Selector Trigger (NOT inline grid)
+                  GestureDetector(
+                    onTap: () => _showColorPickerPopup(context),
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 4),
+                      child: Row(
+                        children: [
+                          Container(
+                            width: 32,
+                            height: 32,
+                            decoration: BoxDecoration(
+                              color: _colors[_selectedColorIndex].withValues(alpha: 0.2),
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: Icon(
+                              Icons.palette_rounded,
+                              size: 18,
+                              color: _colors[_selectedColorIndex],
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Text(
+                              'Color',
+                              style: GoogleFonts.poppins(
+                                fontSize: 16,
+                                fontWeight: FontWeight.w600,
+                                color: Theme.of(context).colorScheme.onSurface,
+                              ),
+                            ),
+                          ),
+                          // Mini Preview
+                          Container(
+                            width: 20,
+                            height: 20,
+                            decoration: BoxDecoration(
+                              color: _colors[_selectedColorIndex],
+                              shape: BoxShape.circle,
+                              border: Border.all(
+                                color: Theme.of(context).colorScheme.outline.withValues(alpha: 0.3),
+                                width: 1.5,
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Icon(
+                            CupertinoIcons.chevron_right,
+                            size: 14,
+                            color: Theme.of(context).colorScheme.onSurfaceVariant.withValues(alpha: 0.5),
+                          ),
+                        ],
                       ),
                     ),
                   ),
@@ -380,72 +466,8 @@ class _AddEditHabitScreenState extends ConsumerState<AddEditHabitScreen> {
               ),
             ),
             
-            const SizedBox(height: 20),
             const SizedBox(height: 24),
-              // Color — compact row that opens a centered popup picker
-              GestureDetector(
-                onTap: () => _showColorPickerPopup(context),
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-                  decoration: BoxDecoration(
-                    color: Theme.of(context).colorScheme.surface,
-                    borderRadius: BorderRadius.circular(20),
-                  ),
-                  child: Row(
-                    children: [
-                      // Section icon
-                      Container(
-                        width: 36,
-                        height: 36,
-                        decoration: BoxDecoration(
-                          color: _colors[_selectedColorIndex].withValues(alpha: 0.25),
-                          borderRadius: BorderRadius.circular(10),
-                        ),
-                        child: Icon(
-                          Icons.palette_rounded,
-                          size: 20,
-                          color: Theme.of(context).brightness == Brightness.dark
-                              ? Colors.white70
-                              : _colors[_selectedColorIndex].withValues(alpha: 1),
-                        ),
-                      ),
-                      const SizedBox(width: 14),
-                      Expanded(
-                        child: Text(
-                          'Color',
-                          style: TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.w600,
-                            color: Theme.of(context).colorScheme.onSurface,
-                          ),
-                        ),
-                      ),
-                      // Selected color preview
-                      Container(
-                        width: 26,
-                        height: 26,
-                        decoration: BoxDecoration(
-                          color: _colors[_selectedColorIndex],
-                          shape: BoxShape.circle,
-                          border: Border.all(
-                            color: Theme.of(context).colorScheme.outline.withValues(alpha: 0.3),
-                            width: 1.5,
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      Icon(
-                        CupertinoIcons.chevron_right,
-                        size: 16,
-                        color: Theme.of(context).colorScheme.onSurfaceVariant.withValues(alpha: 0.5),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            
-            const SizedBox(height: 24),
-            const _SectionLabel(label: 'Goal'),
+            const _SectionLabel(label: 'Goal Value'),
             const SizedBox(height: 12),
             
             // Goal Section
@@ -546,7 +568,7 @@ class _AddEditHabitScreenState extends ConsumerState<AddEditHabitScreen> {
                           ),
                           child: Text(
                             unit,
-                            style: TextStyle(
+                            style: GoogleFonts.fredoka(
                               color: isSelected ? Colors.white : Theme.of(context).colorScheme.onSurfaceVariant,
                               fontSize: 10,
                               fontWeight: isSelected
@@ -562,21 +584,40 @@ class _AddEditHabitScreenState extends ConsumerState<AddEditHabitScreen> {
               ),
             ),
             
-            const SizedBox(height: 20),
+            const SizedBox(height: 24),
+            const _SectionLabel(label: 'Time Range'),
+            const SizedBox(height: 10),
             
-            // Every Day Toggle
+            // Unified Frequency & Reminders Card
             Container(
-              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+              padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
-                color: Theme.of(context).colorScheme.surface,
-                borderRadius: BorderRadius.circular(20),
+                color: Theme.of(context).brightness == Brightness.dark ? const Color(0xFF1C1C1E) : Colors.white,
+                borderRadius: BorderRadius.circular(16),
+                boxShadow: Theme.of(context).brightness == Brightness.light ? [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.05),
+                    blurRadius: 10,
+                    offset: const Offset(0, 4),
+                  ),
+                ] : [],
+                border: Theme.of(context).brightness == Brightness.dark 
+                    ? Border.all(color: Colors.white.withValues(alpha: 0.1), width: 1) 
+                    : null,
               ),
               child: Column(
                 children: [
+                  // Frequency Section
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      Text('Every Day', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w500, color: Theme.of(context).colorScheme.onSurface)),
+                      Text('Every Day', 
+                        style: TextStyle(
+                          fontSize: 16, 
+                          fontWeight: FontWeight.w600, 
+                          color: Theme.of(context).colorScheme.onSurface,
+                        ),
+                      ),
                       CupertinoSwitch(
                         value: _isEveryDay,
                         activeTrackColor: CupertinoColors.activeGreen,
@@ -599,42 +640,37 @@ class _AddEditHabitScreenState extends ConsumerState<AddEditHabitScreen> {
                         onChanged: (days) => setState(() => _selectedDays = days),
                       ),
                     ),
-                ],
-              ),
-            ),
-            
-            const SizedBox(height: 12),
-            
-            // Enable Reminders Toggle
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-              decoration: BoxDecoration(
-                color: Theme.of(context).colorScheme.surface,
-                borderRadius: BorderRadius.circular(20),
-              ),
-              child: Column(
-                children: [
+                  
+                  // Divider
+                  const Padding(
+                    padding: EdgeInsets.symmetric(vertical: 14),
+                    child: Divider(
+                      height: 1,
+                      thickness: 1,
+                      color: Color(0xFFE0E0E0),
+                    ),
+                  ),
+                  
+                  // Reminders Section
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
                       Text('Enable Reminders',
                           style: TextStyle(
                               fontSize: 16,
-                              fontWeight: FontWeight.bold,
+                              fontWeight: FontWeight.w600,
                               color: Theme.of(context).colorScheme.onSurface)),
                       CupertinoSwitch(
                         value: _reminderEnabled,
                         activeTrackColor: CupertinoColors.activeGreen,
                         onChanged: (val) async {
                           if (val) {
-                            // Show time picker immediately on enable
-                            final picked = await showTimePicker(
+                            final picked = await showCupertinoTimePickerSheet(
                               context: context,
                               initialTime: TimeOfDay(
                                 hour: _reminderHour ?? 8,
                                 minute: _reminderMinute ?? 0,
                               ),
-                              helpText: 'Set reminder time',
                             );
                             if (picked != null) {
                               setState(() {
@@ -643,7 +679,6 @@ class _AddEditHabitScreenState extends ConsumerState<AddEditHabitScreen> {
                                 _reminderMinute = picked.minute;
                               });
                             }
-                            // If user dismissed the picker, don't enable reminder
                           } else {
                             setState(() {
                               _reminderEnabled = false;
@@ -655,17 +690,15 @@ class _AddEditHabitScreenState extends ConsumerState<AddEditHabitScreen> {
                       ),
                     ],
                   ),
-                  // Show selected time + tap-to-change when enabled
                   if (_reminderEnabled && _reminderHour != null)
                     Padding(
-                      padding: const EdgeInsets.only(top: 10),
+                      padding: const EdgeInsets.only(top: 12),
                       child: InkWell(
                         onTap: () async {
-                          final picked = await showTimePicker(
+                          final picked = await showCupertinoTimePickerSheet(
                             context: context,
                             initialTime: TimeOfDay(
                                 hour: _reminderHour!, minute: _reminderMinute!),
-                            helpText: 'Update reminder time',
                           );
                           if (picked != null) {
                             setState(() {
@@ -691,13 +724,15 @@ class _AddEditHabitScreenState extends ConsumerState<AddEditHabitScreen> {
                                   size: 16,
                                   color: AppColors.accent),
                               const SizedBox(width: 8),
-                              Text(
-                                'Daily reminder at ${_formatTime(_reminderHour!, _reminderMinute!)}  ·  Tap to change',
-                                style: TextStyle(
-                                  fontSize: 13,
-                                  color: Theme.of(context)
-                                      .colorScheme
-                                      .onSurfaceVariant,
+                              Expanded(
+                                child: Text(
+                                  'Daily reminder at ${_formatTime(_reminderHour!, _reminderMinute!)}  ·  Tap to change',
+                                  style: TextStyle(
+                                    fontSize: 13,
+                                    color: Theme.of(context)
+                                        .colorScheme
+                                        .onSurfaceVariant,
+                                  ),
                                 ),
                               ),
                             ],
@@ -759,14 +794,15 @@ class _SectionLabel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Padding(
       padding: const EdgeInsets.only(left: 4),
       child: Text(
         label,
-        style: TextStyle(
-          color: Theme.of(context).colorScheme.onSurfaceVariant.withValues(alpha: 0.5),
+        style: GoogleFonts.fredoka(
+          color: isDark ? Colors.white : Colors.black,
           fontWeight: FontWeight.bold,
-          fontSize: 12,
+          fontSize: 18,
         ),
       ),
     );
@@ -1274,23 +1310,26 @@ class _ColorPickerDialog extends StatelessWidget {
                     ),
                     const SizedBox(height: 24),
                     Wrap(
-                      spacing: 16,
-                      runSpacing: 16,
+                      spacing: 10,
+                      runSpacing: 10,
                       alignment: WrapAlignment.center,
                       children: List.generate(colors.length, (index) {
                         final isSelected = selectedColorIndex == index;
                         return GestureDetector(
                           onTap: () => onColorSelected(index),
                           child: Container(
-                            width: 44,
-                            height: 44,
+                            width: 28, // 20% smaller than before (was 36)
+                            height: 28,
                             decoration: BoxDecoration(
                               color: colors[index],
                               shape: BoxShape.circle,
-                              border: isSelected ? Border.all(color: Colors.blue.withValues(alpha: 0.4), width: 2) : null,
+                              border: isSelected ? Border.all(
+                                color: Theme.of(context).brightness == Brightness.dark ? Colors.white : Colors.black,
+                                width: 2,
+                              ) : null,
                             ),
                             child: isSelected
-                              ? const Icon(Icons.check, color: Colors.blue, size: 20)
+                              ? const Icon(Icons.check, color: Colors.white, size: 16)
                               : null,
                           ),
                         );

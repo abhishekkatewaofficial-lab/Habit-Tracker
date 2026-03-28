@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:habit_tracker_ios/features/habits/data/models/habit.dart';
 import 'package:habit_tracker_ios/features/habits/data/repositories/habit_repository.dart';
 import 'package:habit_tracker_ios/core/services/notification_service.dart';
+import 'package:habit_tracker_ios/core/services/smart_nudge_service.dart';
 
 final habitRepositoryProvider = Provider((ref) => HabitRepository());
 
@@ -42,6 +43,8 @@ class HabitNotifier extends StateNotifier<List<Habit>> {
         selectedDays: habitWithOrder.selectedDays,
       );
     }
+    // Re-evaluate smart nudges
+    SmartNudgeService.scheduleForToday(state);
   }
 
   Future<void> reorderHabits(int oldIndex, int newIndex) async {
@@ -85,12 +88,16 @@ class HabitNotifier extends StateNotifier<List<Habit>> {
         selectedDays: habit.selectedDays,
       );
     }
+    // Re-evaluate smart nudges
+    SmartNudgeService.scheduleForToday(state);
   }
 
   Future<void> deleteHabit(String id) async {
     await _repository.deleteHabit(id);
     await NotificationService.cancelHabitReminders(id);
     state = state.where((h) => h.id != id).toList();
+    // Re-evaluate smart nudges
+    SmartNudgeService.scheduleForToday(state);
   }
 
   Future<void> incrementHabitProgress(String habitId, String date) async {
@@ -115,6 +122,12 @@ class HabitNotifier extends StateNotifier<List<Habit>> {
       final updatedHabit = habit.copyWith(dailyProgress: dailyProgress);
       await updateHabit(updatedHabit);
     }
+    
+    // Reschedule smart nudges on any progress update today so mid-day
+    // behavior shifts are instantly accounted for.
+    if (selectedMidnight == todayMidnight) {
+      SmartNudgeService.scheduleForToday(state);
+    }
   }
 
   Future<void> setHabitProgress(String habitId, String date, int value) async {
@@ -136,8 +149,14 @@ class HabitNotifier extends StateNotifier<List<Habit>> {
     // Clamp between 0 and goal
     final clampedValue = value.clamp(0, habit.goalValue);
     dailyProgress[date] = clampedValue;
-    
+
     final updatedHabit = habit.copyWith(dailyProgress: dailyProgress);
     await updateHabit(updatedHabit);
+    
+    // Reschedule smart nudges on any progress update today so mid-day
+    // behavior shifts are instantly accounted for.
+    if (selectedMidnight == todayMidnight) {
+      SmartNudgeService.scheduleForToday(state);
+    }
   }
 }

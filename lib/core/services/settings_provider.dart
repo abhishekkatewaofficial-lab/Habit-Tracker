@@ -41,3 +41,25 @@ class HapticsNotifier extends Notifier<bool> {
 
 final soundsProvider = NotifierProvider<SoundsNotifier, bool>(SoundsNotifier.new);
 final hapticsProvider = NotifierProvider<HapticsNotifier, bool>(HapticsNotifier.new);
+
+class SmartNudgesNotifier extends Notifier<bool> {
+  @override
+  bool build() {
+    _loadFromPrefs();
+    return true;
+  }
+
+  Future<void> _loadFromPrefs() async {
+    final prefs = await SharedPreferences.getInstance();
+    state = prefs.getBool('smart_nudges_enabled') ?? true;
+  }
+
+  Future<void> setEnabled(bool enabled) async {
+    state = enabled;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool('smart_nudges_enabled', enabled);
+  }
+}
+
+final smartNudgesProvider =
+    NotifierProvider<SmartNudgesNotifier, bool>(SmartNudgesNotifier.new);

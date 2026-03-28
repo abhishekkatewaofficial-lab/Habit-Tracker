@@ -69,6 +69,7 @@ class Habit extends Equatable {
       dailyProgress: progress,
     );
   }
+
   Map<String, dynamic> toJson() {
     return {
       'id': id,
@@ -88,6 +89,7 @@ class Habit extends Equatable {
       'dailyProgress': dailyProgress,
     };
   }
+
   Habit copyWith({
     String? name,
     String? icon,

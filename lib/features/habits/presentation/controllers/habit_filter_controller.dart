@@ -17,6 +17,9 @@ final selectedDateProvider = StateProvider<DateTime>((ref) => DateTime.now());
 /// isEveryDay = true  →  always scheduled.
 /// isEveryDay = false →  scheduled only when the weekday (0=Sun…6=Sat) is in selectedDays.
 bool isHabitScheduledOn(Habit habit, DateTime date) {
+  final normalizedDate = DateTime(date.year, date.month, date.day);
+  if (normalizedDate.isBefore(habit.startDate)) return false;
+
   if (habit.isEveryDay) return true;
   if (habit.selectedDays.isEmpty) return true; // fall-back: treat as everyday
   final weekday = date.weekday % 7; // Flutter: Mon=1..Sun=7  →  we map Sun→0, Mon→1..Sat→6
@@ -37,6 +40,8 @@ int calculateHabitStreak(Habit habit) {
   DateTime checkDay = today;
 
   while (true) {
+    if (checkDay.isBefore(habit.startDate)) break;
+
     final isScheduled = isHabitScheduledOn(habit, checkDay);
 
     if (!isScheduled) {
@@ -68,10 +73,9 @@ int calculateHabitStreak(Habit habit) {
 int calculateHabitBestStreak(Habit habit) {
   if (habit.dailyProgress.isEmpty) return 0;
 
-  final start = DateTime.fromMillisecondsSinceEpoch(habit.createdAt);
   final now = DateTime.now();
   final today = DateTime(now.year, now.month, now.day);
-  final startDay = DateTime(start.year, start.month, start.day);
+  final startDay = habit.startDate;
 
   int best = 0;
   int current = 0;

@@ -1073,6 +1073,7 @@ class FocusReportView extends ConsumerStatefulWidget {
 
 class _FocusReportViewState extends ConsumerState<FocusReportView> {
   Timer? _ticker;
+  int _weekOffset = 0;
 
   @override
   void initState() {
@@ -1102,17 +1103,16 @@ class _FocusReportViewState extends ConsumerState<FocusReportView> {
 
   @override
   Widget build(BuildContext context) {
-    final baseDate = ref.watch(reportDateProvider);
     final focusItems = ref.watch(focusDashboardProvider);
     
-    // Calculate Monday-start week using normalized dates
-    final normalizedBase = DateTime(baseDate.year, baseDate.month, baseDate.day);
-    final int mondayOffset = normalizedBase.weekday - 1;
-    final DateTime monday = normalizedBase.subtract(Duration(days: mondayOffset));
-    final weekDays = List.generate(7, (i) => monday.add(Duration(days: i)));
-
-    
     final today = DateTime.now();
+    final normalizedToday = DateTime(today.year, today.month, today.day);
+    final int mondayOffsetDay = normalizedToday.weekday - 1;
+    final DateTime currentMonday = normalizedToday.subtract(Duration(days: mondayOffsetDay));
+    final DateTime targetMonday = currentMonday.add(Duration(days: 7 * _weekOffset));
+    
+    final weekDays = List.generate(7, (i) => targetMonday.add(Duration(days: i)));
+
     final todayStr = DateFormat('yyyy-MM-dd').format(today);
 
     // Data aggregation
@@ -1141,7 +1141,7 @@ class _FocusReportViewState extends ConsumerState<FocusReportView> {
         int cellSeconds = 0;
         int historicalSeconds = summary?.focusDurations[item.name] ?? 0;
 
-        if (dateStr == todayStr) {
+        if (dateStr == todayStr && _weekOffset == 0) {
           // For today: Use live elapsed time (includes accumulated + running)
           cellSeconds = (item.currentElapsedMs / 1000).floor();
         } else {
@@ -1175,9 +1175,9 @@ class _FocusReportViewState extends ConsumerState<FocusReportView> {
       physics: const BouncingScrollPhysics(),
       padding: const EdgeInsets.fromLTRB(16, 20, 16, 120),
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          _buildHeaderSection(monday),
+          _buildHeaderSection(targetMonday),
           const SizedBox(height: 24),
           
           // The Table
@@ -1244,25 +1244,48 @@ class _FocusReportViewState extends ConsumerState<FocusReportView> {
 
   Widget _buildHeaderSection(DateTime monday) {
     final sunday = monday.add(const Duration(days: 6));
-    final range = "${DateFormat('MMM d').format(monday)} - ${DateFormat('MMM d').format(sunday)}, ${monday.year}";
-    
+    final range = "${DateFormat('d MMM').format(monday)} - ${DateFormat('d MMM').format(sunday)}";
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final textColor = isDark ? Colors.white : Colors.black87;
+    final iconColor = isDark ? Colors.white : Colors.black87;
+
     return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
+      crossAxisAlignment: CrossAxisAlignment.center,
       children: [
-        Text(
-          'Weekly Focus Breakdown',
-          style: GoogleFonts.poppins(
-            fontSize: 22,
-            fontWeight: FontWeight.bold,
-            color: Theme.of(context).colorScheme.onSurface,
+        Center(
+          child: Text(
+            'Weekly Focus Breakdown',
+            style: GoogleFonts.fredoka(
+              fontSize: 22,
+              fontWeight: FontWeight.w600, // Simulates Fredoka One weight
+              color: textColor,
+            ),
+            textAlign: TextAlign.center,
           ),
         ),
-        Text(
-          range,
-          style: GoogleFonts.poppins(
-            fontSize: 14,
-            color: Theme.of(context).colorScheme.onSurfaceVariant,
-          ),
+        const SizedBox(height: 12),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            IconButton(
+              icon: Icon(Icons.chevron_left, color: iconColor),
+              onPressed: () => setState(() => _weekOffset--),
+            ),
+            const SizedBox(width: 8),
+            Text(
+              "Week $range",
+              style: GoogleFonts.poppins(
+                fontSize: 14,
+                fontWeight: FontWeight.w600,
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
+              ),
+            ),
+            const SizedBox(width: 8),
+            IconButton(
+              icon: Icon(Icons.chevron_right, color: _weekOffset < 0 ? iconColor : Colors.transparent),
+              onPressed: _weekOffset < 0 ? () => setState(() => _weekOffset++) : null,
+            ),
+          ],
         ),
       ],
     );
@@ -1741,8 +1764,8 @@ class InsightsReportView extends ConsumerWidget {
     double totalActualCompletions = 0;
     int perfectDaysCount = 0;
 
-    final Map<int, double> completionsByWeekday = {1: 0, 2: 0, 3: 0, 4: 0, 5: 0, 6: 0, 7: 0};
-    final Map<int, double> possibleByWeekday = {1: 0, 2: 0, 3: 0, 4: 0, 5: 0, 6: 0, 7: 0};
+    final Map<int, double> dayScoresSumByWeekday = {1: 0, 2: 0, 3: 0, 4: 0, 5: 0, 6: 0, 7: 0};
+    final Map<int, int> validDaysByWeekday = {1: 0, 2: 0, 3: 0, 4: 0, 5: 0, 6: 0, 7: 0};
 
     final Map<String, double> habitPossible = {};
     final Map<String, double> habitActual = {};
@@ -1753,9 +1776,8 @@ class InsightsReportView extends ConsumerWidget {
     double afternoonPossible = 0, afternoonActual = 0; int afternoonDays = 0;
     double eveningPossible = 0, eveningActual = 0; int eveningDays = 0;
 
-    double last7Possible = 0, last7Actual = 0;
-    double prev7Possible = 0, prev7Actual = 0;
-    double last3Possible = 0, last3Actual = 0;
+    double last7DayScoresSum = 0; int last7ValidDays = 0;
+    double prev7DayScoresSum = 0; int prev7ValidDays = 0;
 
     double todayPossible = 0;
     double todayActual = 0;
@@ -1785,9 +1807,10 @@ class InsightsReportView extends ConsumerWidget {
         
         if (isActiveDay && !habit.isQuitHabit) {
           // Normalization: Every active habit counts as precisely 1.0 point per day
-          double goal = habit.goalValue > 0 ? habit.goalValue.toDouble() : 1.0;
-          double progressRaw = (habit.dailyProgress[dateKey] ?? 0).clamp(0, habit.goalValue).toDouble();
-          double normalizedProgress = progressRaw / goal;
+          if (habit.goalValue <= 0) continue;
+          double goal = habit.goalValue.toDouble();
+          double progressRaw = (habit.dailyProgress[dateKey] ?? 0).toDouble();
+          double normalizedProgress = (progressRaw / goal).clamp(0.0, 1.0);
 
           dayPossible += 1.0;
           dayActual += normalizedProgress;
@@ -1817,15 +1840,22 @@ class InsightsReportView extends ConsumerWidget {
 
       totalPossibleCompletions += dayPossible;
       totalActualCompletions += dayActual;
-      
-      possibleByWeekday[date.weekday] = (possibleByWeekday[date.weekday] ?? 0) + dayPossible;
-      completionsByWeekday[date.weekday] = (completionsByWeekday[date.weekday] ?? 0) + dayActual;
-
-      if (i >= 23 && i <= 29) { last7Possible += dayPossible; last7Actual += dayActual; }
-      if (i >= 16 && i <= 22) { prev7Possible += dayPossible; prev7Actual += dayActual; }
-      if (i >= 27 && i <= 29) { last3Possible += dayPossible; last3Actual += dayActual; }
 
       if (dayPossible > 0) {
+        double currentDayScore = dayActual / dayPossible;
+        
+        dayScoresSumByWeekday[date.weekday] = (dayScoresSumByWeekday[date.weekday] ?? 0) + currentDayScore;
+        validDaysByWeekday[date.weekday] = (validDaysByWeekday[date.weekday] ?? 0) + 1;
+        
+        if (i >= 23 && i <= 29) { 
+          last7DayScoresSum += currentDayScore; 
+          last7ValidDays++; 
+        }
+        if (i >= 16 && i <= 22) { 
+          prev7DayScoresSum += currentDayScore; 
+          prev7ValidDays++; 
+        }
+
         bool isPerfect = dayActual >= (dayPossible - 0.001); // Float safety
         if (isPerfect) {
           perfectDaysCount++;
@@ -1884,26 +1914,15 @@ class InsightsReportView extends ConsumerWidget {
         generatedInsights.add(_SmartInsight("Strongest Habit: $easiest (${(maxRate*100).round()}%)", CupertinoIcons.star_fill, const Color(0xFFF59E0B), 85));
       }
 
-      // [80] Momentum
-      if (last3Possible > 0 && totalPossibleCompletions > 0 && totalScheduledDays >= 10) {
-        double last3Rate = last3Actual / last3Possible;
-        double overallRate = totalActualCompletions / totalPossibleCompletions;
-        if (last3Rate > overallRate + 0.20 && last3Rate > 0.6) {
-          generatedInsights.add(_SmartInsight("You're gaining powerful momentum right now! 🔥", CupertinoIcons.graph_circle_fill, const Color(0xFF10B981), 80));
-        } else if (last3Rate < overallRate - 0.20 && overallRate > 0.4) {
-          generatedInsights.add(_SmartInsight("Your consistency is dropping recently. Time to refocus.", CupertinoIcons.arrow_down_right_square_fill, const Color(0xFFF97316), 80));
-        }
-      }
-
       // [70] Weekly Trend
-      if (prev7Possible > 0 && last7Possible > 0 && totalScheduledDays >= 14) {
-        double currentWk = last7Actual / last7Possible;
-        double prevWk = prev7Actual / prev7Possible;
+      if (prev7ValidDays > 0 && last7ValidDays > 0 && totalScheduledDays >= 14) {
+        double currentWk = last7DayScoresSum / last7ValidDays;
+        double prevWk = prev7DayScoresSum / prev7ValidDays;
         double diff = currentWk - prevWk;
         if (diff >= 0.10 && currentWk > 0.3) {
-          generatedInsights.add(_SmartInsight("Consistency improved by ${(diff*100).round()}% this week! 🚀", CupertinoIcons.rocket_fill, const Color(0xFF8B5CF6), 70));
+          generatedInsights.add(_SmartInsight("Great improvement this week! 🚀", CupertinoIcons.rocket_fill, const Color(0xFF8B5CF6), 70));
         } else if (diff <= -0.10 && prevWk > 0.3) {
-          generatedInsights.add(_SmartInsight("Consistency dropped by ${(diff.abs()*100).round()}% this week.", CupertinoIcons.chart_pie_fill, const Color(0xFFF59E0B), 70));
+          generatedInsights.add(_SmartInsight("Slight drop this week.", CupertinoIcons.chart_pie_fill, const Color(0xFFF59E0B), 70));
         }
       }
 
@@ -1936,8 +1955,8 @@ class InsightsReportView extends ConsumerWidget {
         double bestRate = -1.0, worstRate = 2.0;
 
         for (int day = 1; day <= 7; day++) {
-          if (possibleByWeekday[day]! > 3) { // Require at least 3 occurrences
-            double rate = completionsByWeekday[day]! / possibleByWeekday[day]!;
+          if ((validDaysByWeekday[day] ?? 0) >= 3) { // Require at least 3 occurrences
+            double rate = (dayScoresSumByWeekday[day] ?? 0) / validDaysByWeekday[day]!;
             if (rate > bestRate) { bestRate = rate; bestDay = day; }
             if (rate < worstRate) { worstRate = rate; worstDay = day; }
           }
@@ -1961,8 +1980,67 @@ class InsightsReportView extends ConsumerWidget {
     generatedInsights.sort((a, b) => b.priority.compareTo(a.priority));
     final displayInsights = generatedInsights.take(3).toList();
 
+    // ────────────────────────────────────────────────────────────────
+    // 2.5. Weekly Insights Calculations (Progress Feedback Upgrade)
+    // ────────────────────────────────────────────────────────────────
+    String weeklyImprovementText = "Keep tracking to unlock insights";
+    bool hasImprovementData = totalScheduledDays >= 10;
+    Color improvementColor = const Color(0xFF9CA3AF);
 
     final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    if (prev7ValidDays >= 4 && last7ValidDays >= 4) {
+      double currentWeekAvg = last7DayScoresSum / last7ValidDays;
+      double previousWeekAvg = prev7DayScoresSum / prev7ValidDays;
+      
+      if (previousWeekAvg == 0) {
+        weeklyImprovementText = "Getting started";
+        improvementColor = isDark ? Colors.white : const Color(0xFF6B7280);
+      } else {
+        double improvement = (((currentWeekAvg - previousWeekAvg) / previousWeekAvg) * 100).roundToDouble();
+        if (improvement > 2.0) {
+          weeklyImprovementText = "Great improvement this week";
+          improvementColor = isDark ? Colors.white : const Color(0xFF10B981); // Green in Light, White in Dark
+        } else if (improvement < -2.0) {
+          weeklyImprovementText = "Slight drop this week";
+          improvementColor = isDark ? Colors.white : const Color(0xFFEF4444); // Red in Light, White in Dark
+        } else {
+          weeklyImprovementText = "You stayed consistent this week";
+          improvementColor = isDark ? Colors.white : const Color(0xFF6B7280);
+        }
+      }
+    } else {
+      weeklyImprovementText = "Keep tracking to unlock insights";
+      improvementColor = isDark ? Colors.white.withValues(alpha: 0.6) : const Color(0xFF9CA3AF);
+    }
+
+    String bestDayText = "Not enough data";
+    String weakestDayText = "Not enough data";
+    
+    if (totalPossibleCompletions > 0) {
+      int bestDay = 1, worstDay = 1;
+      double bestRate = -1.0, worstRate = 2.0;
+
+      for (int day = 1; day <= 7; day++) {
+        if ((validDaysByWeekday[day] ?? 0) >= 3) {
+          double rate = (dayScoresSumByWeekday[day] ?? 0) / validDaysByWeekday[day]!;
+          if (rate > bestRate) { bestRate = rate; bestDay = day; }
+          if (rate < worstRate) { worstRate = rate; worstDay = day; }
+        }
+      }
+      
+      final dayNames = {1: 'Monday', 2: 'Tuesday', 3: 'Wednesday', 4: 'Thursday', 5: 'Friday', 6: 'Saturday', 7: 'Sunday'};
+      
+      if (bestRate >= 0) {
+        bestDayText = dayNames[bestDay] ?? "Unknown";
+      }
+      if (worstRate <= 1.0 && bestDay != worstDay && worstRate >= 0) {
+        weakestDayText = dayNames[worstDay] ?? "Unknown";
+      } else if (worstRate <= 1.0 && bestRate >= 0) {
+      // If all days are perfectly equal or not enough occurrences for a distinct worst day
+        weakestDayText = "None"; 
+      }
+    }
 
     // ────────────────────────────────────────────────────────────────
     // 3. UI Layout Integration
@@ -1973,28 +2051,7 @@ class InsightsReportView extends ConsumerWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Header
-          Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(
-                CupertinoIcons.graph_square_fill,
-                size: 26,
-                color: Theme.of(context).colorScheme.primary,
-              ),
-              const SizedBox(width: 10),
-              Text(
-                'Insights',
-                style: GoogleFonts.poppins(
-                  fontSize: 24,
-                  fontWeight: FontWeight.bold,
-                  color: isDark ? Colors.white : const Color(0xFF1F2937),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 32),
+
 
           Row(
             children: [
@@ -2028,6 +2085,19 @@ class InsightsReportView extends ConsumerWidget {
           const SizedBox(height: 16),
           _buildConsistencyCard(context, isDark, consistencyScore),
           const SizedBox(height: 24),
+          
+          // Weekly Insights Card (New Upgrade)
+          if (hasImprovementData) ...[
+            _buildWeeklyInsightsCard(
+              context: context, 
+              isDark: isDark, 
+              improvementText: weeklyImprovementText,
+              improvementColor: improvementColor,
+              bestDay: bestDayText,
+              weakestDay: weakestDayText,
+            ),
+            const SizedBox(height: 24),
+          ],
 
           // Smart Findings Section
           Text(
@@ -2078,7 +2148,7 @@ class InsightsReportView extends ConsumerWidget {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: isDark ? const Color(0xFF1C1C1E) : Colors.white,
+        color: isDark ? const Color(0xFF1C1C1E) : Colors.white.withValues(alpha: 0.3),
         borderRadius: BorderRadius.circular(24),
         border: isDark ? Border.all(color: Colors.white.withValues(alpha: 0.08)) : null,
         boxShadow: isDark ? null : [
@@ -2152,7 +2222,7 @@ class InsightsReportView extends ConsumerWidget {
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: isDark ? const Color(0xFF1C1C1E) : Colors.white,
+        color: isDark ? const Color(0xFF1C1C1E) : Colors.white.withValues(alpha: 0.3),
         borderRadius: BorderRadius.circular(24),
         border: isDark ? Border.all(color: Colors.white.withValues(alpha: 0.08)) : null,
         boxShadow: isDark ? null : [
@@ -2231,7 +2301,7 @@ class InsightsReportView extends ConsumerWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
       decoration: BoxDecoration(
-        color: isDark ? const Color(0xFF1C1C1E) : Colors.white,
+        color: isDark ? const Color(0xFF1C1C1E) : Colors.white.withValues(alpha: 0.3),
         borderRadius: BorderRadius.circular(16),
         border: isDark ? Border.all(color: Colors.white.withValues(alpha: 0.08)) : null,
         boxShadow: isDark ? null : [
@@ -2275,7 +2345,7 @@ class InsightsReportView extends ConsumerWidget {
 
   Widget _buildHeatmapGrid(BuildContext context, bool isDark, List<double> densities) {
     return Container(
-      padding: const EdgeInsets.symmetric(vertical: 24, horizontal: 16),
+      padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
         color: isDark ? const Color(0xFF1C1C1E) : Colors.white,
         borderRadius: BorderRadius.circular(24),
@@ -2294,26 +2364,129 @@ class InsightsReportView extends ConsumerWidget {
         physics: const NeverScrollableScrollPhysics(),
         gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
           crossAxisCount: 7,
-          crossAxisSpacing: 6,
-          mainAxisSpacing: 6,
+          mainAxisSpacing: 8,
+          crossAxisSpacing: 8,
+          childAspectRatio: 1.0,
         ),
-        itemCount: 30,
+        itemCount: 30, // We have exactly 30 days
         itemBuilder: (context, index) {
           final density = densities[index];
-          Color blockColor;
-          if (density == 0.0) {
-            blockColor = isDark ? const Color(0xFF2C2C2E) : const Color(0xFFF3F4F6);
+          final baseColor = Theme.of(context).colorScheme.primary;
+          Color cellColor;
+          if (density <= 0) {
+            cellColor = isDark ? const Color(0xFF2C2C2E) : const Color(0xFFF3F4F6);
+          } else if (density >= 1.0) {
+            cellColor = baseColor;
+          } else if (density <= 0.3) {
+            cellColor = baseColor.withValues(alpha: 0.3);
+          } else if (density <= 0.6) {
+            cellColor = baseColor.withValues(alpha: 0.6);
           } else {
-            final baseColor = Theme.of(context).colorScheme.primary;
-            blockColor = baseColor.withValues(alpha: 0.2 + (density * 0.8));
+            cellColor = baseColor.withValues(alpha: 0.8);
           }
+
           return Container(
             decoration: BoxDecoration(
-              color: blockColor,
+              color: cellColor,
               borderRadius: BorderRadius.circular(6),
             ),
           );
         },
+      ),
+    );
+  }
+
+  Widget _buildWeeklyInsightsCard({
+    required BuildContext context,
+    required bool isDark,
+    required String improvementText,
+    required Color improvementColor,
+    required String bestDay,
+    required String weakestDay,
+  }) {
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: isDark ? const Color(0xFF1C1C1E) : Colors.white.withValues(alpha: 0.3),
+        borderRadius: BorderRadius.circular(24),
+        border: isDark ? Border.all(color: Colors.white.withValues(alpha: 0.08)) : null,
+        boxShadow: isDark ? null : [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.03),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(CupertinoIcons.chart_bar_alt_fill, color: Theme.of(context).colorScheme.primary, size: 20),
+              const SizedBox(width: 8),
+              Text(
+                'Weekly Insights',
+                style: GoogleFonts.fredoka(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w600,
+                  color: isDark ? Colors.white : const Color(0xFF111827),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          Text(
+            improvementText,
+            style: GoogleFonts.poppins(
+              fontSize: 14,
+              fontWeight: FontWeight.w600,
+              color: improvementColor,
+            ),
+          ),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              Text(
+                'Best day: ',
+                style: GoogleFonts.poppins(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w500,
+                  color: isDark ? const Color(0xFF9CA3AF) : const Color(0xFF6B7280),
+                ),
+              ),
+              Text(
+                bestDay,
+                style: GoogleFonts.poppins(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                  color: isDark ? Colors.white : const Color(0xFF111827),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 6),
+          Row(
+            children: [
+              Text(
+                'Needs attention: ',
+                style: GoogleFonts.poppins(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w500,
+                  color: isDark ? const Color(0xFF9CA3AF) : const Color(0xFF6B7280),
+                ),
+              ),
+              Text(
+                weakestDay,
+                style: GoogleFonts.poppins(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                  color: isDark ? Colors.white : const Color(0xFF111827),
+                ),
+              ),
+            ],
+          ),
+        ],
       ),
     );
   }

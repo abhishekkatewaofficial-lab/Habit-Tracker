@@ -14,8 +14,23 @@ class Habit extends Equatable {
   final int? reminderHour;   // null = no time selected
   final int? reminderMinute;
   final int createdAt;
+  final String? startDateString;
   final int sortOrder;
   final Map<String, int> dailyProgress; // Format: {yyyy-mm-dd: current_progress}
+  final Map<String, bool> rewardsClaimed; // Format: {yyyy-mm-dd: reward_given}
+
+  /// Extremely safe fallback resolver mapping `startDateString` (or `createdAt`) 
+  /// precisely to `00:00:00` for perfectly accurate date difference comparisons.
+  DateTime get startDate {
+    if (startDateString != null) {
+      final parts = startDateString!.split('-');
+      if (parts.length == 3) {
+        return DateTime(int.tryParse(parts[0]) ?? 2000, int.tryParse(parts[1]) ?? 1, int.tryParse(parts[2]) ?? 1);
+      }
+    }
+    final d = DateTime.fromMillisecondsSinceEpoch(createdAt);
+    return DateTime(d.year, d.month, d.day);
+  }
 
   const Habit({
     required this.id,
@@ -31,8 +46,10 @@ class Habit extends Equatable {
     this.reminderHour,
     this.reminderMinute,
     required this.createdAt,
+    this.startDateString,
     this.sortOrder = 0,
     this.dailyProgress = const {},
+    this.rewardsClaimed = const {},
   });
 
   factory Habit.fromJson(Map<dynamic, dynamic> json) {
@@ -46,6 +63,20 @@ class Habit extends Equatable {
       for (var date in oldDates) {
         progress[date] = goalValue;
       }
+    }
+
+    String? parsedStartDateString = json['startDateString'] as String?;
+    if (parsedStartDateString == null) {
+      final startMs = (json['startDate'] as int?) ?? (json['createdAt'] as int?);
+      if (startMs != null) {
+        final d = DateTime.fromMillisecondsSinceEpoch(startMs);
+        parsedStartDateString = "${d.year}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}";
+      }
+    }
+
+    Map<String, bool> rewards = {};
+    if (json['rewardsClaimed'] != null) {
+      rewards = Map<String, bool>.from(json['rewardsClaimed'] as Map);
     }
 
     return Habit(
@@ -65,10 +96,13 @@ class Habit extends Equatable {
       reminderHour: json['reminderHour'] as int?,
       reminderMinute: json['reminderMinute'] as int?,
       createdAt: json['createdAt'] as int,
+      startDateString: parsedStartDateString,
       sortOrder: json['sortOrder'] as int? ?? 0,
       dailyProgress: progress,
+      rewardsClaimed: rewards,
     );
   }
+
   Map<String, dynamic> toJson() {
     return {
       'id': id,
@@ -84,10 +118,13 @@ class Habit extends Equatable {
       'reminderHour': reminderHour,
       'reminderMinute': reminderMinute,
       'createdAt': createdAt,
+      'startDateString': startDateString,
       'sortOrder': sortOrder,
       'dailyProgress': dailyProgress,
+      'rewardsClaimed': rewardsClaimed,
     };
   }
+
   Habit copyWith({
     String? name,
     String? icon,
@@ -100,8 +137,10 @@ class Habit extends Equatable {
     bool? reminderEnabled,
     int? reminderHour,
     int? reminderMinute,
+    String? startDateString,
     int? sortOrder,
     Map<String, int>? dailyProgress,
+    Map<String, bool>? rewardsClaimed,
   }) {
     return Habit(
       id: id,
@@ -117,8 +156,10 @@ class Habit extends Equatable {
       reminderHour: reminderHour ?? this.reminderHour,
       reminderMinute: reminderMinute ?? this.reminderMinute,
       createdAt: createdAt,
+      startDateString: startDateString ?? this.startDateString,
       sortOrder: sortOrder ?? this.sortOrder,
       dailyProgress: dailyProgress ?? this.dailyProgress,
+      rewardsClaimed: rewardsClaimed ?? this.rewardsClaimed,
     );
   }
 
@@ -137,7 +178,9 @@ class Habit extends Equatable {
         reminderHour,
         reminderMinute,
         createdAt,
+        startDateString,
         sortOrder,
         dailyProgress,
+        rewardsClaimed,
       ];
 }

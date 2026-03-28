@@ -19,6 +19,8 @@ import 'package:habit_tracker_ios/features/habits/presentation/pages/add_edit_ha
 import 'package:habit_tracker_ios/features/habits/data/models/habit.dart';
 import 'package:habit_tracker_ios/features/habits/presentation/controllers/habit_controller.dart';
 import 'package:habit_tracker_ios/features/habits/presentation/controllers/habit_filter_controller.dart';
+import 'package:habit_tracker_ios/features/habits/presentation/controllers/daily_plan_provider.dart';
+import 'package:habit_tracker_ios/features/habits/presentation/controllers/daily_plan_service.dart';
 import 'package:habit_tracker_ios/features/mood/presentation/controllers/mood_controller.dart';
 import 'package:habit_tracker_ios/features/todo/presentation/pages/todo_home_screen.dart';
 import 'package:habit_tracker_ios/features/eisenhower/presentation/pages/eisenhower_matrix_screen.dart';
@@ -28,6 +30,7 @@ import 'package:habit_tracker_ios/features/profile/presentation/controllers/badg
 import 'package:habit_tracker_ios/features/profile/presentation/pages/profile_screen.dart';
 import 'package:habit_tracker_ios/features/profile/presentation/controllers/profile_controller.dart';
 import 'package:habit_tracker_ios/shared_widgets/adaptive_layout.dart';
+import 'package:habit_tracker_ios/core/services/anti_cheat_service.dart';
 
 
 /// Root scaffold that owns the bottom nav and swaps feature screens.
@@ -109,10 +112,7 @@ class _HabitsTab extends ConsumerWidget {
     final todayStr = DateFormat('yyyy-MM-dd').format(selectedDate);
     final activeFilter = ref.watch(habitFilterProvider);
     
-    final today = DateTime.now();
-    final todayMidnight = DateTime(today.year, today.month, today.day);
-    final selectedMidnight = DateTime(selectedDate.year, selectedDate.month, selectedDate.day);
-    final isFuture = selectedMidnight.isAfter(todayMidnight);
+    // entryState is evaluated per-habit inside _HabitCard (uses habit.startDate)
 
     double totalProgressSum = 0;
     int validHabitsCount = 0;
@@ -168,6 +168,11 @@ class _HabitsTab extends ConsumerWidget {
             const SliverToBoxAdapter(child: SizedBox(height: 16)),
             SliverToBoxAdapter(child: _SemiCircleProgress(progress: overallProgress)),
             const SliverToBoxAdapter(child: SizedBox(height: 8)),
+            const SliverToBoxAdapter(child: Padding(
+              padding: EdgeInsets.symmetric(horizontal: 16),
+              child: SmartDailyPlanCard(),
+            )),
+            const SliverToBoxAdapter(child: SizedBox(height: 8)),
             if (habits.isEmpty)
               SliverToBoxAdapter(
                 child: Padding(
@@ -188,7 +193,6 @@ class _HabitsTab extends ConsumerWidget {
                   child: _HabitCard(
                     habit: habits[i], 
                     dateStr: todayStr, 
-                    isFuture: isFuture,
                     index: i
                   ),
                 ),
@@ -203,6 +207,334 @@ class _HabitsTab extends ConsumerWidget {
       ),
     );  }
 }
+
+// ── Smart Daily Plan Card ─────────────────────────────────────────────────────
+
+class SmartDailyPlanCard extends ConsumerStatefulWidget {
+  const SmartDailyPlanCard({super.key});
+
+  @override
+  ConsumerState<SmartDailyPlanCard> createState() => _SmartDailyPlanCardState();
+}
+
+class _SmartDailyPlanCardState extends ConsumerState<SmartDailyPlanCard> {
+  bool _expanded = false;
+  final Set<String> _fadingOut = {};
+
+  @override
+  Widget build(BuildContext context) {
+    final plan = ref.watch(dailyPlanProvider);
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    final allHabits = ref.watch(habitProvider);
+    final today = DateTime.now();
+
+    final todayHabitsExist = allHabits.any((h) {
+      if (h.isEveryDay) return true;
+      final appDay = today.weekday % 7;
+      return h.selectedDays.contains(appDay);
+    });
+
+    if (!todayHabitsExist) return const SizedBox.shrink();
+
+    final allDone = plan.isEmpty;
+
+    // ── THEME TOKENS ──────────────────────────────────────────────
+    final primaryText = isDark ? Colors.white : const Color(0xFF1A1A1A);
+    final subtleText = isDark
+        ? Colors.white.withValues(alpha: 0.55)
+        : const Color(0xFF6B6B6B);
+
+    // Light-mode tag colors per reason
+    Color tagBg(DailyPlanTag tag) {
+      if (isDark) return Colors.white.withValues(alpha: 0.08);
+      switch (tag) {
+        case DailyPlanTag.missedYesterday:
+          return const Color(0xFFFFF1F1);
+        case DailyPlanTag.atRisk:
+          return const Color(0xFFFFF6E5);
+        case DailyPlanTag.weakConsistency:
+          return const Color(0xFFEEF3FF);
+        case DailyPlanTag.doNow:
+          return const Color(0xFFF0F0F5);
+      }
+    }
+
+    Color tagText(DailyPlanTag tag) {
+      if (isDark) return Colors.white.withValues(alpha: 0.55);
+      switch (tag) {
+        case DailyPlanTag.missedYesterday:
+          return const Color(0xFFE05A5A);
+        case DailyPlanTag.atRisk:
+          return const Color(0xFFD98C00);
+        case DailyPlanTag.weakConsistency:
+          return const Color(0xFF4A6CF7);
+        case DailyPlanTag.doNow:
+          return Colors.black.withValues(alpha: 0.45);
+      }
+    }
+
+    Widget tagChip(DailyPlanHabit p) {
+      if (isDark) {
+        return Container(
+          padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
+          decoration: BoxDecoration(
+            color: tagBg(p.tag),
+            borderRadius: BorderRadius.circular(999),
+          ),
+          child: Text(
+            p.tagLabel,
+            style: GoogleFonts.poppins(
+              fontSize: 10,
+              fontWeight: FontWeight.w600,
+              color: tagText(p.tag),
+            ),
+          ),
+        );
+      }
+      // Light mode → pure text
+      return Text(
+        p.tagLabel,
+        style: GoogleFonts.poppins(
+          fontSize: 11,
+          fontWeight: FontWeight.w500,
+          color: tagText(p.tag),
+        ),
+      );
+    }
+
+    Widget priorityBadge() {
+      if (isDark) {
+        return Container(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+          decoration: BoxDecoration(
+            color: Colors.white.withValues(alpha: 0.06),
+            borderRadius: BorderRadius.circular(999),
+          ),
+          child: Text(
+            'Priority today',
+            style: GoogleFonts.poppins(
+              fontSize: 10,
+              fontWeight: FontWeight.w500,
+              color: Colors.white.withValues(alpha: 0.55),
+            ),
+          ),
+        );
+      }
+      // Light mode → pure text
+      return Text(
+        'Priority today',
+        style: GoogleFonts.poppins(
+          fontSize: 11,
+          fontWeight: FontWeight.w600,
+          color: const Color(0xFFFD7618),
+          letterSpacing: 0.2,
+        ),
+      );
+    }
+
+    // ── CARD WRAPPER ─────────────────────────────────────────────
+    Widget cardContent = Padding(
+      padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          // ── Header ───────────────────────────────────────────
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              if (!allDone) const Text('🔥', style: TextStyle(fontSize: 15)),
+              if (!allDone) const SizedBox(width: 8),
+              Expanded(
+                child: allDone
+                    ? Row(
+                        children: [
+                          const Text('✅ ', style: TextStyle(fontSize: 15)),
+                          Expanded(
+                            child: Text(
+                              'All habits completed today',
+                              style: GoogleFonts.fredoka(
+                                fontSize: 15,
+                                fontWeight: FontWeight.w600,
+                                color: primaryText,
+                              ),
+                            ),
+                          ),
+                        ],
+                      )
+                    : Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(
+                            _expanded
+                                ? "Today's Plan"
+                                : "Focus today  ·  ${plan.map((p) => p.habit.name).join(' • ')}",
+                            style: GoogleFonts.fredoka(
+                              fontSize: 15,
+                              fontWeight: FontWeight.w600,
+                              color: primaryText,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                          if (!_expanded)
+                            Text(
+                              'Tap to see your priority habits',
+                              style: GoogleFonts.poppins(
+                                fontSize: 11,
+                                color: subtleText,
+                              ),
+                            ),
+                        ],
+                      ),
+              ),
+              if (!allDone) ...[
+                const SizedBox(width: 6),
+                priorityBadge(),
+                const SizedBox(width: 6),
+                AnimatedRotation(
+                  turns: _expanded ? 0.5 : 0.0,
+                  duration: const Duration(milliseconds: 280),
+                  child: Icon(
+                    Icons.keyboard_arrow_down_rounded,
+                    color: subtleText,
+                    size: 20,
+                  ),
+                ),
+              ],
+            ],
+          ),
+
+          // ── Expanded habit list ──────────────────────────────
+          AnimatedSize(
+            duration: const Duration(milliseconds: 300),
+            curve: Curves.easeInOutCubic,
+            child: _expanded && !allDone
+                ? Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const SizedBox(height: 4),
+                      Text(
+                        'Stay consistent today',
+                        style: GoogleFonts.poppins(
+                          fontSize: 11,
+                          color: subtleText,
+                        ),
+                      ),
+                      const SizedBox(height: 10),
+                      ...plan.asMap().entries.map((entry) {
+                        final idx = entry.key;
+                        final p = entry.value;
+                        final isFading = _fadingOut.contains(p.habit.id);
+                        final isFirst = idx == 0;
+
+                        return AnimatedOpacity(
+                          key: ValueKey(p.habit.id),
+                          opacity: isFading ? 0.0 : 1.0,
+                          duration: const Duration(milliseconds: 350),
+                          curve: Curves.easeOut,
+                          child: AnimatedSlide(
+                            offset: isFading
+                                ? const Offset(-0.05, 0)
+                                : Offset.zero,
+                            duration: const Duration(milliseconds: 350),
+                            curve: Curves.easeOut,
+                            child: Container(
+                              margin: const EdgeInsets.only(bottom: 14),
+                              child: Row(
+                                children: [
+                                  Expanded(
+                                    child: Text(
+                                      p.habit.name,
+                                      style: GoogleFonts.poppins(
+                                        fontSize: isFirst && !isDark ? 14 : 13,
+                                        fontWeight: isFirst && !isDark
+                                            ? FontWeight.w600
+                                            : FontWeight.w500,
+                                        color: primaryText,
+                                      ),
+                                    ),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  tagChip(p),
+                                ],
+                              ),
+                            ),
+                          ),
+                        );
+                      }),
+                    ],
+                  )
+                : const SizedBox.shrink(),
+          ),
+        ],
+      ),
+    );
+
+    // ── CARD DECORATION (light vs dark) ─────────────────────────
+    if (isDark) {
+      return GestureDetector(
+        onTap: allDone ? null : () => setState(() => _expanded = !_expanded),
+        behavior: HitTestBehavior.opaque,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 280),
+          curve: Curves.easeInOutCubic,
+          margin: const EdgeInsets.only(bottom: 4),
+          decoration: BoxDecoration(
+            color: const Color(0xFF1C1C1E),
+            borderRadius: BorderRadius.circular(18),
+            border: Border.all(
+              color: Colors.white.withValues(alpha: 0.08),
+              width: 1,
+            ),
+          ),
+          child: cardContent,
+        ),
+      );
+    }
+
+    // ── LIGHT MODE: glassmorphism + accent strip + soft shadow ─────
+    return GestureDetector(
+      onTap: allDone ? null : () => setState(() => _expanded = !_expanded),
+      behavior: HitTestBehavior.opaque,
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 4),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(18),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.04), // softer shadow
+              blurRadius: 16,
+              offset: const Offset(0, 6),
+            ),
+          ],
+        ),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(18),
+          child: BackdropFilter(
+            filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 280),
+              curve: Curves.easeInOutCubic,
+              decoration: BoxDecoration(
+                color: Colors.white.withValues(alpha: 0.45),
+                borderRadius: BorderRadius.circular(18),
+                border: Border.all(
+                  color: Colors.white.withValues(alpha: 0.35),
+                  width: 1.2,
+                ),
+              ),
+              child: cardContent,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 
 // ── Greeting Section ───────────────────────────────────────────────────────────
 class _GreetingSection extends ConsumerWidget {
@@ -454,7 +786,6 @@ class _DateStripState extends ConsumerState<_DateStrip> {
   Widget build(BuildContext context) {
     final selectedDate = ref.watch(selectedDateProvider);
     final itemWidth = MediaQuery.of(context).size.width / 7;
-    final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return SizedBox(
       height: 80,
@@ -614,13 +945,11 @@ class _DateChip extends StatelessWidget {
 class _HabitCard extends ConsumerWidget {
   final Habit habit;
   final String dateStr;
-  final bool isFuture;
   final int index;
 
   const _HabitCard({
     required this.habit,
     required this.dateStr,
-    required this.isFuture,
     required this.index,
   });
 
@@ -632,14 +961,27 @@ class _HabitCard extends ConsumerWidget {
     final baseColor = Color(habit.colorValue);
     final progress = (currentProgressValue / habit.goalValue).clamp(0.0, 1.0);
 
+    // Per-habit entry state: preStart gate fires first, then anti-cheat UTC logic
+    final entryState = AntiCheatService.getEntryState(
+      dateStr,
+      habitStartDate: habit.startDate,
+    );
+
+    // Derive individual flags from centralized entry state
+    final isPreStart = entryState == HabitEntryState.preStart;
+    final isFuture = entryState == HabitEntryState.future;
+    final isLockedPast = entryState == HabitEntryState.lockedFinal;
+    final isGrace = entryState == HabitEntryState.grace;
+
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 4),
       child: AnimatedOpacity(
         duration: const Duration(milliseconds: 300),
-        opacity: isFuture ? 0.6 : 1.0,
+        // preStart should not look disabled or ghosted, just neutral
+        opacity: isFuture ? 0.6 : (isLockedPast ? 0.75 : 1.0),
         child: Slidable(
           key: ValueKey(habit.id),
-          enabled: !isFuture,
+          enabled: !isFuture && !isLockedPast && !isPreStart,
           startActionPane: ActionPane(
             motion: const ScrollMotion(),
             extentRatio: 0.2,
@@ -764,17 +1106,17 @@ class _HabitCard extends ConsumerWidget {
                                   Builder(builder: (_) {
                                     final streak = calculateHabitStreak(habit);
                                     if (streak == 0) return const SizedBox.shrink();
-                                    return Container(
-                                      margin: const EdgeInsets.only(left: 8),
-                                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                                      decoration: BoxDecoration(
-                                        color: Theme.of(context).colorScheme.surface.withValues(alpha: 0.85),
-                                        borderRadius: BorderRadius.circular(100),
-                                        border: Border.all(
-                                          color: isDark ? Colors.white.withValues(alpha: 0.15) : baseColor.withValues(alpha: 0.5),
-                                          width: 0.8,
+                                      return Container(
+                                        margin: const EdgeInsets.only(left: 8),
+                                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                        decoration: BoxDecoration(
+                                          color: Theme.of(context).colorScheme.surface.withValues(alpha: 0.85),
+                                          borderRadius: BorderRadius.circular(100),
+                                          border: Border.all(
+                                            color: isDark ? Colors.white.withValues(alpha: 0.15) : baseColor.withValues(alpha: 0.5),
+                                            width: 0.8,
+                                          ),
                                         ),
-                                      ),
                                       child: Row(
                                         mainAxisSize: MainAxisSize.min,
                                         children: [
@@ -803,9 +1145,21 @@ class _HabitCard extends ConsumerWidget {
                         ),
                         _PremiumCompleteButton(
                           isCompleted: isCompletedToday,
-                          isFuture: isFuture,
+                          entryState: entryState,
                           color: baseColor,
                           onTap: () {
+                            // Pre-start: completely silent — no snackbar, no interaction
+                            if (isPreStart) return;
+                            if (isLockedPast) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(
+                                  content: Text("Past records are locked to maintain accuracy."),
+                                  behavior: SnackBarBehavior.floating,
+                                  duration: Duration(seconds: 2),
+                                ),
+                              );
+                              return;
+                            }
                             if (isFuture) {
                               ScaffoldMessenger.of(context).showSnackBar(
                                 const SnackBar(
@@ -816,9 +1170,30 @@ class _HabitCard extends ConsumerWidget {
                               );
                               return;
                             }
+                            if (isGrace) {
+                              // Grace window: allow update but show subtle reminder
+                              ScaffoldMessenger.of(context).clearSnackBars();
+                            }
                             if (habit.goalValue == 1) {
                               final current = habit.dailyProgress[dateStr] ?? 0;
                               final newValue = current >= 1 ? 0 : 1;
+                              
+                              if (newValue == 1 && current == 0 && habit.rewardsClaimed[dateStr] == true) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(
+                                    content: Row(
+                                      children: const [
+                                        Icon(Icons.check_circle_outline, color: Colors.white, size: 20),
+                                        SizedBox(width: 8),
+                                        Text("Reward already claimed for today"),
+                                      ],
+                                    ),
+                                    behavior: SnackBarBehavior.floating,
+                                    duration: const Duration(seconds: 2),
+                                    backgroundColor: Colors.grey[800],
+                                  ),
+                                );
+                              }
                               ref.read(habitProvider.notifier).setHabitProgress(habit.id, dateStr, newValue);
                             } else {
                               _showUpdateProgressPopup(context, ref, habit, dateStr);
@@ -862,6 +1237,22 @@ class _HabitCard extends ConsumerWidget {
           habit: habit,
           currentValue: currentProgress,
           onSave: (val) {
+            if (val >= habit.goalValue && currentProgress < habit.goalValue && habit.rewardsClaimed[dateStr] == true) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Row(
+                    children: const [
+                      Icon(Icons.check_circle_outline, color: Colors.white, size: 20),
+                      SizedBox(width: 8),
+                      Text("Reward already claimed for today"),
+                    ],
+                  ),
+                  behavior: SnackBarBehavior.floating,
+                  duration: const Duration(seconds: 2),
+                  backgroundColor: Colors.grey[800],
+                ),
+              );
+            }
             ref.read(habitProvider.notifier).setHabitProgress(habit.id, dateStr, val);
           },
         );
@@ -918,13 +1309,13 @@ class _ProgressPill extends StatelessWidget {
 
 class _PremiumCompleteButton extends StatefulWidget {
   final bool isCompleted;
-  final bool isFuture;
+  final HabitEntryState entryState;
   final Color color;
   final VoidCallback onTap;
 
   const _PremiumCompleteButton({
     required this.isCompleted,
-    required this.isFuture,
+    required this.entryState,
     required this.color,
     required this.onTap,
   });
@@ -959,11 +1350,20 @@ class _PremiumCompleteButtonState extends State<_PremiumCompleteButton> with Sin
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
+    final isPreStart = widget.entryState == HabitEntryState.preStart;
+    final isFuture = widget.entryState == HabitEntryState.future;
+    final isLockedPast = widget.entryState == HabitEntryState.lockedFinal;
+    final isGrace = widget.entryState == HabitEntryState.grace;
+    final isDisabled = isPreStart || isFuture || isLockedPast;
+
+    // Amber tint for grace window
+    const amberGrace = Color(0xFFF59E0B);
+
     return GestureDetector(
-      onTapDown: widget.isFuture ? null : (_) => _controller.forward(),
-      onTapUp: widget.isFuture ? null : (_) => _controller.reverse(),
-      onTapCancel: widget.isFuture ? null : () => _controller.reverse(),
-      onTap: widget.isFuture ? widget.onTap : widget.onTap, // Still allow tap to show Sanckbar if we want
+      onTapDown: isDisabled ? null : (_) => _controller.forward(),
+      onTapUp: isDisabled ? null : (_) => _controller.reverse(),
+      onTapCancel: isDisabled ? null : () => _controller.reverse(),
+      onTap: widget.onTap,
       child: ScaleTransition(
         scale: _scaleAnimation,
         child: AnimatedContainer(
@@ -972,17 +1372,32 @@ class _PremiumCompleteButtonState extends State<_PremiumCompleteButton> with Sin
           height: 32,
           decoration: BoxDecoration(
             shape: BoxShape.circle,
-            color: widget.isFuture 
-                ? Colors.grey.withValues(alpha: 0.2)
-                : (widget.isCompleted 
-                    ? (isDark ? Colors.white.withValues(alpha: 0.08) : AppColors.success)
-                    : Theme.of(context).colorScheme.surface.withAlpha(200)),
-            border: widget.isCompleted && isDark
-                ? Border.all(color: Colors.white.withValues(alpha: 0.2), width: 1.0)
-                : null,
+            // preStart: soft neutral grey circle (very light grey)
+            color: isPreStart
+                ? (isDark ? Colors.white.withValues(alpha: 0.05) : Colors.black.withValues(alpha: 0.05))
+                : isLockedPast
+                    ? Theme.of(context).colorScheme.surfaceContainerHighest.withValues(alpha: 0.5)
+                    : isFuture
+                        ? Colors.grey.withValues(alpha: 0.2)
+                        : (widget.isCompleted
+                            ? (isDark ? Colors.white.withValues(alpha: 0.08) : AppColors.success)
+                            : Theme.of(context).colorScheme.surface.withAlpha(200)),
+            border: isPreStart
+                ? null
+                : (isGrace && !widget.isCompleted
+                    ? Border.all(color: amberGrace.withValues(alpha: 0.7), width: 1.5)
+                    : (widget.isCompleted && isDark
+                        ? Border.all(color: Colors.white.withValues(alpha: 0.2), width: 1.0)
+                        : null)),
             boxShadow: [
-              if (!widget.isFuture) ...[
-                if (!widget.isCompleted || !isDark)
+              if (!isDisabled) ...[
+                if (isGrace && !widget.isCompleted)
+                  BoxShadow(
+                    color: amberGrace.withValues(alpha: 0.3),
+                    blurRadius: 8,
+                    spreadRadius: 1,
+                  )
+                else if (!widget.isCompleted || !isDark)
                   BoxShadow(
                     color: (widget.isCompleted ? AppColors.success : Theme.of(context).colorScheme.shadow).withAlpha(40),
                     blurRadius: 8,
@@ -997,20 +1412,29 @@ class _PremiumCompleteButtonState extends State<_PremiumCompleteButton> with Sin
               ]
             ],
           ),
-          child: AnimatedSwitcher(
-            duration: const Duration(milliseconds: 200),
-            transitionBuilder: (child, animation) => ScaleTransition(scale: animation, child: child),
-            child: Icon(
-              widget.isCompleted ? CupertinoIcons.checkmark_alt : CupertinoIcons.add,
-              key: ValueKey(widget.isCompleted),
-              color: widget.isFuture 
-                  ? Colors.grey.withValues(alpha: 0.5)
-                  : (widget.isCompleted 
-                      ? Colors.white
-                      : Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.7)),
-              size: 18,
-            ),
-          ),
+          // preStart: no icon at all — completely blank circle
+          child: isPreStart
+              ? const SizedBox.shrink()
+              : AnimatedSwitcher(
+                  duration: const Duration(milliseconds: 200),
+                  transitionBuilder: (child, animation) => ScaleTransition(scale: animation, child: child),
+                  child: Icon(
+                    isLockedPast
+                        ? CupertinoIcons.lock_fill
+                        : widget.isCompleted ? CupertinoIcons.checkmark_alt : CupertinoIcons.add,
+                    key: ValueKey('${widget.isCompleted}_${widget.entryState}'),
+                    color: isLockedPast
+                        ? Colors.grey.withValues(alpha: 0.4)
+                        : isFuture
+                            ? Colors.grey.withValues(alpha: 0.5)
+                            : (widget.isCompleted
+                                ? Colors.white
+                                : (isGrace
+                                    ? amberGrace.withValues(alpha: 0.8)
+                                    : Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.7))),
+                    size: 18,
+                  ),
+                ),
         ),
       ),
     );

@@ -52,6 +52,15 @@ class NotificationService {
   }
 
   static Future<bool> requestPermission() async {
+    // Android 13+ request
+    final android = _plugin.resolvePlatformSpecificImplementation<
+        AndroidFlutterLocalNotificationsPlugin>();
+    if (android != null) {
+      await android.requestNotificationsPermission();
+      await android.requestExactAlarmsPermission();
+    }
+
+    // iOS request
     final ios = _plugin.resolvePlatformSpecificImplementation<
         IOSFlutterLocalNotificationsPlugin>();
     return await ios?.requestPermissions(
@@ -59,7 +68,7 @@ class NotificationService {
           badge: true,
           sound: true,
         ) ??
-        false;
+        true;
   }
 
   // ──────────────────────────────────────────────────────────────
@@ -69,12 +78,13 @@ class NotificationService {
   static NotificationDetails _buildNotificationDetails(bool playSound) {
     return NotificationDetails(
       android: AndroidNotificationDetails(
-        'premium_reminders',
-        'Reminders',
-        channelDescription: 'Important app reminders',
+        'premium_alerts_v2',
+        'Direct Alerts',
+        channelDescription: 'Time-sensitive app reminders',
         importance: Importance.max,
         priority: Priority.high,
         playSound: playSound,
+        enableVibration: true,
       ),
       iOS: DarwinNotificationDetails(
         presentAlert: true,
@@ -212,6 +222,47 @@ class NotificationService {
   // ──────────────────────────────────────────────────────────────
   // Generic helpers
   // ──────────────────────────────────────────────────────────────
+
+  /// Fires a notification immediately (no scheduling).
+  /// Used by SmartNudgeService for context-aware nudges.
+  static Future<void> showImmediate({
+    required int id,
+    required String title,
+    required String body,
+  }) async {
+    final prefs = await SharedPreferences.getInstance();
+    if (!_initialized) return;
+    await _plugin.show(
+      id,
+      title,
+      body,
+      _buildNotificationDetails(prefs.getBool('sounds_enabled') ?? true),
+    );
+  }
+
+  /// Schedules a single smart nudge at [scheduledTime].
+  /// Used by SmartNudgeService to pre-schedule nudges that fire even when
+  /// the app is closed or the screen is locked.
+  static Future<void> scheduleSmartNudge({
+    required int id,
+    required String title,
+    required String body,
+    required tz.TZDateTime scheduledTime,
+    required SharedPreferences prefs,
+  }) async {
+    if (!_initialized) return;
+    await _plugin.zonedSchedule(
+      id,
+      title,
+      body,
+      scheduledTime,
+      _buildNotificationDetails(prefs.getBool('sounds_enabled') ?? true),
+      androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
+      uiLocalNotificationDateInterpretation:
+          UILocalNotificationDateInterpretation.absoluteTime,
+      // No matchDateTimeComponents → one-shot, fires exactly once today
+    );
+  }
 
   static Future<void> cancel(int id) async => _plugin.cancel(id);
   static Future<void> cancelAll() async => _plugin.cancelAll();
