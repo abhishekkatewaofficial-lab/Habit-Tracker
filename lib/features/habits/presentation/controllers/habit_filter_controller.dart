@@ -2,6 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import 'package:habit_tracker_ios/features/habits/data/models/habit.dart';
 import 'package:habit_tracker_ios/features/habits/presentation/controllers/habit_controller.dart';
+import 'package:habit_tracker_ios/features/habits/presentation/controllers/streak_protection_controller.dart';
 
 enum HabitFilter {
   all,
@@ -53,7 +54,8 @@ int calculateHabitStreak(Habit habit) {
 
     final dateStr = DateFormat('yyyy-MM-dd').format(checkDay);
     final done = habit.dailyProgress[dateStr] ?? 0;
-    final isMet = habit.goalValue > 0 && done >= habit.goalValue;
+    final snappedGoal = habit.goalFor(dateStr);
+    final isMet = snappedGoal > 0 && done >= snappedGoal;
 
     if (isMet) {
       streak++;
@@ -91,7 +93,8 @@ int calculateHabitBestStreak(Habit habit) {
 
     final dateStr = DateFormat('yyyy-MM-dd').format(checkDay);
     final done = habit.dailyProgress[dateStr] ?? 0;
-    final isMet = habit.goalValue > 0 && done >= habit.goalValue;
+    final snappedGoal = habit.goalFor(dateStr);
+    final isMet = snappedGoal > 0 && done >= snappedGoal;
 
     if (isMet) {
       current++;
@@ -107,6 +110,85 @@ int calculateHabitBestStreak(Habit habit) {
 
   return best;
 }
+
+/// Identical to [calculateHabitStreak] but treats protected days as completed
+/// for streak calculation ONLY. Actual completion data is never modified.
+/// Used in the UI — reports always use the original [calculateHabitStreak].
+int calculateHabitStreakWithProtection(Habit habit, Set<String> protectedDays) {
+  final now = DateTime.now();
+  final today = DateTime(now.year, now.month, now.day);
+
+  int streak = 0;
+  DateTime checkDay = today;
+
+  while (true) {
+    if (checkDay.isBefore(habit.startDate)) break;
+
+    final isScheduled = isHabitScheduledOn(habit, checkDay);
+
+    if (!isScheduled) {
+      checkDay = checkDay.subtract(const Duration(days: 1));
+      if (today.difference(checkDay).inDays > 730) break;
+      continue;
+    }
+
+    final dateStr = DateFormat('yyyy-MM-dd').format(checkDay);
+    final done = habit.dailyProgress[dateStr] ?? 0;
+    // A day counts if actually completed OR streak-protected
+    final isProtected = protectedDays.contains('${habit.id}_$dateStr');
+    final snappedGoal = habit.goalFor(dateStr);
+    final isMet = (snappedGoal > 0 && done >= snappedGoal) || isProtected;
+
+    if (isMet) {
+      streak++;
+      checkDay = checkDay.subtract(const Duration(days: 1));
+    } else if (checkDay == today) {
+      // Today not yet done — don't break streak
+      checkDay = checkDay.subtract(const Duration(days: 1));
+    } else {
+      break;
+    }
+  }
+
+  return streak;
+}
+
+/// Computes all habits that are eligible for streak protection right now.
+/// A habit is eligible when:
+///   1. It was scheduled yesterday
+///   2. Yesterday was NOT completed
+///   3. It has NOT already been protected for yesterday
+///   4. It has at least 1 previously completed day (so there's a real streak at risk)
+final streakBreakCandidatesProvider = Provider<List<Habit>>((ref) {
+  final habits = ref.watch(habitProvider);
+  final protected = ref.watch(streakProtectionProvider);
+
+  final now = DateTime.now();
+  final today = DateTime(now.year, now.month, now.day);
+  final yesterday = today.subtract(const Duration(days: 1));
+  final yesterdayStr = DateFormat('yyyy-MM-dd').format(yesterday);
+
+  return habits.where((habit) {
+    // Habit must have started before yesterday
+    if (!habit.startDate.isBefore(today)) return false;
+    // Must be scheduled yesterday
+    if (!isHabitScheduledOn(habit, yesterday)) return false;
+    // Must NOT have been completed yesterday
+    final done = habit.dailyProgress[yesterdayStr] ?? 0;
+    if (done >= habit.goalFor(yesterdayStr)) return false;
+    // Must NOT already be protected for yesterday
+    if (protected.contains('${habit.id}_$yesterdayStr')) return false;
+    // Must have at least 1 prior completion day (real streak to protect)
+    final hasHistory = habit.dailyProgress.entries.any((e) {
+      final d = DateTime.tryParse(e.key);
+      if (d == null || !d.isBefore(yesterday)) return false;
+      return e.value >= habit.goalFor(e.key);
+    });
+    return hasHistory;
+  // Sort by highest streak descending — highest-value streak shown first
+  }).toList()
+    ..sort((a, b) => calculateHabitStreak(b).compareTo(calculateHabitStreak(a)));
+});
 
 final filteredHabitsProvider = Provider((ref) {
   final habits = ref.watch(habitProvider);
@@ -125,12 +207,12 @@ final filteredHabitsProvider = Provider((ref) {
     case HabitFilter.completed:
       return scheduled.where((h) {
         final progress = h.dailyProgress[dateStr] ?? 0;
-        return progress >= h.goalValue;
+        return progress >= h.goalFor(dateStr);
       }).toList();
     case HabitFilter.pending:
       return scheduled.where((h) {
         final progress = h.dailyProgress[dateStr] ?? 0;
-        return progress < h.goalValue;
+        return progress < h.goalFor(dateStr);
       }).toList();
   }
 });

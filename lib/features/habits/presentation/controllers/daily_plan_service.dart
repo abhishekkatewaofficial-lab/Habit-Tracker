@@ -200,7 +200,7 @@ class DailyPlanService {
 
   static bool _isCompleted(Habit habit, String dateStr) {
     final progress = habit.dailyProgress[dateStr] ?? 0;
-    return progress >= habit.goalValue;
+    return progress >= habit.goalFor(dateStr);
   }
 
   /// Normalized: binary → 0 or 1, measurable → progress/goal clamped 0–1.
@@ -209,8 +209,9 @@ class DailyPlanService {
 
   static double _normalizedProgress(Habit habit, String dateStr) {
     final progress = habit.dailyProgress[dateStr] ?? 0;
-    if (habit.goalValue <= 0) return progress > 0 ? 1.0 : 0.0;
-    return (progress / habit.goalValue).clamp(0.0, 1.0);
+    final snapGoal = habit.goalFor(dateStr);
+    if (snapGoal <= 0) return progress > 0 ? 1.0 : 0.0;
+    return (progress / snapGoal).clamp(0.0, 1.0);
   }
 
   /// Consecutive scheduled days recently skipped (not completed, not today).

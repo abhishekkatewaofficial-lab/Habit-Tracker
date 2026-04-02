@@ -240,7 +240,7 @@ class _HeatmapCard extends StatelessWidget {
                     final isBeforeStart = date.isBefore(habit.startDate);
                     final isSkipped = !isHabitScheduledOn(habit, date);
                     final progressVal = habit.dailyProgress[dateStr] ?? 0;
-                    final goal = habit.goalValue > 0 ? habit.goalValue : 1;
+                    final goal = (habit.goalFor(dateStr) > 0 ? habit.goalFor(dateStr) : 1).toDouble();
                     final progressPercent = (progressVal / goal).clamp(0.0, 1.0);
                     final baseColor = Color(habit.colorValue);
 
@@ -499,9 +499,10 @@ class YearlyReportView extends ConsumerWidget {
 
               scheduledDaysCount++;
               final done = habit.dailyProgress[dateStr] ?? 0;
-              final goal = habit.goalValue > 0 ? habit.goalValue : 1;
+              final snapGoal = habit.goalFor(dateStr);
+              final goal = snapGoal > 0 ? snapGoal : 1;
               totalProgressSum += (done / goal).clamp(0.0, 1.0);
-              if (habit.goalValue > 0 && done >= habit.goalValue) {
+              if (snapGoal > 0 && done >= snapGoal) {
                 completedDays++;
               }
             }
@@ -596,7 +597,8 @@ class YearlyReportView extends ConsumerWidget {
                               final bool isSkipped = !isHabitScheduledOn(habit, dayDate);
                               
                               final progress = habit.dailyProgress[dateStr] ?? 0;
-                              final goal = habit.goalValue > 0 ? habit.goalValue : 1;
+                              final snapGoal = habit.goalFor(dateStr);
+                              final goal = snapGoal > 0 ? snapGoal : 1;
                               final progressPercent = (progress / goal).clamp(0.0, 1.0);
 
                               Color cellColor;
@@ -814,7 +816,7 @@ class _MonthlyHabitCard extends StatelessWidget {
     int completedDays = 0;  // fully completed scheduled days only (for display)
     double totalProgressSum = 0.0;  // sum of progress on scheduled days only
     int scheduledDaysCount = 0; // denominator: how many days in this month the habit was due
-    final double goal = habit.goalValue > 0 ? habit.goalValue.toDouble() : 1.0;
+
 
     for (int day = 1; day <= daysInMonth; day++) {
       final date = DateTime(year, month, day);
@@ -826,13 +828,15 @@ class _MonthlyHabitCard extends StatelessWidget {
 
       scheduledDaysCount++;
       final int done = habit.dailyProgress[dateStr] ?? 0;
+      final snapGoal = habit.goalFor(dateStr);
+      final double dailyGoal = snapGoal > 0 ? snapGoal.toDouble() : 1.0;
 
       // Continuous progress (0.0 – 1.0)
-      final double dailyProgress = (done / goal).clamp(0.0, 1.0);
+      final double dailyProgress = (done / dailyGoal).clamp(0.0, 1.0);
       totalProgressSum += dailyProgress;
 
       // Count fully completed days (for the Xd display stat)
-      if (habit.goalValue > 0 && done >= habit.goalValue) {
+      if (snapGoal > 0 && done >= snapGoal) {
         completedDays++;
       }
     }
@@ -922,8 +926,8 @@ class _MonthlyHabitCard extends StatelessWidget {
                 final bool isBeforeStart = date.isBefore(habit.startDate);
                 final bool isSkipped = !isHabitScheduledOn(habit, date);
                 final int done = habit.dailyProgress[dateStr] ?? 0;
-                final double goal = habit.goalValue > 0 ? habit.goalValue.toDouble() : 1.0;
-                final double progressPercent = (done / goal).clamp(0.0, 1.0);
+                final double snapGoal = habit.goalFor(dateStr) > 0 ? habit.goalFor(dateStr).toDouble() : 1.0;
+                final double progressPercent = (done / snapGoal).clamp(0.0, 1.0);
 
                 Color cellColor;
                 Widget? cellChild;
@@ -1829,8 +1833,9 @@ class InsightsReportView extends ConsumerWidget {
         
         if (isActiveDay && !habit.isQuitHabit) {
           // Normalization: Every active habit counts as precisely 1.0 point per day
-          if (habit.goalValue <= 0) continue;
-          double goal = habit.goalValue.toDouble();
+          final snapGoal = habit.goalFor(dateKey);
+          if (snapGoal <= 0) continue;
+          double goal = snapGoal.toDouble();
           double progressRaw = (habit.dailyProgress[dateKey] ?? 0).toDouble();
           double normalizedProgress = (progressRaw / goal).clamp(0.0, 1.0);
 

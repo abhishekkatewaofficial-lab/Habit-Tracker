@@ -57,6 +57,8 @@
 		<string>Habit Tracker uses your location to trigger location-based reminders.</string>
 		<key>NSUserNotificationUsageDescription</key>
 		<string>Habit Tracker sends you daily reminders to keep your habits on track.</string>
+		<key>NSMotionUsageDescription</key>
+		<string>Habit Tracker uses your phone's motion sensor to automatically track your daily steps.</string>
 		<key>UIMainStoryboardFile</key>
 		<string>Main</string>
 		<key>UISupportedInterfaceOrientations</key>

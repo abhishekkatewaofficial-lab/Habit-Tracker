@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -7,9 +8,11 @@ import 'package:habit_tracker_ios/core/constants/app_text_styles.dart';
 import 'package:habit_tracker_ios/core/theme/theme_provider.dart';
 import 'package:habit_tracker_ios/core/services/notification_provider.dart';
 import 'package:habit_tracker_ios/core/services/settings_provider.dart';
+
 import 'package:habit_tracker_ios/shared_widgets/adaptive_layout.dart';
 import '../controllers/profile_controller.dart';
 import '../controllers/badge_controller.dart';
+import '../controllers/coin_controller.dart';
 
 
 class ProfileScreen extends ConsumerStatefulWidget {
@@ -170,8 +173,10 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
             const SizedBox(height: 32),
             
             const _BadgesShowcase(),
+            const SizedBox(height: 20),
+            const _CoinBalanceCard(),
             const SizedBox(height: 32),
-
+              
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 24),
               child: Column(
@@ -800,6 +805,162 @@ class _PremiumBadge extends StatelessWidget {
           maxLines: 1,
         ),
       ],
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Premium Coin Balance Card
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _CoinBalanceCard extends ConsumerWidget {
+  const _CoinBalanceCard();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final coins = ref.watch(coinProvider);
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final formatted = coins.toString().replaceAllMapped(
+      RegExp(r'(\d)(?=(\d{3})+(?!\d))'),
+      (m) => '${m[1]},',
+    );
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 24),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 18),
+        decoration: BoxDecoration(
+          color: isDark ? const Color(0xFF1C1C1E) : Colors.white,
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(
+            color: isDark
+                ? const Color(0xFFFFD700).withValues(alpha: 0.25)
+                : const Color(0xFFFFD700).withValues(alpha: 0.4),
+            width: 1.5,
+          ),
+          boxShadow: isDark
+              ? []
+              : [
+                  BoxShadow(
+                    color: const Color(0xFFFFD700).withValues(alpha: 0.08),
+                    blurRadius: 20,
+                    offset: const Offset(0, 6),
+                  ),
+                ],
+        ),
+        child: Row(
+          children: [
+            // ── Premium Gradient Gold Coin Icon ──
+            Container(
+              width: 44,
+              height: 44,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                gradient: LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: isDark
+                      ? [const Color(0xFFC9A227), const Color(0xFFFFD700)]
+                      : [const Color(0xFFFFD700), const Color(0xFFFFC300)],
+                ),
+                boxShadow: isDark
+                    ? []
+                    : [
+                        BoxShadow(
+                          color: const Color(0xFFFFD700).withValues(alpha: 0.4),
+                          blurRadius: 12,
+                          offset: const Offset(0, 4),
+                        ),
+                      ],
+              ),
+              child: Stack(
+                alignment: Alignment.center,
+                children: [
+                  // Inner shine spot
+                  Positioned(
+                    top: 6,
+                    left: 9,
+                    child: Container(
+                      width: 10,
+                      height: 6,
+                      decoration: BoxDecoration(
+                        color: Colors.white.withValues(alpha: 0.35),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                    ),
+                  ),
+                  // Embossed star
+                  const Icon(
+                    Icons.star_rounded,
+                    color: Colors.white,
+                    size: 22,
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 16),
+            // ── Balance Display ──
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Coin Balance',
+                  style: GoogleFonts.poppins(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w500,
+                    color: isDark
+                        ? Colors.white.withValues(alpha: 0.5)
+                        : const Color(0xFF9CA3AF),
+                  ),
+                ),
+                Text(
+                  '$formatted Coins',
+                  style: GoogleFonts.poppins(
+                    fontSize: 22,
+                    fontWeight: FontWeight.w700,
+                    color: isDark ? Colors.white : const Color(0xFF1F2937),
+                    letterSpacing: -0.5,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  'Earn coins by completing habits',
+                  style: GoogleFonts.poppins(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w400,
+                    color: isDark
+                        ? Colors.white.withValues(alpha: 0.35)
+                        : const Color(0xFFB0B0B5),
+                  ),
+                ),
+              ],
+            ),
+            const Spacer(),
+            // ── Pill showing daily cap ──
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+              decoration: BoxDecoration(
+                color: isDark
+                    ? const Color(0xFFFFD700).withValues(alpha: 0.12)
+                    : const Color(0xFFFFFDE7),
+                borderRadius: BorderRadius.circular(20),
+                border: Border.all(
+                  color: const Color(0xFFFFD700).withValues(alpha: 0.3),
+                  width: 1,
+                ),
+              ),
+              child: Text(
+                '+10/habit',
+                style: GoogleFonts.poppins(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w600,
+                  color: isDark ? const Color(0xFFFFD700) : const Color(0xFFB8860B),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }

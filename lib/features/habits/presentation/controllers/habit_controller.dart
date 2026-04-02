@@ -1,3 +1,4 @@
+import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:habit_tracker_ios/features/habits/data/models/habit.dart';
@@ -6,6 +7,7 @@ import 'package:habit_tracker_ios/core/services/notification_service.dart';
 import 'package:habit_tracker_ios/core/services/smart_nudge_service.dart';
 import 'package:habit_tracker_ios/core/services/anti_cheat_service.dart';
 import 'package:habit_tracker_ios/features/profile/presentation/controllers/coin_controller.dart';
+import 'package:habit_tracker_ios/features/profile/presentation/controllers/global_reward_tracker.dart';
 
 final habitRepositoryProvider = Provider((ref) => HabitRepository());
 
@@ -27,6 +29,7 @@ class HabitNotifier extends StateNotifier<List<Habit>> {
   }
 
   Future<void> addHabit(Habit habit) async {
+    // Habit creation is UNRESTRICTED — only rewards are capped, not creation.
     // Overwrite the start date string safely precisely at creation to lock the locale timezone day
     final now = DateTime.now();
     final tzSafeStartDate = DateFormat('yyyy-MM-dd').format(now);
@@ -52,6 +55,20 @@ class HabitNotifier extends StateNotifier<List<Habit>> {
     }
     // Re-evaluate smart nudges
     SmartNudgeService.scheduleForToday(state);
+  }
+
+  /// DEBUG-ONLY: Saves a habit exactly as provided, preserving startDateString.
+  /// Unlike [addHabit], this does NOT overwrite startDateString with today's date.
+  /// Used by DebugTestDataService to create backdated habits for snapshot testing.
+  Future<void> saveHabitDirectly(Habit habit) async {
+    assert(() {
+      // Enforce debug-only usage at runtime in debug mode
+      return true;
+    }());
+    final nextOrder = state.isEmpty ? 0 : state.map((h) => h.sortOrder).reduce((a, b) => a > b ? a : b) + 1;
+    final habitWithOrder = habit.copyWith(sortOrder: nextOrder);
+    await _repository.saveHabit(habitWithOrder);
+    state = [...state, habitWithOrder];
   }
 
   Future<void> reorderHabits(int oldIndex, int newIndex) async {
@@ -127,19 +144,43 @@ class HabitNotifier extends StateNotifier<List<Habit>> {
 
     if (currentProgress < habit.goalValue) {
       dailyProgress[date] = currentProgress + 1;
+
+      // ── Snapshot the active goal for this day ──────────────────────────────
+      // Ensures that a future goal edit never retroactively changes whether
+      // this day was "completed" in reports/streaks.
+      final goalSnaps = Map<String, int>.from(habit.goalSnapshots);
+      goalSnaps[date] = habit.goalValue;
       
-      final Map<String, bool> updatedRewards = Map<String, bool>.from(habit.rewardsClaimed);
-      // Anti-Cheat Reward Trigger
-      if (dailyProgress[date]! >= habit.goalValue && 
-          entryState == HabitEntryState.editable && 
-          updatedRewards[date] != true) {
-        updatedRewards[date] = true;
-        _ref.read(coinProvider.notifier).addCoins(10);
+      // ── Anti-Farming: Calendar-Day Maturity + Rewardable Cap ───────────────
+      // Rule 1: No coins on creation day.
+      // Rule 2: Only first 5 distinct habit completions per day earn coins.
+      final habitStartDateStr = DateFormat('yyyy-MM-dd').format(habit.startDate);
+      final isCreationDay = (habitStartDateStr == date);
+
+      if (dailyProgress[date]! >= habit.goalValue &&
+          entryState == HabitEntryState.editable &&
+          !isCreationDay) {
+        final globalRewardTracker = _ref.read(rewardTrackerProvider.notifier);
+        final alreadyClaimed = globalRewardTracker.hasClaimed(habit.name, habit.startDate, date);
+        final capAvailable = globalRewardTracker.canGrantRewardToday(date);
+
+        if (!alreadyClaimed && capAvailable) {
+          globalRewardTracker.registerClaim(habit.name, habit.startDate, date);
+          _ref.read(coinProvider.notifier).addCoins(10);
+          HapticFeedback.lightImpact(); // subtle, premium confirmation tap
+          _ref.read(coinRewardedProvider.notifier).state = true;
+        } else if (!alreadyClaimed && !capAvailable) {
+          // Cap hit — fire once-per-day notification pulse
+          if (globalRewardTracker.shouldNotifyCapToday(date)) {
+            globalRewardTracker.markCapNotified(date);
+            _ref.read(rewardCapNotifyProvider.notifier).state = true;
+          }
+        }
       }
 
       final updatedHabit = habit.copyWith(
         dailyProgress: dailyProgress,
-        rewardsClaimed: updatedRewards,
+        goalSnapshots: goalSnaps,
       );
       await updateHabit(updatedHabit);
     }
@@ -166,23 +207,47 @@ class HabitNotifier extends StateNotifier<List<Habit>> {
         entryState == HabitEntryState.future) return;
 
     final dailyProgress = Map<String, int>.from(habit.dailyProgress);
-    final Map<String, bool> updatedRewards = Map<String, bool>.from(habit.rewardsClaimed);
     
     // Clamp between 0 and goal
     final clampedValue = value.clamp(0, habit.goalValue);
     dailyProgress[date] = clampedValue;
 
-    // Anti-Cheat Reward Trigger
-    if (clampedValue >= habit.goalValue && 
-        entryState == HabitEntryState.editable && 
-        updatedRewards[date] != true) {
-      updatedRewards[date] = true;
-      _ref.read(coinProvider.notifier).addCoins(10);
+    // ── Snapshot the active goal for this day ──────────────────────────────
+    // Ensures that a future goal edit never retroactively changes whether
+    // this day was "completed" in reports/streaks.
+    final goalSnaps = Map<String, int>.from(habit.goalSnapshots);
+    goalSnaps[date] = habit.goalValue;
+
+    // ── Anti-Farming: Calendar-Day Maturity + Rewardable Cap ───────────────
+    // Rule 1: No coins on creation day.
+    // Rule 2: Only first 5 distinct habit completions per day earn coins.
+    final habitStartDateStr = DateFormat('yyyy-MM-dd').format(habit.startDate);
+    final isCreationDay = (habitStartDateStr == date);
+
+    if (clampedValue >= habit.goalValue &&
+        entryState == HabitEntryState.editable &&
+        !isCreationDay) {
+      final globalRewardTracker = _ref.read(rewardTrackerProvider.notifier);
+      final alreadyClaimed = globalRewardTracker.hasClaimed(habit.name, habit.startDate, date);
+      final capAvailable = globalRewardTracker.canGrantRewardToday(date);
+
+      if (!alreadyClaimed && capAvailable) {
+        globalRewardTracker.registerClaim(habit.name, habit.startDate, date);
+        _ref.read(coinProvider.notifier).addCoins(10);
+        HapticFeedback.lightImpact(); // subtle, premium confirmation tap
+        _ref.read(coinRewardedProvider.notifier).state = true;
+      } else if (!alreadyClaimed && !capAvailable) {
+        // Cap hit — fire once-per-day notification pulse
+        if (globalRewardTracker.shouldNotifyCapToday(date)) {
+          globalRewardTracker.markCapNotified(date);
+          _ref.read(rewardCapNotifyProvider.notifier).state = true;
+        }
+      }
     }
 
     final updatedHabit = habit.copyWith(
       dailyProgress: dailyProgress,
-      rewardsClaimed: updatedRewards,
+      goalSnapshots: goalSnaps,
     );
     await updateHabit(updatedHabit);
     

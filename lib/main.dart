@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -12,6 +13,13 @@ import 'features/habits/presentation/home_screen.dart';
 import 'features/habits/presentation/controllers/habit_controller.dart';
 
 Future<void> main() async {
+  // Catch any uncaught async errors from the root zone
+  await runZonedGuarded(_run, (error, stack) {
+    debugPrint('ZONE ERROR: $error\n$stack');
+  });
+}
+
+Future<void> _run() async {
   WidgetsFlutterBinding.ensureInitialized();
 
   // ── Orientation: portrait-only on iPhone, all on iPad ────────────────────
@@ -44,11 +52,52 @@ Future<void> main() async {
     statusBarIconBrightness: Brightness.dark,
   ));
 
-  // ── Hive ──────────────────────────────────────────────────────────────────
-  await HiveService.init();
+  // ── Global Error Handler ─────────────────────────────────────────────────
+  // Catches silent Flutter framework errors that appear as black screens on
+  // Android release/profile builds.
+  FlutterError.onError = (FlutterErrorDetails details) {
+    FlutterError.presentError(details);
+    debugPrint('FLUTTER ERROR: ${details.exceptionAsString()}');
+  };
+  ErrorWidget.builder = (FlutterErrorDetails details) {
+    return MaterialApp(
+      home: Scaffold(
+        backgroundColor: Colors.black,
+        body: Center(
+          child: Padding(
+            padding: const EdgeInsets.all(24),
+            child: Text(
+              kDebugMode
+                  ? details.exceptionAsString()
+                  : 'Something went wrong. Please restart the app.',
+              style: const TextStyle(color: Colors.redAccent, fontSize: 13),
+              textAlign: TextAlign.center,
+            ),
+          ),
+        ),
+      ),
+    );
+  };
 
-  // ── Notifications ─────────────────────────────────────────────────────────
-  await NotificationService.init();
+  // ── Hive ──────────────────────────────────────────────────────────────────
+  try {
+    await HiveService.init();
+  } catch (e, st) {
+    debugPrint('HIVE INIT ERROR: $e\n$st');
+    // Hive failure is fatal — data cannot be read at all
+    rethrow;
+  }
+
+  // ── Notifications ────────────────────────────────────────────────────────
+  // Non-fatal: the app works perfectly even if notifications fail to init.
+  // On some Android devices/OEMs the permission channel can throw.
+  try {
+    await NotificationService.init();
+  } catch (e, st) {
+    debugPrint('NOTIFICATION INIT ERROR (non-fatal): $e\n$st');
+  }
+
+  debugPrint('APP STARTED — runApp reached');
 
   runApp(
     const ProviderScope(

@@ -11,6 +11,7 @@ import 'package:habit_tracker_ios/shared_widgets/app_bottom_nav_bar.dart';
 import 'package:habit_tracker_ios/providers/navigation_provider.dart';
 import 'package:intl/intl.dart' hide TextDirection;
 import 'package:flutter_slidable/flutter_slidable.dart';
+import 'package:fl_chart/fl_chart.dart';
 import 'package:habit_tracker_ios/features/focus_timer/presentation/pages/focus_timer_screen.dart';
 import 'package:habit_tracker_ios/features/focus_timer/presentation/pages/focus_dashboard_screen.dart';
 import 'package:habit_tracker_ios/features/diary/presentation/pages/diary_screen.dart';
@@ -31,7 +32,11 @@ import 'package:habit_tracker_ios/features/profile/presentation/pages/profile_sc
 import 'package:habit_tracker_ios/features/profile/presentation/controllers/profile_controller.dart';
 import 'package:habit_tracker_ios/shared_widgets/adaptive_layout.dart';
 import 'package:habit_tracker_ios/core/services/anti_cheat_service.dart';
-
+import 'package:habit_tracker_ios/features/profile/presentation/controllers/global_reward_tracker.dart';
+import 'package:habit_tracker_ios/features/profile/presentation/controllers/coin_controller.dart';
+import 'package:habit_tracker_ios/features/habits/presentation/controllers/streak_protection_controller.dart';
+import 'package:habit_tracker_ios/core/services/step_tracking_service.dart';
+import 'package:habit_tracker_ios/features/habits/presentation/pages/step_permission_screen.dart';
 
 /// Root scaffold that owns the bottom nav and swaps feature screens.
 class HomeScreen extends ConsumerWidget {
@@ -42,12 +47,12 @@ class HomeScreen extends ConsumerWidget {
     SizedBox.shrink(), // Index 1: Focus Main Tab (Dummy, opens sub-dock)
     DiaryScreen(),
     SizedBox.shrink(), // Index 3: Planner Main Tab (Dummy, opens sub-dock)
-    ReportsScreen(),   // Index 4: Reports
-    TodoHomeScreen(),  // Index 5
+    ReportsScreen(), // Index 4: Reports
+    TodoHomeScreen(), // Index 5
     EisenhowerMatrixScreen(), // Index 6
     FocusDashboardScreen(), // Index 7
     FocusTimerScreen(), // Index 8: Pomodoro
-    StopwatchScreen(),  // Index 9: Stopwatch
+    StopwatchScreen(), // Index 9: Stopwatch
     CountdownScreen(), // Index 10: Countdown
   ];
 
@@ -55,7 +60,10 @@ class HomeScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     // ── Badge Unlock Listener (Event-Driven Popup System) ──
     ref.listen<List<BadgeData>>(badgePopupQueueProvider, (previous, next) {
-      if (next.isNotEmpty && (previous == null || previous.length < next.length || previous.first.id != next.first.id)) {
+      if (next.isNotEmpty &&
+          (previous == null ||
+              previous.length < next.length ||
+              previous.first.id != next.first.id)) {
         final badge = next.first;
         showGeneralDialog(
           context: context,
@@ -63,7 +71,8 @@ class HomeScreen extends ConsumerWidget {
           barrierLabel: 'Badge Unlocked',
           barrierColor: Colors.black.withValues(alpha: 0.85),
           transitionDuration: const Duration(milliseconds: 600),
-          pageBuilder: (context, anim1, anim2) => _BadgeUnlockPopup(badge: badge),
+          pageBuilder: (context, anim1, anim2) =>
+              _BadgeUnlockPopup(badge: badge),
           transitionBuilder: (context, anim1, anim2, child) {
             return ScaleTransition(
               scale: CurvedAnimation(parent: anim1, curve: Curves.elasticOut),
@@ -74,17 +83,304 @@ class HomeScreen extends ConsumerWidget {
           // Dequeue after popup is dismissed
           final currentQueue = ref.read(badgePopupQueueProvider);
           if (currentQueue.isNotEmpty) {
-            ref.read(badgePopupQueueProvider.notifier).state = currentQueue.sublist(1);
+            ref.read(badgePopupQueueProvider.notifier).state =
+                currentQueue.sublist(1);
           }
         });
       }
     });
 
+    // ── Reward Cap Notification Listener ──────────────────────────────────────────
+    // Fires at most ONCE per day when the user completes their 6th+ habit.
+    // The controller tracks the date — prevents repeated popups on same day.
+    ref.listen<bool>(rewardCapNotifyProvider, (_, notify) {
+      if (!notify) return;
+      ref.read(rewardCapNotifyProvider.notifier).state = false; // reset pulse
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: const Row(
+            children: [
+              Icon(Icons.workspace_premium_rounded,
+                  color: Colors.white, size: 18),
+              SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  'Daily reward limit reached',
+                  style: TextStyle(
+                      color: Colors.white, fontWeight: FontWeight.w600),
+                ),
+              ),
+            ],
+          ),
+          behavior: SnackBarBehavior.floating,
+          backgroundColor: const Color(0xFF2C2C2E),
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          duration: const Duration(seconds: 3),
+        ),
+      );
+    });
+
+    // ── +10 Coins Reward Animation ───────────────────────────────────────────
+    // Fires a premium animated toast whenever coins are successfully granted.
+    ref.listen<bool>(coinRewardedProvider, (_, rewarded) {
+      if (!rewarded) return;
+      ref.read(coinRewardedProvider.notifier).state = false; // reset pulse
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // Gradient gold coin icon inline
+              Container(
+                width: 26,
+                height: 26,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  gradient: const LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: [Color(0xFFFFD700), Color(0xFFFFC300)],
+                  ),
+                  boxShadow: [
+                    BoxShadow(
+                      color: const Color(0xFFFFD700).withValues(alpha: 0.5),
+                      blurRadius: 8,
+                      offset: const Offset(0, 2),
+                    ),
+                  ],
+                ),
+                child: const Icon(Icons.star_rounded,
+                    color: Colors.white, size: 16),
+              ),
+              const SizedBox(width: 10),
+              Text(
+                '+10 Coins',
+                style: GoogleFonts.poppins(
+                  fontSize: 15,
+                  fontWeight: FontWeight.w700,
+                  color: Colors.white,
+                  letterSpacing: 0.2,
+                ),
+              ),
+            ],
+          ),
+          behavior: SnackBarBehavior.floating,
+          backgroundColor: const Color(0xFF1C1C1E),
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+          margin: const EdgeInsets.symmetric(horizontal: 60, vertical: 16),
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          duration: const Duration(milliseconds: 1800),
+          elevation: 8,
+        ),
+      );
+    });
+
+    // ── First-time Onboarding Welcome Coins ──────────────────────────────────
+    ref.listen<bool>(welcomeCoinsGrantedProvider, (_, granted) {
+      if (!granted) return;
+      ref.read(welcomeCoinsGrantedProvider.notifier).state = false; // Reset
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 26,
+                height: 26,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  gradient: const LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: [
+                      Color(0xFF9333EA),
+                      Color(0xFFC084FC)
+                    ], // Purple magic
+                  ),
+                  boxShadow: [
+                    BoxShadow(
+                      color: const Color(0xFF9333EA).withValues(alpha: 0.5),
+                      blurRadius: 8,
+                      offset: const Offset(0, 2),
+                    ),
+                  ],
+                ),
+                child: const Icon(Icons.redeem_rounded,
+                    color: Colors.white, size: 16),
+              ),
+              const SizedBox(width: 10),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    'Welcome!',
+                    style: GoogleFonts.poppins(
+                      fontSize: 11,
+                      color: Colors.white.withValues(alpha: 0.8),
+                    ),
+                  ),
+                  Text(
+                    '🎁 You received 1000 coins',
+                    style: GoogleFonts.poppins(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w700,
+                      color: Colors.white,
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+          behavior: SnackBarBehavior.floating,
+          backgroundColor: const Color(0xFF1C1C1E),
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+          margin: const EdgeInsets.symmetric(horizontal: 60, vertical: 16),
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          duration: const Duration(seconds: 4),
+          elevation: 8,
+        ),
+      );
+    });
+
+    // ── -50 Coins Deduction Toast ────────────────────────────────────────────
+    // Fires when streak protection is purchased with coins.
+    ref.listen<bool>(coinDeductedProvider, (_, deducted) {
+      if (!deducted) return;
+      ref.read(coinDeductedProvider.notifier).state = false;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 26,
+                height: 26,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  gradient: const LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: [Color(0xFFC9A227), Color(0xFFFFD700)],
+                  ),
+                ),
+                child: const Icon(Icons.star_rounded,
+                    color: Colors.white, size: 16),
+              ),
+              const SizedBox(width: 10),
+              Text(
+                '-50 Coins',
+                style: GoogleFonts.poppins(
+                  fontSize: 15,
+                  fontWeight: FontWeight.w700,
+                  color: Colors.white,
+                ),
+              ),
+            ],
+          ),
+          behavior: SnackBarBehavior.floating,
+          backgroundColor: const Color(0xFF3A3A3C),
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+          margin: const EdgeInsets.symmetric(horizontal: 60, vertical: 16),
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          duration: const Duration(milliseconds: 1800),
+          elevation: 8,
+        ),
+      );
+    });
+
+    // ── Streak Protection Modal Trigger ─────────────────────────────────────
+    final streakCandidates = ref.watch(streakBreakCandidatesProvider);
+    final reminderState = ref.watch(streakReminderStateProvider);
+
+    if (streakCandidates.isNotEmpty) {
+      WidgetsBinding.instance.addPostFrameCallback((_) async {
+        if (!context.mounted) return;
+
+        final candidates = ref.read(streakBreakCandidatesProvider);
+        if (candidates.isEmpty) return;
+
+        final notifier = ref.read(streakReminderStateProvider.notifier);
+        if (!notifier.shouldShowReminder()) return;
+
+        // Compute the "what if it was protected" streak for all candidates
+        final now = DateTime.now();
+        final yesterday = DateTime(now.year, now.month, now.day)
+            .subtract(const Duration(days: 1));
+        final yesterdayStr = DateFormat('yyyy-MM-dd').format(yesterday);
+
+        final streakAtRiskMap = <String, int>{};
+        final currentProtected = ref.read(streakProtectionProvider);
+        for (final habit in candidates) {
+          final mockProtected = {
+            ...currentProtected,
+            '${habit.id}_$yesterdayStr'
+          };
+          streakAtRiskMap[habit.id] =
+              calculateHabitStreakWithProtection(habit, mockProtected);
+        }
+
+        // Mark it as shown (increments count, sets timestamp)
+        notifier.markShown();
+
+        final savedCount = await _showStreakProtectionModal(
+            context, ref, candidates, yesterdayStr, streakAtRiskMap);
+
+        if (!context.mounted) return;
+
+        if (savedCount != null) {
+          // Flow finalized (user clicked Use Coins or Let it break)
+          notifier.dismissPermanently();
+
+          if (savedCount > 0) {
+            ref.read(streakReminderProvider.notifier).state = null;
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Row(
+                  children: [
+                    const Text('🔥', style: TextStyle(fontSize: 18)),
+                    const SizedBox(width: 10),
+                    Text(
+                      'Saved $savedCount streak${savedCount > 1 ? 's' : ''}!',
+                      style: GoogleFonts.poppins(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w700,
+                        color: Colors.white,
+                      ),
+                    ),
+                  ],
+                ),
+                behavior: SnackBarBehavior.floating,
+                backgroundColor: const Color(0xFFFF6B35),
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(14)),
+                margin:
+                    const EdgeInsets.symmetric(horizontal: 40, vertical: 16),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                duration: const Duration(seconds: 3),
+                elevation: 8,
+              ),
+            );
+          }
+        } else {
+          // User soft-dismissed (tapped outside) → set soft reminder banner for first habit
+          ref.read(streakReminderProvider.notifier).state = candidates.first;
+        }
+      });
+    }
+
     final index = ref.watch(navigationIndexProvider);
     return Scaffold(
       backgroundColor: Colors.transparent,
-      extendBody: true, // CRITICAL: Allows content to scroll behind the floating dock
-      body: IndexedStack(index: index, children: _screens),
+      extendBody:
+          true, // CRITICAL: Allows content to scroll behind the floating dock
+      body: _LazyIndexedStack(index: index, children: _screens),
       bottomNavigationBar: const AppBottomNavBar(),
       floatingActionButton: index == AppConstants.navIndexHome
           ? _GlassAddButton(
@@ -111,20 +407,36 @@ class _HabitsTab extends ConsumerWidget {
     final selectedDate = ref.watch(selectedDateProvider);
     final todayStr = DateFormat('yyyy-MM-dd').format(selectedDate);
     final activeFilter = ref.watch(habitFilterProvider);
-    
+    // Protected days: used by streak chip to show accurate protected streak
+    final protectedDays = ref.watch(streakProtectionProvider);
+
     // entryState is evaluated per-habit inside _HabitCard (uses habit.startDate)
 
     double totalProgressSum = 0;
     int validHabitsCount = 0;
     for (final habit in habits) {
-      if (habit.goalValue > 0) {
+      final dailyGoal = habit.goalFor(todayStr);
+      if (dailyGoal > 0) {
         final currentVal = habit.dailyProgress[todayStr] ?? 0;
-        final p = (currentVal / habit.goalValue).clamp(0.0, 1.0);
+        final p = (currentVal / dailyGoal).clamp(0.0, 1.0);
         totalProgressSum += p;
         validHabitsCount++;
       }
     }
-    final overallProgress = validHabitsCount == 0 ? 0.0 : totalProgressSum / validHabitsCount;
+    final overallProgress =
+        validHabitsCount == 0 ? 0.0 : totalProgressSum / validHabitsCount;
+
+    // ── Step auto-fill: fetch once per foreground session ──────────────────────
+    // Only runs if permission is already granted. Does NOT show permission screen
+    // here — that's triggered from the habit card on first tap/view.
+    final stepPermission = ref.watch(stepPermissionProvider);
+    if (stepPermission == StepPermissionState.granted) {
+      WidgetsBinding.instance.addPostFrameCallback((_) async {
+        if (ref.read(todayStepCountProvider) == null) {
+          await StepTrackingService.fetchTodaySteps(ref);
+        }
+      });
+    }
 
     return AdaptiveBody(
       child: SafeArea(
@@ -166,13 +478,17 @@ class _HabitsTab extends ConsumerWidget {
             const SliverToBoxAdapter(child: SizedBox(height: 8)),
             const SliverToBoxAdapter(child: _DateStrip()),
             const SliverToBoxAdapter(child: SizedBox(height: 16)),
-            SliverToBoxAdapter(child: _SemiCircleProgress(progress: overallProgress)),
+            SliverToBoxAdapter(
+                child: _SemiCircleProgress(progress: overallProgress)),
             const SliverToBoxAdapter(child: SizedBox(height: 8)),
-            const SliverToBoxAdapter(child: Padding(
+            const SliverToBoxAdapter(
+                child: Padding(
               padding: EdgeInsets.symmetric(horizontal: 16),
               child: SmartDailyPlanCard(),
             )),
             const SliverToBoxAdapter(child: SizedBox(height: 8)),
+            // Soft streak reminder banner (shown after modal is dismissed)
+            const SliverToBoxAdapter(child: _StreakReminderBanner()),
             if (habits.isEmpty)
               SliverToBoxAdapter(
                 child: Padding(
@@ -180,32 +496,93 @@ class _HabitsTab extends ConsumerWidget {
                   child: Center(
                     child: Text(
                       'No habits yet. Tap + to start!',
-                      style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant, fontSize: 16),
+                      style: TextStyle(
+                          color: Theme.of(context).colorScheme.onSurfaceVariant,
+                          fontSize: 16),
                     ),
                   ),
                 ),
               )
             else
               SliverReorderableList(
-                itemBuilder: (context, i) => ReorderableDelayedDragStartListener(
+                itemBuilder: (context, i) =>
+                    ReorderableDelayedDragStartListener(
                   key: ValueKey(habits[i].id),
                   index: i,
-                  child: _HabitCard(
-                    habit: habits[i], 
-                    dateStr: todayStr, 
-                    index: i
-                  ),
+                  child:
+                      _HabitCard(habit: habits[i], dateStr: todayStr, index: i),
                 ),
                 itemCount: habits.length,
                 onReorder: (oldIndex, newIndex) {
-                  ref.read(habitProvider.notifier).reorderHabits(oldIndex, newIndex);
+                  ref
+                      .read(habitProvider.notifier)
+                      .reorderHabits(oldIndex, newIndex);
                 },
               ),
             const SliverToBoxAdapter(child: SizedBox(height: 120)),
           ],
         ),
       ),
-    );  }
+    );
+  }
+}
+
+// ── Lazy Indexed Stack ────────────────────────────────────────────────────────
+// Builds each tab's widget tree only the first time it is selected, then keeps
+// it alive with Offstage so state (scroll position, providers) is preserved.
+// This prevents all 11 screens from initializing simultaneously on cold launch,
+// which was a major cause of the Android black screen.
+class _LazyIndexedStack extends StatefulWidget {
+  final int index;
+  final List<Widget> children;
+
+  const _LazyIndexedStack({
+    required this.index,
+    required this.children,
+  });
+
+  @override
+  State<_LazyIndexedStack> createState() => _LazyIndexedStackState();
+}
+
+class _LazyIndexedStackState extends State<_LazyIndexedStack> {
+  late final List<bool> _activated;
+
+  @override
+  void initState() {
+    super.initState();
+    // Only the initial tab is built on startup; all others are deferred
+    _activated = List.generate(
+      widget.children.length,
+      (i) => i == widget.index,
+    );
+  }
+
+  @override
+  void didUpdateWidget(_LazyIndexedStack oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    // Mark the newly selected tab as activated (builds it for the first time)
+    if (!_activated[widget.index]) {
+      setState(() => _activated[widget.index] = true);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Stack(
+      fit: StackFit.expand,
+      children: List.generate(widget.children.length, (i) {
+        if (!_activated[i]) return const SizedBox.shrink();
+        return Offstage(
+          offstage: i != widget.index,
+          child: TickerMode(
+            enabled: i == widget.index,
+            child: widget.children[i],
+          ),
+        );
+      }),
+    );
+  }
 }
 
 // ── Smart Daily Plan Card ─────────────────────────────────────────────────────
@@ -241,9 +618,8 @@ class _SmartDailyPlanCardState extends ConsumerState<SmartDailyPlanCard> {
 
     // ── THEME TOKENS ──────────────────────────────────────────────
     final primaryText = isDark ? Colors.white : const Color(0xFF1A1A1A);
-    final subtleText = isDark
-        ? Colors.white.withValues(alpha: 0.55)
-        : const Color(0xFF6B6B6B);
+    final subtleText =
+        isDark ? Colors.white.withValues(alpha: 0.55) : const Color(0xFF6B6B6B);
 
     // Light-mode tag colors per reason
     Color tagBg(DailyPlanTag tag) {
@@ -436,9 +812,8 @@ class _SmartDailyPlanCardState extends ConsumerState<SmartDailyPlanCard> {
                           duration: const Duration(milliseconds: 350),
                           curve: Curves.easeOut,
                           child: AnimatedSlide(
-                            offset: isFading
-                                ? const Offset(-0.05, 0)
-                                : Offset.zero,
+                            offset:
+                                isFading ? const Offset(-0.05, 0) : Offset.zero,
                             duration: const Duration(milliseconds: 350),
                             curve: Curves.easeOut,
                             child: Container(
@@ -535,11 +910,11 @@ class _SmartDailyPlanCardState extends ConsumerState<SmartDailyPlanCard> {
   }
 }
 
-
 // ── Greeting Section ───────────────────────────────────────────────────────────
 class _GreetingSection extends ConsumerWidget {
   final EdgeInsetsGeometry padding;
-  const _GreetingSection({this.padding = const EdgeInsets.fromLTRB(20, 12, 20, 12)});
+  const _GreetingSection(
+      {this.padding = const EdgeInsets.fromLTRB(20, 12, 20, 12)});
 
   String _getGreeting() {
     final hour = DateTime.now().hour;
@@ -611,7 +986,8 @@ class _SemiCircleProgress extends StatelessWidget {
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final arcColor = isDark ? const Color(0xFF4DA6FF) : const Color(0xFFF5A623);
-    final trackColor = isDark ? const Color(0xFF2C2C2E) : const Color(0xFFE5E5EA);
+    final trackColor =
+        isDark ? const Color(0xFF2C2C2E) : const Color(0xFFE5E5EA);
     final pctColor = isDark ? Colors.white : Colors.black;
     final subColor = isDark ? const Color(0xFFE0E0E0) : const Color(0xFF333333);
     final percent = (progress * 100).toInt();
@@ -639,47 +1015,47 @@ class _SemiCircleProgress extends StatelessWidget {
               Positioned(
                 bottom: 4,
                 child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(
-                    '$percent%',
-                    style: isDark
-                        ? TextStyle(
-                            fontSize: 42,
-                            fontWeight: FontWeight.w800,
-                            color: pctColor,
-                            height: 1.0,
-                          )
-                        : GoogleFonts.nunito(
-                            fontSize: 42,
-                            fontWeight: FontWeight.w800,
-                            color: pctColor,
-                            height: 1.0,
-                          ),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    'Plans made today',
-                    style: isDark
-                        ? TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.w600,
-                            color: subColor,
-                          )
-                        : GoogleFonts.nunito(
-                            fontSize: 16,
-                            fontWeight: FontWeight.w700,
-                            color: subColor,
-                          ),
-                  ),
-                ],
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      '$percent%',
+                      style: isDark
+                          ? TextStyle(
+                              fontSize: 42,
+                              fontWeight: FontWeight.w800,
+                              color: pctColor,
+                              height: 1.0,
+                            )
+                          : GoogleFonts.nunito(
+                              fontSize: 42,
+                              fontWeight: FontWeight.w800,
+                              color: pctColor,
+                              height: 1.0,
+                            ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      'Plans made today',
+                      style: isDark
+                          ? TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w600,
+                              color: subColor,
+                            )
+                          : GoogleFonts.nunito(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w700,
+                              color: subColor,
+                            ),
+                    ),
+                  ],
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
-    ),
-  );
+    );
   }
 }
 
@@ -699,7 +1075,7 @@ class _ArcPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     const center = Offset(140, 130); // Fixed center based on 280x140 container
-    const radius = 120.0;           // Fixed radius — never recalculates
+    const radius = 120.0; // Fixed radius — never recalculates
 
     final trackPaint = Paint()
       ..color = trackColor
@@ -759,11 +1135,12 @@ class _DateStripState extends ConsumerState<_DateStrip> {
     super.initState();
     final today = DateTime.now();
     _todayMidnight = DateTime(today.year, today.month, today.day);
-    
+
     // Generate dates: Today is in the middle of the range
     _todayIndex = _range ~/ 2;
-    _dates = List.generate(_range, (i) => _todayMidnight.add(Duration(days: i - _todayIndex)));
-    
+    _dates = List.generate(
+        _range, (i) => _todayMidnight.add(Duration(days: i - _todayIndex)));
+
     _scrollController = ScrollController();
 
     // Auto-scroll to Today (centered) after the first frame
@@ -796,8 +1173,9 @@ class _DateStripState extends ConsumerState<_DateStrip> {
         itemCount: _dates.length,
         itemBuilder: (context, i) {
           final date = _dates[i];
-          final isSelected = DateFormat('yyyy-MM-dd').format(date) == DateFormat('yyyy-MM-dd').format(selectedDate);
-          
+          final isSelected = DateFormat('yyyy-MM-dd').format(date) ==
+              DateFormat('yyyy-MM-dd').format(selectedDate);
+
           return SizedBox(
             width: itemWidth,
             child: GestureDetector(
@@ -821,7 +1199,9 @@ class _DateChip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final today = DateTime.now();
-    final isToday = date.day == today.day && date.month == today.month && date.year == today.year;
+    final isToday = date.day == today.day &&
+        date.month == today.month &&
+        date.year == today.year;
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
     if (!isDark) {
@@ -829,10 +1209,10 @@ class _DateChip extends StatelessWidget {
       final todayMidnight = DateTime(today.year, today.month, today.day);
       final chipDate = DateTime(date.year, date.month, date.day);
       final isPast = chipDate.isBefore(todayMidnight);
-      
+
       Color bgColor;
       Color textColor;
-      
+
       if (isSelected) {
         bgColor = const Color(0xFF1A1A1A); // Soft black
         textColor = Colors.white;
@@ -905,22 +1285,30 @@ class _DateChip extends StatelessWidget {
             decoration: BoxDecoration(
               shape: BoxShape.circle,
               border: Border.all(
-                color: isSelected 
-                    ? (isDark ? Colors.white.withValues(alpha: 0.7) : AppColors.accent)
-                    : (isDark ? Colors.white.withValues(alpha: 0.15) : AppColors.outline.withAlpha(100)),
+                color: isSelected
+                    ? (isDark
+                        ? Colors.white.withValues(alpha: 0.7)
+                        : AppColors.accent)
+                    : (isDark
+                        ? Colors.white.withValues(alpha: 0.15)
+                        : AppColors.outline.withAlpha(100)),
                 width: isSelected ? 2 : 1,
               ),
-              color: isSelected 
-                  ? (isDark ? Colors.white.withValues(alpha: 0.15) : Colors.transparent) 
+              color: isSelected
+                  ? (isDark
+                      ? Colors.white.withValues(alpha: 0.15)
+                      : Colors.transparent)
                   : Colors.transparent,
             ),
             alignment: Alignment.center,
             child: Text(
               '${date.day}',
               style: AppTextStyles.labelLarge.copyWith(
-                color: isSelected 
-                    ? (isDark ? Colors.white : AppColors.accent) 
-                    : (isDark ? Colors.white : Theme.of(context).colorScheme.onSurface),
+                color: isSelected
+                    ? (isDark ? Colors.white : AppColors.accent)
+                    : (isDark
+                        ? Colors.white
+                        : Theme.of(context).colorScheme.onSurface),
                 fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
               ),
             ),
@@ -955,13 +1343,47 @@ class _HabitCard extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final currentProgressValue = habit.dailyProgress[dateStr] ?? 0;
-    final isCompletedToday = currentProgressValue >= habit.goalValue;
+    final rawProgress = habit.dailyProgress[dateStr] ?? 0;
+    final dailyGoal = habit.goalFor(dateStr);
+
+    // ── Step Auto-fill (sensor takes effect only if no manual override today) ──
+    int currentProgressValue = rawProgress;
+    if (habit.goalUnit == 'steps') {
+      final stepPermission = ref.read(stepPermissionProvider);
+      if (stepPermission == StepPermissionState.notDetermined) {
+        // First time: show permission screen instead of blocking render.
+        // We schedule it post-frame to not interfere with Flutter's build pass.
+        WidgetsBinding.instance.addPostFrameCallback((_) async {
+          if (!context.mounted) return;
+          // Check again — another card may have already triggered the flow.
+          if (ref.read(stepPermissionProvider) !=
+              StepPermissionState.notDetermined) return;
+          await Navigator.of(context).push(
+            MaterialPageRoute(builder: (_) => const StepPermissionScreen()),
+          );
+          if (!context.mounted) return;
+          // Fetch immediately after permission granted
+          if (ref.read(stepPermissionProvider) == StepPermissionState.granted) {
+            await StepTrackingService.fetchTodaySteps(ref);
+          }
+        });
+      } else if (stepPermission == StepPermissionState.granted) {
+        // Manual override takes priority — don't overwrite if user set it manually today.
+        final hasManual = StepTrackingService.hasManualOverrideToday(habit.id);
+        if (!hasManual) {
+          final sensorSteps = ref.watch(todayStepCountProvider);
+          if (sensorSteps != null && sensorSteps > rawProgress) {
+            currentProgressValue = sensorSteps.clamp(0, dailyGoal);
+          }
+        }
+      }
+    }
+    final isCompletedToday = currentProgressValue >= dailyGoal;
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final baseColor = Color(habit.colorValue);
-    final progress = (currentProgressValue / habit.goalValue).clamp(0.0, 1.0);
+    final progress = (currentProgressValue / dailyGoal).clamp(0.0, 1.0);
 
-    // Per-habit entry state: preStart gate fires first, then anti-cheat UTC logic
+    // Per-habit entry state: preStart gate fires first, then anti-cheat local logic
     final entryState = AntiCheatService.getEntryState(
       dateStr,
       habitStartDate: habit.startDate,
@@ -1012,7 +1434,8 @@ class _HabitCard extends ConsumerWidget {
                     context: context,
                     builder: (context) => CupertinoAlertDialog(
                       title: const Text('Delete Habit?'),
-                      content: Text('Are you sure you want to delete "${habit.name}"?'),
+                      content: Text(
+                          'Are you sure you want to delete "${habit.name}"?'),
                       actions: [
                         CupertinoDialogAction(
                           onPressed: () => Navigator.pop(context, false),
@@ -1021,7 +1444,8 @@ class _HabitCard extends ConsumerWidget {
                         CupertinoDialogAction(
                           isDestructiveAction: true,
                           onPressed: () => Navigator.pop(context, true),
-                          child: const Text('Delete', style: TextStyle(fontWeight: FontWeight.bold)),
+                          child: const Text('Delete',
+                              style: TextStyle(fontWeight: FontWeight.bold)),
                         ),
                       ],
                     ),
@@ -1046,7 +1470,9 @@ class _HabitCard extends ConsumerWidget {
                 borderRadius: BorderRadius.circular(20),
                 child: Container(
                   height: 72,
-                  color: isDark ? Theme.of(context).colorScheme.surface : baseColor.withValues(alpha: 0.18),
+                  color: isDark
+                      ? Theme.of(context).colorScheme.surface
+                      : baseColor.withValues(alpha: 0.18),
                   child: Stack(
                     children: [
                       // Internal Progress Bar
@@ -1069,7 +1495,8 @@ class _HabitCard extends ConsumerWidget {
                         padding: const EdgeInsets.symmetric(horizontal: 16),
                         child: Row(
                           children: [
-                            Text(habit.icon ?? '✨', style: const TextStyle(fontSize: 22)),
+                            Text(habit.icon ?? '✨',
+                                style: const TextStyle(fontSize: 22)),
                             const SizedBox(width: 12),
                             Expanded(
                               child: Column(
@@ -1079,152 +1506,195 @@ class _HabitCard extends ConsumerWidget {
                                   // Habit name
                                   Text(
                                     habit.name,
-                                    style: Theme.of(context).brightness == Brightness.dark
+                                    style: Theme.of(context).brightness ==
+                                            Brightness.dark
                                         ? GoogleFonts.poppins(
                                             fontSize: 18,
                                             fontWeight: FontWeight.w700,
-                                            color: Theme.of(context).colorScheme.onSurface,
+                                            color: Theme.of(context)
+                                                .colorScheme
+                                                .onSurface,
                                           )
                                         : GoogleFonts.nunito(
                                             fontSize: 18,
                                             fontWeight: FontWeight.w700,
-                                            color: Theme.of(context).colorScheme.onSurface,
+                                            color: Theme.of(context)
+                                                .colorScheme
+                                                .onSurface,
                                           ),
                                     overflow: TextOverflow.ellipsis,
                                   ),
-                              const SizedBox(height: 4),
-                              // Progress pill + streak chip side by side
-                              Row(
-                                crossAxisAlignment: CrossAxisAlignment.center,
-                                children: [
-                                  _ProgressPill(
-                                    current: currentProgressValue,
-                                    total: habit.goalValue,
-                                    unit: habit.goalUnit,
-                                    color: isDark ? Colors.transparent : baseColor,
-                                  ),
-                                  Builder(builder: (_) {
-                                    final streak = calculateHabitStreak(habit);
-                                    if (streak == 0) return const SizedBox.shrink();
-                                      return Container(
-                                        margin: const EdgeInsets.only(left: 8),
-                                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                                        decoration: BoxDecoration(
-                                          color: Theme.of(context).colorScheme.surface.withValues(alpha: 0.85),
-                                          borderRadius: BorderRadius.circular(100),
-                                          border: Border.all(
-                                            color: isDark ? Colors.white.withValues(alpha: 0.15) : baseColor.withValues(alpha: 0.5),
-                                            width: 0.8,
-                                          ),
-                                        ),
-                                      child: Row(
-                                        mainAxisSize: MainAxisSize.min,
-                                        children: [
-                                          Icon(
-                                            CupertinoIcons.flame_fill, 
-                                            size: 10, 
-                                            color: isDark ? Colors.white70 : baseColor,
-                                          ),
-                                          const SizedBox(width: 3),
-                                          Text(
-                                            '${streak}d',
-                                            style: GoogleFonts.poppins(
-                                              fontSize: 9,
-                                              fontWeight: FontWeight.w700,
-                                              color: Theme.of(context).colorScheme.onSurface,
+                                  const SizedBox(height: 4),
+                                  // Progress pill + streak chip side by side
+                                  Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.center,
+                                    children: [
+                                      _ProgressPill(
+                                        current: currentProgressValue,
+                                        total: dailyGoal,
+                                        unit: habit.goalUnit,
+                                        color: isDark
+                                            ? Colors.transparent
+                                            : baseColor,
+                                      ),
+                                      Consumer(builder: (context, ref, _) {
+                                        final protectedDays =
+                                            ref.watch(streakProtectionProvider);
+                                        final streak =
+                                            calculateHabitStreakWithProtection(
+                                                habit, protectedDays);
+                                        if (streak == 0)
+                                          return const SizedBox.shrink();
+                                        return Container(
+                                          margin:
+                                              const EdgeInsets.only(left: 8),
+                                          padding: const EdgeInsets.symmetric(
+                                              horizontal: 6, vertical: 2),
+                                          decoration: BoxDecoration(
+                                            color: Theme.of(context)
+                                                .colorScheme
+                                                .surface
+                                                .withValues(alpha: 0.85),
+                                            borderRadius:
+                                                BorderRadius.circular(100),
+                                            border: Border.all(
+                                              color: isDark
+                                                  ? Colors.white
+                                                      .withValues(alpha: 0.15)
+                                                  : baseColor.withValues(
+                                                      alpha: 0.5),
+                                              width: 0.8,
                                             ),
                                           ),
-                                        ],
-                                      ),
-                                    );
-                                  }),
+                                          child: Row(
+                                            mainAxisSize: MainAxisSize.min,
+                                            children: [
+                                              Icon(
+                                                CupertinoIcons.flame_fill,
+                                                size: 10,
+                                                color: isDark
+                                                    ? Colors.white70
+                                                    : baseColor,
+                                              ),
+                                              const SizedBox(width: 3),
+                                              Text(
+                                                '${streak}d',
+                                                style: GoogleFonts.poppins(
+                                                  fontSize: 9,
+                                                  fontWeight: FontWeight.w700,
+                                                  color: Theme.of(context)
+                                                      .colorScheme
+                                                      .onSurface,
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                        );
+                                      }),
+                                    ],
+                                  ),
                                 ],
                               ),
-                            ],
-                          ),
-                        ),
-                        _PremiumCompleteButton(
-                          isCompleted: isCompletedToday,
-                          entryState: entryState,
-                          color: baseColor,
-                          onTap: () {
-                            // Pre-start: completely silent — no snackbar, no interaction
-                            if (isPreStart) return;
-                            if (isLockedPast) {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(
-                                  content: Text("Past records are locked to maintain accuracy."),
-                                  behavior: SnackBarBehavior.floating,
-                                  duration: Duration(seconds: 2),
-                                ),
-                              );
-                              return;
-                            }
-                            if (isFuture) {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(
-                                  content: Text("You can't update future habits"),
-                                  behavior: SnackBarBehavior.floating,
-                                  duration: Duration(seconds: 2),
-                                ),
-                              );
-                              return;
-                            }
-                            if (isGrace) {
-                              // Grace window: allow update but show subtle reminder
-                              ScaffoldMessenger.of(context).clearSnackBars();
-                            }
-                            if (habit.goalValue == 1) {
-                              final current = habit.dailyProgress[dateStr] ?? 0;
-                              final newValue = current >= 1 ? 0 : 1;
-                              
-                              if (newValue == 1 && current == 0 && habit.rewardsClaimed[dateStr] == true) {
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  SnackBar(
-                                    content: Row(
-                                      children: const [
-                                        Icon(Icons.check_circle_outline, color: Colors.white, size: 20),
-                                        SizedBox(width: 8),
-                                        Text("Reward already claimed for today"),
-                                      ],
+                            ),
+                            _PremiumCompleteButton(
+                              isCompleted: isCompletedToday,
+                              entryState: entryState,
+                              color: baseColor,
+                              onTap: () {
+                                // Pre-start: completely silent — no snackbar, no interaction
+                                if (isPreStart) return;
+                                if (isLockedPast) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    const SnackBar(
+                                      content: Text(
+                                          "Past records are locked to maintain accuracy."),
+                                      behavior: SnackBarBehavior.floating,
+                                      duration: Duration(seconds: 2),
                                     ),
-                                    behavior: SnackBarBehavior.floating,
-                                    duration: const Duration(seconds: 2),
-                                    backgroundColor: Colors.grey[800],
-                                  ),
-                                );
-                              }
-                              ref.read(habitProvider.notifier).setHabitProgress(habit.id, dateStr, newValue);
-                            } else {
-                              _showUpdateProgressPopup(context, ref, habit, dateStr);
-                            }
-                          },
-                        ),
-                      const SizedBox(width: 12),
-                      ReorderableDragStartListener(
-                        index: index,
-                        child: Icon(
-                          CupertinoIcons.line_horizontal_3,
-                                color: Theme.of(context).colorScheme.onSurfaceVariant.withValues(alpha: 0.3),
-                          size: 18,
+                                  );
+                                  return;
+                                }
+                                if (isFuture) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    const SnackBar(
+                                      content: Text(
+                                          "You can't update future habits"),
+                                      behavior: SnackBarBehavior.floating,
+                                      duration: Duration(seconds: 2),
+                                    ),
+                                  );
+                                  return;
+                                }
+                                if (isGrace) {
+                                  // Grace window: allow update but show subtle reminder
+                                  ScaffoldMessenger.of(context)
+                                      .clearSnackBars();
+                                }
+                                if (dailyGoal == 1) {
+                                  final current =
+                                      habit.dailyProgress[dateStr] ?? 0;
+                                  final newValue = current >= 1 ? 0 : 1;
+
+                                  if (newValue == 1 &&
+                                      current == 0 &&
+                                      habit.rewardsClaimed[dateStr] == true) {
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      SnackBar(
+                                        content: Row(
+                                          children: const [
+                                            Icon(Icons.check_circle_outline,
+                                                color: Colors.white, size: 20),
+                                            SizedBox(width: 8),
+                                            Text(
+                                                "Reward already claimed for today"),
+                                          ],
+                                        ),
+                                        behavior: SnackBarBehavior.floating,
+                                        duration: const Duration(seconds: 2),
+                                        backgroundColor: Colors.grey[800],
+                                      ),
+                                    );
+                                  }
+                                  ref
+                                      .read(habitProvider.notifier)
+                                      .setHabitProgress(
+                                          habit.id, dateStr, newValue);
+                                } else {
+                                  _showUpdateProgressPopup(
+                                      context, ref, habit, dateStr);
+                                }
+                              },
+                            ),
+                            const SizedBox(width: 12),
+                            ReorderableDragStartListener(
+                              index: index,
+                              child: Icon(
+                                CupertinoIcons.line_horizontal_3,
+                                color: Theme.of(context)
+                                    .colorScheme
+                                    .onSurfaceVariant
+                                    .withValues(alpha: 0.3),
+                                size: 18,
+                              ),
+                            ),
+                          ],
                         ),
                       ),
                     ],
                   ),
                 ),
-              ],
+              ),
             ),
           ),
         ),
       ),
-    ),
-  ),
-),
-);
-}
+    );
+  }
 
-
-  void _showUpdateProgressPopup(BuildContext context, WidgetRef ref, Habit habit, String dateStr) {
+  void _showUpdateProgressPopup(
+      BuildContext context, WidgetRef ref, Habit habit, String dateStr) {
     showGeneralDialog(
       context: context,
       barrierDismissible: true,
@@ -1232,17 +1702,22 @@ class _HabitCard extends ConsumerWidget {
       barrierColor: Colors.black.withValues(alpha: 0.3), // matches request
       transitionDuration: const Duration(milliseconds: 300),
       pageBuilder: (context, anim1, anim2) {
-        final currentProgress = habit.dailyProgress[dateStr] ?? 0;
+        final dailyGoal = habit.goalFor(dateStr);
+        final current = habit.dailyProgress[dateStr] ?? 0;
         return _UpdateProgressPopup(
           habit: habit,
-          currentValue: currentProgress,
+          dateStr: dateStr,
+          currentValue: current,
           onSave: (val) {
-            if (val >= habit.goalValue && currentProgress < habit.goalValue && habit.rewardsClaimed[dateStr] == true) {
+            if (val >= dailyGoal &&
+                current < dailyGoal &&
+                habit.rewardsClaimed[dateStr] == true) {
               ScaffoldMessenger.of(context).showSnackBar(
                 SnackBar(
                   content: Row(
                     children: const [
-                      Icon(Icons.check_circle_outline, color: Colors.white, size: 20),
+                      Icon(Icons.check_circle_outline,
+                          color: Colors.white, size: 20),
                       SizedBox(width: 8),
                       Text("Reward already claimed for today"),
                     ],
@@ -1253,7 +1728,13 @@ class _HabitCard extends ConsumerWidget {
                 ),
               );
             }
-            ref.read(habitProvider.notifier).setHabitProgress(habit.id, dateStr, val);
+            ref
+                .read(habitProvider.notifier)
+                .setHabitProgress(habit.id, dateStr, val);
+            // Mark manual override so sensor auto-fill doesn't overwrite this today
+            if (habit.goalUnit == 'steps') {
+              StepTrackingService.markManualOverride(habit.id);
+            }
           },
         );
       },
@@ -1324,7 +1805,8 @@ class _PremiumCompleteButton extends StatefulWidget {
   State<_PremiumCompleteButton> createState() => _PremiumCompleteButtonState();
 }
 
-class _PremiumCompleteButtonState extends State<_PremiumCompleteButton> with SingleTickerProviderStateMixin {
+class _PremiumCompleteButtonState extends State<_PremiumCompleteButton>
+    with SingleTickerProviderStateMixin {
   late AnimationController _controller;
   late Animation<double> _scaleAnimation;
 
@@ -1374,20 +1856,33 @@ class _PremiumCompleteButtonState extends State<_PremiumCompleteButton> with Sin
             shape: BoxShape.circle,
             // preStart: soft neutral grey circle (very light grey)
             color: isPreStart
-                ? (isDark ? Colors.white.withValues(alpha: 0.05) : Colors.black.withValues(alpha: 0.05))
+                ? (isDark
+                    ? Colors.white.withValues(alpha: 0.05)
+                    : Colors.black.withValues(alpha: 0.05))
                 : isLockedPast
-                    ? Theme.of(context).colorScheme.surfaceContainerHighest.withValues(alpha: 0.5)
+                    ? Theme.of(context)
+                        .colorScheme
+                        .surfaceContainerHighest
+                        .withValues(alpha: 0.5)
                     : isFuture
                         ? Colors.grey.withValues(alpha: 0.2)
                         : (widget.isCompleted
-                            ? (isDark ? Colors.white.withValues(alpha: 0.08) : AppColors.success)
-                            : Theme.of(context).colorScheme.surface.withAlpha(200)),
+                            ? (isDark
+                                ? Colors.white.withValues(alpha: 0.08)
+                                : AppColors.success)
+                            : Theme.of(context)
+                                .colorScheme
+                                .surface
+                                .withAlpha(200)),
             border: isPreStart
                 ? null
                 : (isGrace && !widget.isCompleted
-                    ? Border.all(color: amberGrace.withValues(alpha: 0.7), width: 1.5)
+                    ? Border.all(
+                        color: amberGrace.withValues(alpha: 0.7), width: 1.5)
                     : (widget.isCompleted && isDark
-                        ? Border.all(color: Colors.white.withValues(alpha: 0.2), width: 1.0)
+                        ? Border.all(
+                            color: Colors.white.withValues(alpha: 0.2),
+                            width: 1.0)
                         : null)),
             boxShadow: [
               if (!isDisabled) ...[
@@ -1399,13 +1894,18 @@ class _PremiumCompleteButtonState extends State<_PremiumCompleteButton> with Sin
                   )
                 else if (!widget.isCompleted || !isDark)
                   BoxShadow(
-                    color: (widget.isCompleted ? AppColors.success : Theme.of(context).colorScheme.shadow).withAlpha(40),
+                    color: (widget.isCompleted
+                            ? AppColors.success
+                            : Theme.of(context).colorScheme.shadow)
+                        .withAlpha(40),
                     blurRadius: 8,
                     offset: const Offset(0, 4),
                   ),
                 if (widget.isCompleted)
                   BoxShadow(
-                    color: isDark ? Colors.white.withValues(alpha: 0.15) : AppColors.success.withValues(alpha: 80),
+                    color: isDark
+                        ? Colors.white.withValues(alpha: 0.15)
+                        : AppColors.success.withValues(alpha: 80),
                     blurRadius: isDark ? 10 : 12,
                     spreadRadius: isDark ? 0 : 1,
                   ),
@@ -1417,11 +1917,14 @@ class _PremiumCompleteButtonState extends State<_PremiumCompleteButton> with Sin
               ? const SizedBox.shrink()
               : AnimatedSwitcher(
                   duration: const Duration(milliseconds: 200),
-                  transitionBuilder: (child, animation) => ScaleTransition(scale: animation, child: child),
+                  transitionBuilder: (child, animation) =>
+                      ScaleTransition(scale: animation, child: child),
                   child: Icon(
                     isLockedPast
                         ? CupertinoIcons.lock_fill
-                        : widget.isCompleted ? CupertinoIcons.checkmark_alt : CupertinoIcons.add,
+                        : widget.isCompleted
+                            ? CupertinoIcons.checkmark_alt
+                            : CupertinoIcons.add,
                     key: ValueKey('${widget.isCompleted}_${widget.entryState}'),
                     color: isLockedPast
                         ? Colors.grey.withValues(alpha: 0.4)
@@ -1431,7 +1934,10 @@ class _PremiumCompleteButtonState extends State<_PremiumCompleteButton> with Sin
                                 ? Colors.white
                                 : (isGrace
                                     ? amberGrace.withValues(alpha: 0.8)
-                                    : Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.7))),
+                                    : Theme.of(context)
+                                        .colorScheme
+                                        .onSurface
+                                        .withValues(alpha: 0.7))),
                     size: 18,
                   ),
                 ),
@@ -1456,9 +1962,12 @@ class _FilterButtonState extends State<_FilterButton> {
 
   String get _filterTitle {
     switch (widget.activeFilter) {
-      case HabitFilter.all: return 'All';
-      case HabitFilter.completed: return 'Completed';
-      case HabitFilter.pending: return 'Pending';
+      case HabitFilter.all:
+        return 'All';
+      case HabitFilter.completed:
+        return 'Completed';
+      case HabitFilter.pending:
+        return 'Pending';
     }
   }
 
@@ -1505,7 +2014,7 @@ class _FilterButtonState extends State<_FilterButton> {
               child: _FilterDropdownMenu(
                 onSelected: (filter) {
                   _hideDropdown();
-                  // ref is not available here easily if we are a regular State, 
+                  // ref is not available here easily if we are a regular State,
                   // but we'll use a ConsumerStatefulWidget instead.
                 },
                 activeFilter: widget.activeFilter,
@@ -1527,9 +2036,14 @@ class _FilterButtonState extends State<_FilterButton> {
         child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
           decoration: BoxDecoration(
-            color: isDark ? Theme.of(context).colorScheme.surfaceContainerHighest : AppColors.accent,
+            color: isDark
+                ? Theme.of(context).colorScheme.surfaceContainerHighest
+                : AppColors.accent,
             borderRadius: BorderRadius.circular(20),
-            border: isDark ? Border.all(color: Colors.white.withValues(alpha: 0.1), width: 1) : null,
+            border: isDark
+                ? Border.all(
+                    color: Colors.white.withValues(alpha: 0.1), width: 1)
+                : null,
             boxShadow: [
               if (!isDark)
                 BoxShadow(
@@ -1546,14 +2060,13 @@ class _FilterButtonState extends State<_FilterButton> {
                 child: Text(
                   _filterTitle,
                   style: AppTextStyles.labelMedium.copyWith(
-                    color: Colors.white,
-                    fontWeight: FontWeight.w600
-                  ),
+                      color: Colors.white, fontWeight: FontWeight.w600),
                   overflow: TextOverflow.ellipsis,
                 ),
               ),
               const SizedBox(width: 4),
-              const Icon(Icons.keyboard_arrow_down, color: Colors.white, size: 16),
+              const Icon(Icons.keyboard_arrow_down,
+                  color: Colors.white, size: 16),
             ],
           ),
         ),
@@ -1565,13 +2078,16 @@ class _FilterButtonState extends State<_FilterButton> {
 class _FilterDropdownMenu extends ConsumerStatefulWidget {
   final Function(HabitFilter) onSelected;
   final HabitFilter activeFilter;
-  const _FilterDropdownMenu({required this.onSelected, required this.activeFilter});
+  const _FilterDropdownMenu(
+      {required this.onSelected, required this.activeFilter});
 
   @override
-  ConsumerState<_FilterDropdownMenu> createState() => _FilterDropdownMenuState();
+  ConsumerState<_FilterDropdownMenu> createState() =>
+      _FilterDropdownMenuState();
 }
 
-class _FilterDropdownMenuState extends ConsumerState<_FilterDropdownMenu> with SingleTickerProviderStateMixin {
+class _FilterDropdownMenuState extends ConsumerState<_FilterDropdownMenu>
+    with SingleTickerProviderStateMixin {
   late AnimationController _controller;
   late Animation<double> _animation;
 
@@ -1606,7 +2122,8 @@ class _FilterDropdownMenuState extends ConsumerState<_FilterDropdownMenu> with S
           opacity: _animation,
           child: Container(
             decoration: BoxDecoration(
-              color: Theme.of(context).colorScheme.surface.withValues(alpha: 0.95),
+              color:
+                  Theme.of(context).colorScheme.surface.withValues(alpha: 0.95),
               borderRadius: BorderRadius.circular(24),
               boxShadow: [
                 BoxShadow(
@@ -1625,9 +2142,12 @@ class _FilterDropdownMenuState extends ConsumerState<_FilterDropdownMenu> with S
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      _buildOption(HabitFilter.all, 'All', CupertinoIcons.layers_fill),
-                      _buildOption(HabitFilter.completed, 'Completed', CupertinoIcons.checkmark_circle_fill),
-                      _buildOption(HabitFilter.pending, 'Pending', CupertinoIcons.clock_fill),
+                      _buildOption(
+                          HabitFilter.all, 'All', CupertinoIcons.layers_fill),
+                      _buildOption(HabitFilter.completed, 'Completed',
+                          CupertinoIcons.checkmark_circle_fill),
+                      _buildOption(HabitFilter.pending, 'Pending',
+                          CupertinoIcons.clock_fill),
                     ],
                   ),
                 ),
@@ -1649,22 +2169,31 @@ class _FilterDropdownMenuState extends ConsumerState<_FilterDropdownMenu> with S
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
         decoration: BoxDecoration(
-          color: isSelected ? AppColors.accent.withValues(alpha: 0.15) : Colors.transparent,
+          color: isSelected
+              ? AppColors.accent.withValues(alpha: 0.15)
+              : Colors.transparent,
           borderRadius: BorderRadius.circular(16),
         ),
         child: Row(
           children: [
             Icon(
-              icon, 
-              size: 18, 
-              color: isSelected ? AppColors.accent : Theme.of(context).colorScheme.onSurfaceVariant.withValues(alpha: 0.7),
+              icon,
+              size: 18,
+              color: isSelected
+                  ? AppColors.accent
+                  : Theme.of(context)
+                      .colorScheme
+                      .onSurfaceVariant
+                      .withValues(alpha: 0.7),
             ),
             const SizedBox(width: 12),
             Expanded(
               child: Text(
                 title,
                 style: TextStyle(
-                  color: isSelected ? AppColors.accent : Theme.of(context).colorScheme.onSurfaceVariant,
+                  color: isSelected
+                      ? AppColors.accent
+                      : Theme.of(context).colorScheme.onSurfaceVariant,
                   fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
                   fontSize: 14,
                 ),
@@ -1673,7 +2202,8 @@ class _FilterDropdownMenuState extends ConsumerState<_FilterDropdownMenu> with S
             ),
             if (isSelected) ...[
               const Spacer(),
-              const Icon(CupertinoIcons.checkmark_alt, size: 16, color: AppColors.accent),
+              const Icon(CupertinoIcons.checkmark_alt,
+                  size: 16, color: AppColors.accent),
             ],
           ],
         ),
@@ -1684,11 +2214,13 @@ class _FilterDropdownMenuState extends ConsumerState<_FilterDropdownMenu> with S
 
 class _UpdateProgressPopup extends StatefulWidget {
   final Habit habit;
+  final String dateStr;
   final int currentValue;
   final Function(int) onSave;
 
   const _UpdateProgressPopup({
     required this.habit,
+    required this.dateStr,
     required this.currentValue,
     required this.onSave,
   });
@@ -1710,17 +2242,23 @@ class _UpdateProgressPopupState extends State<_UpdateProgressPopup> {
     showDialog(
       context: context,
       builder: (context) {
-        final controller = TextEditingController(text: _currentSelection.toInt().toString());
+        final controller =
+            TextEditingController(text: _currentSelection.toInt().toString());
         final isDark = Theme.of(context).brightness == Brightness.dark;
         return Dialog(
           backgroundColor: isDark ? const Color(0xFF1C1C1E) : Colors.white,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
           child: Padding(
             padding: const EdgeInsets.all(24),
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Text('Manual Entry', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: isDark ? Colors.white : Colors.black)),
+                Text('Manual Entry',
+                    style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                        color: isDark ? Colors.white : Colors.black)),
                 const SizedBox(height: 16),
                 TextField(
                   controller: controller,
@@ -1729,9 +2267,12 @@ class _UpdateProgressPopupState extends State<_UpdateProgressPopup> {
                   style: TextStyle(color: isDark ? Colors.white : Colors.black),
                   cursorColor: isDark ? Colors.white : Colors.blue,
                   decoration: InputDecoration(
-                     filled: true,
-                     fillColor: isDark ? const Color(0xFF2C2C2E) : Colors.grey[200],
-                     border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
+                    filled: true,
+                    fillColor:
+                        isDark ? const Color(0xFF2C2C2E) : Colors.grey[200],
+                    border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: BorderSide.none),
                   ),
                 ),
                 const SizedBox(height: 24),
@@ -1746,9 +2287,14 @@ class _UpdateProgressPopupState extends State<_UpdateProgressPopup> {
                           decoration: BoxDecoration(
                             color: Colors.transparent,
                             borderRadius: BorderRadius.circular(12),
-                            border: Border.all(color: isDark ? Colors.white.withValues(alpha: 0.15) : Colors.grey.withValues(alpha: 0.3)),
+                            border: Border.all(
+                                color: isDark
+                                    ? Colors.white.withValues(alpha: 0.15)
+                                    : Colors.grey.withValues(alpha: 0.3)),
                           ),
-                          child: Text('Cancel', style: TextStyle(color: isDark ? Colors.white : Colors.black)),
+                          child: Text('Cancel',
+                              style: TextStyle(
+                                  color: isDark ? Colors.white : Colors.black)),
                         ),
                       ),
                     ),
@@ -1756,8 +2302,12 @@ class _UpdateProgressPopupState extends State<_UpdateProgressPopup> {
                     Expanded(
                       child: GestureDetector(
                         onTap: () {
-                          final val = int.tryParse(controller.text) ?? _currentSelection.toInt();
-                          setState(() => _currentSelection = val.clamp(0, widget.habit.goalValue).toDouble());
+                          final val = int.tryParse(controller.text) ??
+                              _currentSelection.toInt();
+                          final dailyGoal =
+                              widget.habit.goalFor(widget.dateStr);
+                          setState(() => _currentSelection =
+                              val.clamp(0, dailyGoal).toDouble());
                           Navigator.pop(context);
                         },
                         child: Container(
@@ -1766,9 +2316,15 @@ class _UpdateProgressPopupState extends State<_UpdateProgressPopup> {
                           decoration: BoxDecoration(
                             color: isDark ? Colors.transparent : Colors.blue,
                             borderRadius: BorderRadius.circular(12),
-                            border: isDark ? Border.all(color: Colors.white.withValues(alpha: 0.15)) : null,
+                            border: isDark
+                                ? Border.all(
+                                    color: Colors.white.withValues(alpha: 0.15))
+                                : null,
                           ),
-                          child: Text('Set', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                          child: Text('Set',
+                              style: TextStyle(
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.bold)),
                         ),
                       ),
                     ),
@@ -1792,7 +2348,12 @@ class _UpdateProgressPopupState extends State<_UpdateProgressPopup> {
           child: BackdropFilter(
             filter: ImageFilter.blur(sigmaX: 15, sigmaY: 15),
             child: Material(
-              color: Theme.of(context).brightness == Brightness.dark ? const Color(0xFF1C1C1E) : Theme.of(context).colorScheme.surface.withValues(alpha: 0.92),
+              color: Theme.of(context).brightness == Brightness.dark
+                  ? const Color(0xFF1C1C1E)
+                  : Theme.of(context)
+                      .colorScheme
+                      .surface
+                      .withValues(alpha: 0.92),
               child: Padding(
                 padding: const EdgeInsets.all(24),
                 child: Column(
@@ -1803,7 +2364,9 @@ class _UpdateProgressPopupState extends State<_UpdateProgressPopup> {
                       style: GoogleFonts.poppins(
                         fontSize: 18,
                         fontWeight: FontWeight.bold,
-                        color: Theme.of(context).brightness == Brightness.dark ? Colors.white : const Color(0xFF1C1C1E),
+                        color: Theme.of(context).brightness == Brightness.dark
+                            ? Colors.white
+                            : const Color(0xFF1C1C1E),
                       ),
                     ),
                     const SizedBox(height: 24),
@@ -1816,7 +2379,10 @@ class _UpdateProgressPopupState extends State<_UpdateProgressPopup> {
                           style: GoogleFonts.poppins(
                             fontSize: 48,
                             fontWeight: FontWeight.bold,
-                            color: Theme.of(context).brightness == Brightness.dark ? Colors.white : Color(widget.habit.colorValue),
+                            color:
+                                Theme.of(context).brightness == Brightness.dark
+                                    ? Colors.white
+                                    : Color(widget.habit.colorValue),
                           ),
                         ),
                         const SizedBox(width: 8),
@@ -1824,14 +2390,26 @@ class _UpdateProgressPopupState extends State<_UpdateProgressPopup> {
                           widget.habit.goalUnit,
                           style: GoogleFonts.poppins(
                             fontSize: 18,
-                            color: Theme.of(context).brightness == Brightness.dark ? const Color(0xFFB0B0B5) : Theme.of(context).colorScheme.onSurfaceVariant,
+                            color:
+                                Theme.of(context).brightness == Brightness.dark
+                                    ? const Color(0xFFB0B0B5)
+                                    : Theme.of(context)
+                                        .colorScheme
+                                        .onSurfaceVariant,
                             fontWeight: FontWeight.w500,
                           ),
                         ),
                         const SizedBox(width: 12),
                         IconButton(
                           onPressed: _onManualInput,
-                          icon: Icon(CupertinoIcons.pencil_circle_fill, color: Theme.of(context).brightness == Brightness.dark ? Colors.white : Theme.of(context).colorScheme.onSurfaceVariant, size: 28),
+                          icon: Icon(CupertinoIcons.pencil_circle_fill,
+                              color: Theme.of(context).brightness ==
+                                      Brightness.dark
+                                  ? Colors.white
+                                  : Theme.of(context)
+                                      .colorScheme
+                                      .onSurfaceVariant,
+                              size: 28),
                         ),
                       ],
                     ),
@@ -1839,17 +2417,32 @@ class _UpdateProgressPopupState extends State<_UpdateProgressPopup> {
                     // Slider
                     SliderTheme(
                       data: SliderTheme.of(context).copyWith(
-                        activeTrackColor: Theme.of(context).brightness == Brightness.dark ? Colors.white : Color(widget.habit.colorValue),
-                        inactiveTrackColor: Theme.of(context).brightness == Brightness.dark ? Colors.white.withValues(alpha: 0.1) : Color(widget.habit.colorValue).withValues(alpha: 0.2),
-                        thumbColor: Theme.of(context).brightness == Brightness.dark ? Colors.white : Color(widget.habit.colorValue),
+                        activeTrackColor:
+                            Theme.of(context).brightness == Brightness.dark
+                                ? Colors.white
+                                : Color(widget.habit.colorValue),
+                        inactiveTrackColor:
+                            Theme.of(context).brightness == Brightness.dark
+                                ? Colors.white.withValues(alpha: 0.1)
+                                : Color(widget.habit.colorValue)
+                                    .withValues(alpha: 0.2),
+                        thumbColor:
+                            Theme.of(context).brightness == Brightness.dark
+                                ? Colors.white
+                                : Color(widget.habit.colorValue),
                         trackHeight: 8,
-                        overlayColor: Theme.of(context).brightness == Brightness.dark ? Colors.white.withValues(alpha: 0.05) : Color(widget.habit.colorValue).withValues(alpha: 0.1),
+                        overlayColor:
+                            Theme.of(context).brightness == Brightness.dark
+                                ? Colors.white.withValues(alpha: 0.05)
+                                : Color(widget.habit.colorValue)
+                                    .withValues(alpha: 0.1),
                       ),
                       child: Slider(
                         value: _currentSelection,
                         min: 0,
-                        max: widget.habit.goalValue.toDouble(),
-                        onChanged: (val) => setState(() => _currentSelection = val),
+                        max: widget.habit.goalFor(widget.dateStr).toDouble(),
+                        onChanged: (val) =>
+                            setState(() => _currentSelection = val),
                       ),
                     ),
                     const SizedBox(height: 24),
@@ -1857,15 +2450,19 @@ class _UpdateProgressPopupState extends State<_UpdateProgressPopup> {
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [20, 40, 60, 80, 100].map((pct) {
-                        final val = (pct / 100 * widget.habit.goalValue).round();
+                        final val =
+                            (pct / 100 * widget.habit.goalFor(widget.dateStr))
+                                .round();
                         return GestureDetector(
-                          onTap: () => setState(() => _currentSelection = val.toDouble()),
+                          onTap: () => setState(
+                              () => _currentSelection = val.toDouble()),
                           child: Container(
                             width: 48,
                             height: 48,
                             alignment: Alignment.center,
                             decoration: BoxDecoration(
-                              color: Theme.of(context).brightness == Brightness.dark
+                              color: Theme.of(context).brightness ==
+                                      Brightness.dark
                                   ? Colors.white.withValues(alpha: 0.08)
                                   : const Color(0xFFD2F0DA),
                               borderRadius: BorderRadius.circular(12),
@@ -1880,7 +2477,8 @@ class _UpdateProgressPopupState extends State<_UpdateProgressPopup> {
                             child: Text(
                               '$val',
                               style: TextStyle(
-                                color: Theme.of(context).brightness == Brightness.dark
+                                color: Theme.of(context).brightness ==
+                                        Brightness.dark
                                     ? Colors.white
                                     : const Color(0xFF2E7D32),
                                 fontWeight: FontWeight.bold,
@@ -1901,7 +2499,10 @@ class _UpdateProgressPopupState extends State<_UpdateProgressPopup> {
                           Navigator.pop(context);
                         },
                         style: ElevatedButton.styleFrom(
-                          backgroundColor: Theme.of(context).brightness == Brightness.dark ? Colors.white.withValues(alpha: 0.1) : Color(widget.habit.colorValue),
+                          backgroundColor:
+                              Theme.of(context).brightness == Brightness.dark
+                                  ? Colors.white.withValues(alpha: 0.1)
+                                  : Color(widget.habit.colorValue),
                           foregroundColor: Colors.white,
                           elevation: 0,
                           padding: const EdgeInsets.symmetric(vertical: 16),
@@ -1909,7 +2510,9 @@ class _UpdateProgressPopupState extends State<_UpdateProgressPopup> {
                             borderRadius: BorderRadius.circular(16),
                           ),
                         ),
-                        child: const Text('Update Now', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                        child: const Text('Update Now',
+                            style: TextStyle(
+                                fontWeight: FontWeight.bold, fontSize: 16)),
                       ),
                     ),
                   ],
@@ -1930,7 +2533,8 @@ class _MoodSelectorButton extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final currentMood = ref.watch(dailyMoodsProvider)[DateFormat('yyyy-MM-dd').format(DateTime.now())];
+    final currentMood = ref.watch(
+        dailyMoodsProvider)[DateFormat('yyyy-MM-dd').format(DateTime.now())];
 
     return GestureDetector(
       onTap: () {
@@ -1980,8 +2584,10 @@ class _ProfileButton extends ConsumerWidget {
       onTap: () {
         Navigator.of(context).push(
           PageRouteBuilder(
-            pageBuilder: (context, animation, secondaryAnimation) => const ProfileScreen(),
-            transitionsBuilder: (context, animation, secondaryAnimation, child) {
+            pageBuilder: (context, animation, secondaryAnimation) =>
+                const ProfileScreen(),
+            transitionsBuilder:
+                (context, animation, secondaryAnimation, child) {
               return FadeTransition(
                 opacity: animation,
                 child: SlideTransition(
@@ -2044,19 +2650,23 @@ class _MoodRadialPicker extends ConsumerStatefulWidget {
   ConsumerState<_MoodRadialPicker> createState() => _MoodRadialPickerState();
 }
 
-class _MoodRadialPickerState extends ConsumerState<_MoodRadialPicker> with SingleTickerProviderStateMixin {
+class _MoodRadialPickerState extends ConsumerState<_MoodRadialPicker>
+    with SingleTickerProviderStateMixin {
   late AnimationController _controller;
   late Animation<double> _scaleAnimation;
   late Animation<double> _fadeAnimation;
-  
+
   final List<String> _emojis = ['🤩', '😁', '🙂', '😐', '😔', '😫', '😡'];
 
   @override
   void initState() {
     super.initState();
-    _controller = AnimationController(vsync: this, duration: const Duration(milliseconds: 350));
-    _scaleAnimation = Tween<double>(begin: 0.7, end: 1.0).animate(CurvedAnimation(parent: _controller, curve: Curves.easeOutBack));
-    _fadeAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(CurvedAnimation(parent: _controller, curve: Curves.easeOut));
+    _controller = AnimationController(
+        vsync: this, duration: const Duration(milliseconds: 350));
+    _scaleAnimation = Tween<double>(begin: 0.7, end: 1.0).animate(
+        CurvedAnimation(parent: _controller, curve: Curves.easeOutBack));
+    _fadeAnimation = Tween<double>(begin: 0.0, end: 1.0)
+        .animate(CurvedAnimation(parent: _controller, curve: Curves.easeOut));
     _controller.forward();
   }
 
@@ -2074,7 +2684,8 @@ class _MoodRadialPickerState extends ConsumerState<_MoodRadialPicker> with Singl
 
   @override
   Widget build(BuildContext context) {
-    final currentMood = ref.watch(dailyMoodsProvider)[DateFormat('yyyy-MM-dd').format(DateTime.now())];
+    final currentMood = ref.watch(
+        dailyMoodsProvider)[DateFormat('yyyy-MM-dd').format(DateTime.now())];
 
     return GestureDetector(
       onTap: () async {
@@ -2097,9 +2708,17 @@ class _MoodRadialPickerState extends ConsumerState<_MoodRadialPicker> with Singl
                       width: 280,
                       height: 280,
                       decoration: BoxDecoration(
-                        color: Theme.of(context).colorScheme.surface.withValues(alpha: 0.92),
+                        color: Theme.of(context)
+                            .colorScheme
+                            .surface
+                            .withValues(alpha: 0.92),
                         shape: BoxShape.circle,
-                        border: Border.all(color: Theme.of(context).colorScheme.outline.withValues(alpha: 0.2), width: 1),
+                        border: Border.all(
+                            color: Theme.of(context)
+                                .colorScheme
+                                .outline
+                                .withValues(alpha: 0.2),
+                            width: 1),
                         boxShadow: [
                           BoxShadow(
                             color: Colors.black.withValues(alpha: 0.05),
@@ -2124,10 +2743,13 @@ class _MoodRadialPickerState extends ConsumerState<_MoodRadialPicker> with Singl
                           ...List.generate(_emojis.length, (index) {
                             final emoji = _emojis[index];
                             final isSelected = currentMood == emoji;
-                            
+
                             // Calculate radial position
-                            final double angle = (index * (2 * math.pi / _emojis.length)) - (math.pi / 2);
-                            const double radius = 95.0; // Adjusted for better fit
+                            final double angle =
+                                (index * (2 * math.pi / _emojis.length)) -
+                                    (math.pi / 2);
+                            const double radius =
+                                95.0; // Adjusted for better fit
                             final double x = radius * math.cos(angle);
                             final double y = radius * math.sin(angle);
 
@@ -2140,30 +2762,44 @@ class _MoodRadialPickerState extends ConsumerState<_MoodRadialPicker> with Singl
                                   height: 48,
                                   decoration: BoxDecoration(
                                     shape: BoxShape.circle,
-                                    color: isSelected ? Colors.white : Colors.white.withValues(alpha: 0.6),
-                                    boxShadow: isSelected ? [
-                                      BoxShadow(
-                                        color: AppColors.pastelYellow.withValues(alpha: 0.8),
-                                        blurRadius: 15,
-                                        spreadRadius: 2,
-                                      )
-                                    ] : [
-                                      BoxShadow(
-                                        color: Colors.black.withValues(alpha: 0.05),
-                                        blurRadius: 5,
-                                      )
-                                    ],
-                                    border: isSelected ? Border.all(color: AppColors.pastelYellow, width: 2) : null,
+                                    color: isSelected
+                                        ? Colors.white
+                                        : Colors.white.withValues(alpha: 0.6),
+                                    boxShadow: isSelected
+                                        ? [
+                                            BoxShadow(
+                                              color: AppColors.pastelYellow
+                                                  .withValues(alpha: 0.8),
+                                              blurRadius: 15,
+                                              spreadRadius: 2,
+                                            )
+                                          ]
+                                        : [
+                                            BoxShadow(
+                                              color: Colors.black
+                                                  .withValues(alpha: 0.05),
+                                              blurRadius: 5,
+                                            )
+                                          ],
+                                    border: isSelected
+                                        ? Border.all(
+                                            color: AppColors.pastelYellow,
+                                            width: 2)
+                                        : null,
                                   ),
                                   alignment: Alignment.center,
                                   child: TweenAnimationBuilder<double>(
-                                    tween: Tween<double>(begin: 0.8, end: isSelected ? 1.4 : 1.0),
+                                    tween: Tween<double>(
+                                        begin: 0.8,
+                                        end: isSelected ? 1.4 : 1.0),
                                     duration: const Duration(milliseconds: 200),
                                     curve: Curves.easeOutBack,
                                     builder: (context, scale, child) {
                                       return Transform.scale(
                                         scale: scale,
-                                        child: Text(emoji, style: const TextStyle(fontSize: 24)),
+                                        child: Text(emoji,
+                                            style:
+                                                const TextStyle(fontSize: 24)),
                                       );
                                     },
                                   ),
@@ -2184,7 +2820,6 @@ class _MoodRadialPickerState extends ConsumerState<_MoodRadialPicker> with Singl
     );
   }
 }
-
 
 // ─────────────────────────────────────────────
 // ANALYTICS BOTTOM SHEET
@@ -2216,7 +2851,8 @@ class _HabitAnalyticsSheetState extends State<_HabitAnalyticsSheet>
   @override
   void initState() {
     super.initState();
-    _ctrl = AnimationController(vsync: this, duration: const Duration(milliseconds: 700));
+    _ctrl = AnimationController(
+        vsync: this, duration: const Duration(milliseconds: 700));
     _progress = CurvedAnimation(parent: _ctrl, curve: Curves.easeOutCubic);
     _ctrl.forward();
   }
@@ -2227,33 +2863,41 @@ class _HabitAnalyticsSheetState extends State<_HabitAnalyticsSheet>
     super.dispose();
   }
 
-  // Returns Mon-Sun progress values (0.0–1.0) for the given week offset.
-  // offset 0 = this week, offset -1 = last week.
-  List<double> _weekData(int offset) {
+  // Returns last 7 days normalized progress values (0.0–1.0) and their date strings.
+  // offset 0 = last 7 days, -1 = previous 7 days.
+  List<Map<String, dynamic>> _weekData(int offset) {
     final now = DateTime.now();
-    // Monday of the target week
-    final monday = DateTime(now.year, now.month, now.day)
-        .subtract(Duration(days: now.weekday - 1))
-        .add(Duration(days: offset * 7));
-
     final h = widget.habit;
-    final goal = h.goalValue > 0 ? h.goalValue.toDouble() : 1.0;
 
     return List.generate(7, (i) {
-      final date = monday.add(Duration(days: i));
+      final daysToSubtract = 6 - i + (offset == -1 ? 7 : 0);
+      final date = now.subtract(Duration(days: daysToSubtract));
       final dateStr = DateFormat('yyyy-MM-dd').format(date);
       final done = (h.dailyProgress[dateStr] ?? 0).toDouble();
-      return (done / goal).clamp(0.0, 1.0);
+      final snapGoal =
+          h.goalFor(dateStr) > 0 ? h.goalFor(dateStr).toDouble() : 1.0;
+      return {
+        'dateStr': dateStr,
+        'date': date,
+        'value': (done / snapGoal).clamp(0.0, 1.0),
+        'done': done,
+        'goal': snapGoal,
+      };
     });
   }
 
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final currentWeek = _weekData(0);
-    final prevWeek = _weekData(-1);
-    const chartGreen = Color(0xFF65D282);
-    const chartOrange = Color(0xFFFFB067);
+    final last7Days = _weekData(0);
+    final prev7Days = _weekData(-1);
+
+    const thisWeekColor = Color(0xFF65D282); // Green
+    const lastWeekColor = Color(0xFFFFB067); // Orange
+
+    // Check if there is absolutely no activity
+    final bool isEmpty = last7Days.every((d) => d['value'] == 0.0) &&
+        prev7Days.every((d) => d['value'] == 0.0);
 
     return ClipRRect(
       borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
@@ -2261,9 +2905,13 @@ class _HabitAnalyticsSheetState extends State<_HabitAnalyticsSheet>
         filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
         child: Container(
           decoration: BoxDecoration(
-            color: isDark ? const Color(0xFF1C1C1E) : Colors.white.withValues(alpha: 0.97),
+            color: isDark
+                ? const Color(0xFF1C1C1E).withValues(alpha: 0.8)
+                : Colors.white.withValues(alpha: 0.85),
             borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
-            border: isDark ? Border.all(color: Colors.white.withValues(alpha: 0.08)) : null,
+            border: isDark
+                ? Border.all(color: Colors.white.withValues(alpha: 0.08))
+                : null,
             boxShadow: [
               if (!isDark)
                 BoxShadow(
@@ -2273,7 +2921,7 @@ class _HabitAnalyticsSheetState extends State<_HabitAnalyticsSheet>
                 ),
             ],
           ),
-          padding: const EdgeInsets.fromLTRB(20, 12, 20, 32),
+          padding: const EdgeInsets.fromLTRB(20, 12, 20, 40),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -2293,19 +2941,20 @@ class _HabitAnalyticsSheetState extends State<_HabitAnalyticsSheet>
               // Habit header
               Row(
                 children: [
-                  Text(widget.habit.icon ?? '✨', style: const TextStyle(fontSize: 22)),
+                  Text(widget.habit.icon ?? '✨',
+                      style: const TextStyle(fontSize: 22)),
                   const SizedBox(width: 10),
                   Text(
                     widget.habit.name,
                     style: GoogleFonts.poppins(
-                      fontSize: 17,
+                      fontSize: 18,
                       fontWeight: FontWeight.w700,
                       color: isDark ? Colors.white : const Color(0xFF1C1C1E),
                     ),
                   ),
                 ],
               ),
-              const SizedBox(height: 20),
+              const SizedBox(height: 30),
 
               // ── Weekly Performance ──────────────────────
               Text(
@@ -2328,8 +2977,14 @@ class _HabitAnalyticsSheetState extends State<_HabitAnalyticsSheet>
                   animation: _progress,
                   builder: (_, __) => CustomPaint(
                     painter: _WeeklyBarChartPainter(
-                      values: currentWeek,
-                      color: chartGreen,
+                      values:
+                          last7Days.map((d) => d['value'] as double).toList(),
+                      labels: last7Days
+                          .map((d) => DateFormat('E')
+                              .format(d['date'] as DateTime)
+                              .substring(0, 1))
+                          .toList(),
+                      color: Color(widget.habit.colorValue),
                       animProgress: _progress.value,
                       isDark: isDark,
                     ),
@@ -2349,38 +3004,250 @@ class _HabitAnalyticsSheetState extends State<_HabitAnalyticsSheet>
                 ),
               ),
               const SizedBox(height: 10),
+
+              // ── Premium Interactive Graph ─────────────────────────────────
               Container(
-                height: 200,
-                decoration: BoxDecoration(
-                  color: isDark ? Colors.transparent : const Color(0xFFF8F9FB),
-                  borderRadius: BorderRadius.circular(18),
-                ),
-                padding: const EdgeInsets.fromLTRB(12, 16, 12, 8),
-                child: AnimatedBuilder(
-                  animation: _progress,
-                  builder: (_, __) => CustomPaint(
-                    painter: _WeeklyLineChartPainter(
-                      current: currentWeek,
-                      previous: prevWeek,
-                      color: chartGreen,
-                      prevColor: chartOrange,
-                      animProgress: _progress.value,
-                      isDark: isDark,
-                    ),
-                    child: Container(),
-                  ),
-                ),
+                height: 220,
+                width: double.infinity,
+                padding: const EdgeInsets.only(top: 20, bottom: 10),
+                child: isEmpty
+                    ? Center(
+                        child: Text(
+                          'No activity yet',
+                          style: GoogleFonts.poppins(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w500,
+                            color: isDark
+                                ? Colors.grey.shade600
+                                : Colors.grey.shade400,
+                          ),
+                        ),
+                      )
+                    : LineChart(
+                        LineChartData(
+                          minX: 0,
+                          maxX: 6,
+                          minY: 0,
+                          maxY: 1.1, // give some headroom for tooltips
+                          gridData: FlGridData(
+                            show: true,
+                            drawVerticalLine: false,
+                            horizontalInterval: 0.5,
+                            getDrawingHorizontalLine: (value) {
+                              return FlLine(
+                                color: isDark
+                                    ? Colors.white.withValues(alpha: 0.05)
+                                    : Colors.black.withValues(alpha: 0.05),
+                                strokeWidth: 1,
+                                dashArray: [4, 4],
+                              );
+                            },
+                          ),
+                          titlesData: FlTitlesData(
+                            show: true,
+                            rightTitles: const AxisTitles(
+                                sideTitles: SideTitles(showTitles: false)),
+                            topTitles: const AxisTitles(
+                                sideTitles: SideTitles(showTitles: false)),
+                            leftTitles: const AxisTitles(
+                                sideTitles: SideTitles(showTitles: false)),
+                            bottomTitles: AxisTitles(
+                              sideTitles: SideTitles(
+                                showTitles: true,
+                                reservedSize: 38,
+                                interval: 1,
+                                getTitlesWidget: (value, meta) {
+                                  final index = value.toInt();
+                                  if (index < 0 || index >= last7Days.length)
+                                    return const SizedBox.shrink();
+
+                                  final isToday =
+                                      index == 6; // Always the last item
+                                  final date =
+                                      last7Days[index]['date'] as DateTime;
+                                  final dayStr = DateFormat('E')
+                                      .format(date)
+                                      .substring(0, 3);
+
+                                  return SideTitleWidget(
+                                    axisSide: meta.axisSide,
+                                    space: 12,
+                                    child: isToday
+                                        ? Container(
+                                            padding: const EdgeInsets.symmetric(
+                                                horizontal: 10, vertical: 4),
+                                            decoration: BoxDecoration(
+                                              color: thisWeekColor.withValues(
+                                                  alpha: 0.2),
+                                              borderRadius:
+                                                  BorderRadius.circular(8),
+                                            ),
+                                            child: Text(
+                                              dayStr,
+                                              style: GoogleFonts.poppins(
+                                                fontSize: 11,
+                                                fontWeight: FontWeight.w700,
+                                                color: isDark
+                                                    ? thisWeekColor
+                                                    : thisWeekColor
+                                                        .withAlpha(200),
+                                              ),
+                                            ),
+                                          )
+                                        : Text(
+                                            dayStr,
+                                            style: GoogleFonts.poppins(
+                                              fontSize: 11,
+                                              fontWeight: FontWeight.w500,
+                                              color: isDark
+                                                  ? Colors.grey.shade500
+                                                  : Colors.grey.shade400,
+                                            ),
+                                          ),
+                                  );
+                                },
+                              ),
+                            ),
+                          ),
+                          borderData: FlBorderData(show: false),
+                          lineTouchData: LineTouchData(
+                            touchTooltipData: LineTouchTooltipData(
+                              maxContentWidth: 140,
+                              tooltipRoundedRadius: 10,
+                              tooltipPadding: const EdgeInsets.symmetric(
+                                  horizontal: 12, vertical: 8),
+                              getTooltipColor: (_) => isDark
+                                  ? const Color(0xFF2C2C2E)
+                                  : Colors.white,
+                              getTooltipItems: (touchedSpots) {
+                                return touchedSpots.map((spot) {
+                                  final isPrev = spot.barIndex == 0;
+                                  final dataList =
+                                      isPrev ? prev7Days : last7Days;
+                                  final data = dataList[spot.x.toInt()];
+                                  final done = data['done'] as double;
+                                  final goal = data['goal'] as double;
+                                  final doneStr = done % 1 == 0
+                                      ? done.toInt().toString()
+                                      : done.toStringAsFixed(1);
+                                  final goalStr = goal % 1 == 0
+                                      ? goal.toInt().toString()
+                                      : goal.toStringAsFixed(1);
+                                  final unit = widget.habit.goalUnit;
+
+                                  return LineTooltipItem(
+                                    '$doneStr / $goalStr $unit',
+                                    GoogleFonts.poppins(
+                                      color: isPrev
+                                          ? lastWeekColor
+                                          : (isDark
+                                              ? Colors.white
+                                              : Colors.black),
+                                      fontWeight: FontWeight.w600,
+                                      fontSize: 12,
+                                    ),
+                                  );
+                                }).toList();
+                              },
+                            ),
+                            handleBuiltInTouches: true,
+                            getTouchedSpotIndicator: (LineChartBarData barData,
+                                List<int> spotIndexes) {
+                              return spotIndexes.map((index) {
+                                return TouchedSpotIndicatorData(
+                                  FlLine(
+                                    color:
+                                        barData.color?.withValues(alpha: 0.3) ??
+                                            Colors.transparent,
+                                    strokeWidth: 2,
+                                    dashArray: [4, 4],
+                                  ),
+                                  FlDotData(
+                                    show: true,
+                                    getDotPainter:
+                                        (spot, percent, barData, index) {
+                                      return FlDotCirclePainter(
+                                        radius: 6,
+                                        color:
+                                            barData.color ?? Colors.transparent,
+                                        strokeWidth: 2,
+                                        strokeColor: isDark
+                                            ? const Color(0xFF1C1C1E)
+                                            : Colors.white,
+                                      );
+                                    },
+                                  ),
+                                );
+                              }).toList();
+                            },
+                          ),
+                          lineBarsData: [
+                            // Previous Week Line
+                            LineChartBarData(
+                              spots: prev7Days.asMap().entries.map((e) {
+                                return FlSpot(e.key.toDouble(),
+                                    e.value['value'] as double);
+                              }).toList(),
+                              isCurved: true,
+                              curveSmoothness: 0.35,
+                              color: lastWeekColor,
+                              barWidth: 2.0,
+                              dashArray: [5, 5],
+                              isStrokeCapRound: true,
+                              dotData: const FlDotData(show: false),
+                              belowBarData: BarAreaData(show: false),
+                            ),
+                            // Current Week Line
+                            LineChartBarData(
+                              spots: last7Days.asMap().entries.map((e) {
+                                return FlSpot(e.key.toDouble(),
+                                    e.value['value'] as double);
+                              }).toList(),
+                              isCurved: true,
+                              curveSmoothness: 0.35,
+                              color: thisWeekColor,
+                              barWidth: 3.5,
+                              isStrokeCapRound: true,
+                              dotData: FlDotData(
+                                show: true,
+                                getDotPainter: (spot, percent, barData, index) {
+                                  return FlDotCirclePainter(
+                                    radius: 3.5,
+                                    color: thisWeekColor,
+                                    strokeWidth: 1.5,
+                                    strokeColor: isDark
+                                        ? const Color(0xFF1C1C1E)
+                                        : Colors.white,
+                                  );
+                                },
+                              ),
+                              belowBarData: BarAreaData(
+                                show: true,
+                                gradient: LinearGradient(
+                                  begin: Alignment.topCenter,
+                                  end: Alignment.bottomCenter,
+                                  colors: [
+                                    thisWeekColor.withValues(alpha: 0.25),
+                                    thisWeekColor.withValues(alpha: 0.0),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
               ),
-              const SizedBox(height: 8),
+              const SizedBox(height: 16),
               // Legend
               const Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  _LegendDot(color: chartGreen, label: 'This Week'),
+                  _LegendDot(color: thisWeekColor, label: 'This Week'),
                   SizedBox(width: 20),
-                  _LegendDot(color: chartOrange, label: 'Last Week'),
+                  _LegendDot(color: lastWeekColor, label: 'Last Week'),
                 ],
               ),
+              const SizedBox(height: 8),
             ],
           ),
         ),
@@ -2397,16 +3264,22 @@ class _LegendDot extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Row(
+      mainAxisSize: MainAxisSize.min,
       children: [
         Container(
           width: 10,
           height: 10,
           decoration: BoxDecoration(color: color, shape: BoxShape.circle),
         ),
-        const SizedBox(width: 6),
+        const SizedBox(width: 8),
         Text(
           label,
-          style: GoogleFonts.poppins(fontSize: 11, color: Theme.of(context).brightness == Brightness.dark ? const Color(0xFFB0B0B5) : Colors.grey.shade600),
+          style: GoogleFonts.poppins(
+            fontSize: 11,
+            color: Theme.of(context).brightness == Brightness.dark
+                ? const Color(0xFFB0B0B5)
+                : Colors.grey.shade600,
+          ),
         ),
       ],
     );
@@ -2415,15 +3288,15 @@ class _LegendDot extends StatelessWidget {
 
 // ─── Bar Chart CustomPainter ───────────────────────────
 class _WeeklyBarChartPainter extends CustomPainter {
-  final List<double> values; // 7 values, Mon–Sun, 0.0–1.0
+  final List<double> values; // 7 values for the last 7 days, 0.0-1.0
+  final List<String> labels; // 7 label letters representing the days
   final Color color;
   final double animProgress;
   final bool isDark;
 
-  static const _labels = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
-
   _WeeklyBarChartPainter({
     required this.values,
+    required this.labels,
     required this.color,
     required this.animProgress,
     required this.isDark,
@@ -2437,7 +3310,9 @@ class _WeeklyBarChartPainter extends CustomPainter {
     const barInnerW = 18.0;
     const radius = Radius.circular(6);
 
-    final bgPaint = Paint()..color = isDark ? Colors.white.withValues(alpha: 0.05) : Colors.grey.shade200;
+    final bgPaint = Paint()
+      ..color =
+          isDark ? Colors.white.withValues(alpha: 0.05) : Colors.grey.shade200;
     final filledPaint = Paint()
       ..shader = LinearGradient(
         begin: Alignment.topCenter,
@@ -2475,7 +3350,7 @@ class _WeeklyBarChartPainter extends CustomPainter {
 
       // Label
       final tp = TextPainter(
-        text: TextSpan(text: _labels[i], style: labelStyle),
+        text: TextSpan(text: labels[i], style: labelStyle),
         textDirection: TextDirection.ltr,
       )..layout();
       tp.paint(canvas, Offset(cx - tp.width / 2, chartH + 6));
@@ -2484,170 +3359,489 @@ class _WeeklyBarChartPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(_WeeklyBarChartPainter old) =>
-      old.animProgress != animProgress || old.values != values;
+      old.animProgress != animProgress ||
+      old.values != values ||
+      old.labels != labels;
 }
 
-// ─── Line Chart CustomPainter ──────────────────────────
-class _WeeklyLineChartPainter extends CustomPainter {
-  final List<double> current;
-  final List<double> previous;
-  final Color color;
-  final Color prevColor;
-  final double animProgress;
-  final bool isDark;
+// ─────────────────────────────────────────────────────────────────────────────
+// Streak Reminder Banner
+// ─────────────────────────────────────────────────────────────────────────────
 
-  static const _labels = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+/// Soft reminder shown on the home screen after a user dismisses the streak
+/// protection modal. Disappears when tapped (re-opens the modal) or when
+/// the X is tapped (clears permanently for this session).
+class _StreakReminderBanner extends ConsumerWidget {
+  const _StreakReminderBanner();
 
-  _WeeklyLineChartPainter({
-    required this.current,
-    required this.previous,
-    required this.color,
-    required this.prevColor,
-    required this.animProgress,
-    required this.isDark,
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final habit = ref.watch(streakReminderProvider);
+    if (habit == null) return const SizedBox.shrink();
+
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final now = DateTime.now();
+    final yesterday = DateTime(now.year, now.month, now.day)
+        .subtract(const Duration(days: 1));
+    final yesterdayStr = DateFormat('yyyy-MM-dd').format(yesterday);
+    // Compute live streak-at-risk for accurate display
+    final protectedDays = ref.watch(streakProtectionProvider);
+    final mockProtected = {...protectedDays, '${habit.id}_$yesterdayStr'};
+    final streakAtRisk =
+        calculateHabitStreakWithProtection(habit, mockProtected);
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+      child: GestureDetector(
+        onTap: () async {
+          ref.read(streakReminderProvider.notifier).state = null;
+          final savedCount = await _showStreakProtectionModal(
+              context, ref, [habit], yesterdayStr, {habit.id: streakAtRisk});
+          if (savedCount != null && savedCount == 0 && context.mounted) {
+            // Re-set reminder if still dismissed
+            ref.read(streakReminderProvider.notifier).state = habit;
+          } else if (savedCount != null && savedCount > 0) {
+            ref.read(streakReminderProvider.notifier).state = null;
+          }
+        },
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.centerLeft,
+              end: Alignment.centerRight,
+              colors: isDark
+                  ? [
+                      const Color(0xFFFF6B35).withValues(alpha: 0.18),
+                      const Color(0xFFFF4500).withValues(alpha: 0.12),
+                    ]
+                  : [
+                      const Color(0xFFFFF3ED),
+                      const Color(0xFFFFEDE0),
+                    ],
+            ),
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(
+              color: const Color(0xFFFF6B35).withValues(alpha: 0.35),
+              width: 1,
+            ),
+          ),
+          child: Row(
+            children: [
+              const Text('🔥', style: TextStyle(fontSize: 18)),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  'Save your streak ($streakAtRisk days) · 50 coins',
+                  style: GoogleFonts.poppins(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    color: isDark
+                        ? const Color(0xFFFF8C42)
+                        : const Color(0xFFD4521A),
+                  ),
+                ),
+              ),
+              GestureDetector(
+                onTap: () =>
+                    ref.read(streakReminderProvider.notifier).state = null,
+                child: Icon(
+                  Icons.close_rounded,
+                  size: 18,
+                  color: isDark
+                      ? Colors.white.withValues(alpha: 0.4)
+                      : const Color(0xFFD4521A).withValues(alpha: 0.5),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+// ─────────────────────────────────────────────────────────────────────────────
+// Streak Protection Modal
+// ─────────────────────────────────────────────────────────────────────────────
+
+/// Shows the streak protection dialog. Returns `int` representing the number of
+/// streaks saved. Returns `null` if the user soft-dismissed (tapped barrier).
+/// Returns `0` if the user explicitly clicked "Let it break".
+Future<int?> _showStreakProtectionModal(
+  BuildContext context,
+  WidgetRef ref,
+  List<Habit> candidates,
+  String yesterdayStr,
+  Map<String, int> streakAtRiskMap,
+) {
+  return showDialog<int?>(
+    context: context,
+    barrierDismissible: true,
+    barrierColor: Colors.black.withValues(alpha: 0.65),
+    builder: (ctx) => _StreakProtectionDialog(
+      candidates: candidates,
+      yesterdayStr: yesterdayStr,
+      streakAtRiskMap: streakAtRiskMap,
+    ),
+  );
+}
+
+class _StreakProtectionDialog extends ConsumerStatefulWidget {
+  final List<Habit> candidates;
+  final String yesterdayStr;
+  final Map<String, int> streakAtRiskMap;
+
+  const _StreakProtectionDialog({
+    required this.candidates,
+    required this.yesterdayStr,
+    required this.streakAtRiskMap,
   });
 
   @override
-  void paint(Canvas canvas, Size size) {
-    const labelH = 24.0;
-    const sidePad = 16.0;
-    final chartH = size.height - labelH;
-    final chartW = size.width - (sidePad * 2);
+  ConsumerState<_StreakProtectionDialog> createState() =>
+      _StreakProtectionDialogState();
+}
 
-    // Determine value range (max of all values, min 1.0 so we always have headroom)
-    final allVals = [...current, ...previous];
-    final maxVal = allVals.reduce((a, b) => a > b ? a : b).clamp(0.01, double.infinity);
-    // Round up to a nice grid ceiling
-    final yMax = (maxVal * 1.1).ceilToDouble().clamp(1.0, double.infinity);
+class _StreakProtectionDialogState
+    extends ConsumerState<_StreakProtectionDialog> {
+  late Set<String> _selectedHabits;
 
-    Offset pt(int i, double v) {
-      final x = sidePad + i * (chartW / 6);
-      final y = chartH - (v / yMax) * chartH;
-      return Offset(x, y);
-    }
-
-    // ── Grid lines ───────────────────────────────────
-    final gridPaint = Paint()
-      ..color = isDark ? Colors.white.withValues(alpha: 0.1) : Colors.grey.withValues(alpha: 0.1)
-      ..strokeWidth = 1;
-
-    for (int g = 0; g <= 4; g++) {
-      final v = yMax * g / 4;
-      final y = chartH - (v / yMax) * chartH;
-      canvas.drawLine(Offset(0, y), Offset(size.width, y), gridPaint);
-    }
-
-    // ── Previous week line (pastel orange, thin) ──
-    final prevPaint = Paint()
-      ..color = prevColor
-      ..strokeWidth = 2
-      ..strokeCap = StrokeCap.round
-      ..style = PaintingStyle.stroke;
-
-    final prevPath = Path();
-    for (int i = 0; i < 7; i++) {
-      final p = pt(i, previous[i]);
-      if (i == 0) {
-        prevPath.moveTo(p.dx, p.dy);
-      } else {
-        prevPath.lineTo(p.dx, p.dy);
-      }
-    }
-    canvas.drawPath(_clipPathByProgress(prevPath, size, animProgress), prevPaint);
-
-    // ── Current week area fill ───────────────────────
-    final fillPaint = Paint()
-      ..shader = LinearGradient(
-        begin: Alignment.topCenter,
-        end: Alignment.bottomCenter,
-        colors: [color.withValues(alpha: 0.18), color.withValues(alpha: 0.0)],
-      ).createShader(Rect.fromLTWH(0, 0, size.width, chartH))
-      ..style = PaintingStyle.fill;
-
-    final areaPath = Path();
-    areaPath.moveTo(pt(0, 0).dx, chartH);
-    for (int i = 0; i < 7; i++) {
-      final p = pt(i, current[i]);
-      if (i == 0) {
-        areaPath.lineTo(p.dx, p.dy);
-      } else {
-        areaPath.lineTo(p.dx, p.dy);
-      }
-    }
-    areaPath.lineTo(pt(6, 0).dx, chartH);
-    areaPath.close();
-    canvas.drawPath(_clipPathByProgress(areaPath, size, animProgress), fillPaint);
-
-    // ── Current week line (green) ────────────────────
-    final linePaint = Paint()
-      ..color = color
-      ..strokeWidth = 2.5
-      ..strokeCap = StrokeCap.round
-      ..style = PaintingStyle.stroke;
-
-    final linePath = Path();
-    for (int i = 0; i < 7; i++) {
-      final p = pt(i, current[i]);
-      if (i == 0) {
-        linePath.moveTo(p.dx, p.dy);
-      } else {
-        linePath.lineTo(p.dx, p.dy);
-      }
-    }
-    canvas.drawPath(_clipPathByProgress(linePath, size, animProgress), linePaint);
-
-    // ── Dots on last week ────────────────────────────
-    final prevDotStroke = Paint()
-      ..color = prevColor
-      ..strokeWidth = 2
-      ..style = PaintingStyle.stroke;
-    final prevDotFill = Paint()
-      ..color = isDark ? const Color(0xFF1C1C1E) : Colors.white
-      ..style = PaintingStyle.fill;
-      
-    for (int i = 0; i < 7; i++) {
-      if (i / 6 > animProgress) break;
-      final p = pt(i, previous[i]);
-      canvas.drawCircle(p, 4, prevDotFill);
-      canvas.drawCircle(p, 4, prevDotStroke);
-    }
-
-    // ── Dots on current week ─────────────────────────
-    final dotFill = Paint()
-      ..color = color
-      ..style = PaintingStyle.fill;
-
-    for (int i = 0; i < 7; i++) {
-      if (i / 6 > animProgress) break;
-      final p = pt(i, current[i]);
-      canvas.drawCircle(p, 5, dotFill);
-    }
-
-    // ── X-axis labels ────────────────────────────────
-    final labelStyle = GoogleFonts.poppins(fontSize: 10, color: isDark ? const Color(0xFFB0B0B5) : Colors.grey.shade500);
-    for (int i = 0; i < 7; i++) {
-      final tp = TextPainter(
-        text: TextSpan(text: _labels[i], style: labelStyle),
-        textDirection: TextDirection.ltr,
-      )..layout();
-      tp.paint(canvas, Offset(pt(i, 0).dx - tp.width / 2, chartH + 6));
-    }
+  @override
+  void initState() {
+    super.initState();
+    _selectedHabits = widget.candidates.map((h) => h.id).toSet();
   }
 
-  // Clips a path to the left portion based on animation progress (left-to-right reveal)
-  Path _clipPathByProgress(Path path, Size size, double progress) {
-    if (progress >= 1.0) return path;
-    final clipRect = Rect.fromLTWH(0, -10, size.width * progress, size.height + 20);
-    return Path.combine(PathOperation.intersect, path, Path()..addRect(clipRect));
+  void _toggleHabit(String id) {
+    setState(() {
+      if (_selectedHabits.contains(id)) {
+        _selectedHabits.remove(id);
+      } else {
+        _selectedHabits.add(id);
+      }
+    });
   }
 
   @override
-  bool shouldRepaint(_WeeklyLineChartPainter old) =>
-      old.animProgress != animProgress ||
-      old.current != current ||
-      old.previous != previous;
-}
+  Widget build(BuildContext context) {
+    final coins = ref.watch(coinProvider);
+    final isDark = Theme.of(context).brightness == Brightness.dark;
 
+    final costPerHabit = StreakProtectionNotifier.protectionCost;
+    final totalCost = _selectedHabits.length * costPerHabit;
+    final canAfford = coins >= totalCost;
+    final canProtect = _selectedHabits.isNotEmpty && canAfford;
+
+    return Dialog(
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(28)),
+      backgroundColor: isDark ? const Color(0xFF1C1C1E) : Colors.white,
+      elevation: 16,
+      insetPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(24, 28, 24, 24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            // ── Fire header ──
+            Center(
+              child: Container(
+                width: 72,
+                height: 72,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  gradient: const LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: [Color(0xFFFF8C42), Color(0xFFFF4500)],
+                  ),
+                  boxShadow: [
+                    BoxShadow(
+                      color: const Color(0xFFFF6B35).withValues(alpha: 0.4),
+                      blurRadius: 20,
+                      offset: const Offset(0, 6),
+                    ),
+                  ],
+                ),
+                child: const Center(
+                    child: Text('🔥', style: TextStyle(fontSize: 36))),
+              ),
+            ),
+            const SizedBox(height: 20),
+
+            // ── Title ──
+            Text(
+              widget.candidates.length == 1
+                  ? '🔥 Your streak is about to break'
+                  : '🔥 Streaks are about to break',
+              textAlign: TextAlign.center,
+              style: GoogleFonts.poppins(
+                fontSize: 19,
+                fontWeight: FontWeight.w700,
+                color: isDark ? Colors.white : const Color(0xFF1F2937),
+              ),
+            ),
+            const SizedBox(height: 10),
+
+            // ── Body ──
+            Text(
+              widget.candidates.length == 1
+                  ? 'You missed yesterday. This streak will reset.'
+                  : 'You missed ${widget.candidates.length} habits yesterday.',
+              textAlign: TextAlign.center,
+              style: GoogleFonts.poppins(
+                fontSize: 15,
+                fontWeight: FontWeight.w600,
+                color: isDark
+                    ? Colors.white.withValues(alpha: 0.85)
+                    : const Color(0xFF374151),
+                height: 1.5,
+              ),
+            ),
+            const SizedBox(height: 16),
+
+            // ── List of habits ──
+            Flexible(
+              child: Container(
+                constraints: const BoxConstraints(maxHeight: 200),
+                decoration: BoxDecoration(
+                  color: isDark
+                      ? Colors.black.withValues(alpha: 0.2)
+                      : const Color(0xFFF9FAFB),
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(
+                      color: isDark
+                          ? Colors.white.withValues(alpha: 0.05)
+                          : const Color(0xFFE5E7EB)),
+                ),
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(16),
+                  child: ListView.separated(
+                    shrinkWrap: true,
+                    padding: EdgeInsets.zero,
+                    itemCount: widget.candidates.length,
+                    separatorBuilder: (context, index) => Divider(
+                      height: 1,
+                      color: isDark
+                          ? Colors.white.withValues(alpha: 0.05)
+                          : const Color(0xFFE5E7EB),
+                    ),
+                    itemBuilder: (context, index) {
+                      final habit = widget.candidates[index];
+                      final isSelected = _selectedHabits.contains(habit.id);
+                      final streak = widget.streakAtRiskMap[habit.id] ?? 0;
+
+                      return InkWell(
+                        onTap: () => _toggleHabit(habit.id),
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 16, vertical: 12),
+                          child: Row(
+                            children: [
+                              Container(
+                                width: 32,
+                                height: 32,
+                                decoration: BoxDecoration(
+                                  color: Color(habit.colorValue)
+                                      .withValues(alpha: 0.15),
+                                  shape: BoxShape.circle,
+                                ),
+                                child: Center(
+                                  child: Text(habit.icon ?? '🎯',
+                                      style: const TextStyle(fontSize: 14)),
+                                ),
+                              ),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      habit.name,
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: GoogleFonts.poppins(
+                                        fontSize: 14,
+                                        fontWeight: FontWeight.w600,
+                                        color: isDark
+                                            ? Colors.white
+                                            : const Color(0xFF1F2937),
+                                      ),
+                                    ),
+                                    Text(
+                                      '$streak-day streak',
+                                      style: GoogleFonts.poppins(
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.w500,
+                                        color: const Color(0xFFFF6B35),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              // Custom Checkbox
+                              Container(
+                                width: 24,
+                                height: 24,
+                                decoration: BoxDecoration(
+                                  color: isSelected
+                                      ? const Color(0xFFFF6B35)
+                                      : Colors.transparent,
+                                  borderRadius: BorderRadius.circular(6),
+                                  border: Border.all(
+                                    color: isSelected
+                                        ? const Color(0xFFFF6B35)
+                                        : (isDark
+                                            ? Colors.white
+                                                .withValues(alpha: 0.3)
+                                            : const Color(0xFFD1D5DB)),
+                                    width: 1.5,
+                                  ),
+                                ),
+                                child: isSelected
+                                    ? const Icon(Icons.check,
+                                        size: 16, color: Colors.white)
+                                    : null,
+                              ),
+                            ],
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(height: 16),
+
+            // ── Coin balance pill ──
+            Center(
+              child: Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
+                decoration: BoxDecoration(
+                  color: canProtect
+                      ? (isDark
+                          ? const Color(0xFFFFD700).withValues(alpha: 0.12)
+                          : const Color(0xFFFFFDE7))
+                      : (isDark
+                          ? Colors.red.withValues(alpha: 0.12)
+                          : const Color(0xFFFFF0F0)),
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(
+                    color: canProtect
+                        ? const Color(0xFFFFD700).withValues(alpha: 0.4)
+                        : Colors.red.withValues(alpha: 0.3),
+                    width: 1,
+                  ),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      Icons.star_rounded,
+                      size: 16,
+                      color: canProtect ? const Color(0xFFFFD700) : Colors.red,
+                    ),
+                    const SizedBox(width: 6),
+                    Text(
+                      _selectedHabits.isEmpty
+                          ? 'Select habits to save (you have $coins)'
+                          : canAfford
+                              ? 'Need $totalCost coins (you have $coins)'
+                              : 'Need $totalCost coins (you have $coins)',
+                      style: GoogleFonts.poppins(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                        color: canProtect
+                            ? (isDark
+                                ? const Color(0xFFFFD700)
+                                : const Color(0xFFB8860B))
+                            : Colors.red,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(height: 24),
+
+            // ── Primary button: Use coins ──
+            SizedBox(
+              height: 50,
+              child: ElevatedButton(
+                // Truly disabled — no tap handler when cannot protect
+                onPressed: canProtect
+                    ? () {
+                        // Deduct coins
+                        ref.read(coinProvider.notifier).removeCoins(totalCost);
+
+                        // Apply protection for EACH selected habit
+                        for (final cid in _selectedHabits) {
+                          ref
+                              .read(streakProtectionProvider.notifier)
+                              .protect(cid, widget.yesterdayStr);
+                        }
+
+                        ref.read(coinDeductedProvider.notifier).state = true;
+                        Navigator.of(context).pop(_selectedHabits.length);
+                      }
+                    : null,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: canProtect
+                      ? const Color(0xFFFF6B35)
+                      : (isDark
+                          ? Colors.white.withValues(alpha: 0.06)
+                          : const Color(0xFFF3F4F6)),
+                  disabledBackgroundColor: isDark
+                      ? Colors.white.withValues(alpha: 0.06)
+                      : const Color(0xFFF3F4F6),
+                  elevation: canProtect ? 4 : 0,
+                  shadowColor: const Color(0xFFFF6B35).withValues(alpha: 0.4),
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(16)),
+                ),
+                child: Text(
+                  _selectedHabits.isEmpty
+                      ? 'Select habits'
+                      : canAfford
+                          ? 'Use $totalCost Coins to save ${_selectedHabits.length}'
+                          : 'Need $totalCost coins',
+                  style: GoogleFonts.poppins(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w700,
+                    color: canProtect
+                        ? Colors.white
+                        : (isDark
+                            ? Colors.white.withValues(alpha: 0.25)
+                            : const Color(0xFFBBBBBB)),
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(height: 10),
+
+            // ── Secondary: Let it break ──
+            TextButton(
+              onPressed: () => Navigator.of(context)
+                  .pop(0), // 0 indicates explicitly dismissed permanently
+              child: Text(
+                'SKIP',
+                style: GoogleFonts.poppins(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w500,
+                  color: isDark
+                      ? Colors.white.withValues(alpha: 0.4)
+                      : const Color(0xFF9CA3AF),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
 
 // ── Glass Add Button ──────────────────────────────────────────────────────────
 class _GlassAddButton extends StatefulWidget {
@@ -2691,10 +3885,16 @@ class _GlassAddButtonState extends State<_GlassAddButton> {
               filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
               child: Container(
                 decoration: BoxDecoration(
-                  color: Theme.of(context).colorScheme.surface.withValues(alpha: 0.2),
+                  color: Theme.of(context)
+                      .colorScheme
+                      .surface
+                      .withValues(alpha: 0.2),
                   borderRadius: BorderRadius.circular(20),
                   border: Border.all(
-                    color: Theme.of(context).colorScheme.outline.withValues(alpha: 0.4),
+                    color: Theme.of(context)
+                        .colorScheme
+                        .outline
+                        .withValues(alpha: 0.4),
                     width: 1.5,
                   ),
                 ),
@@ -2732,7 +3932,8 @@ class _BadgeUnlockPopup extends StatelessWidget {
           decoration: BoxDecoration(
             color: isDark ? const Color(0xFF1C1C1E) : Colors.white,
             borderRadius: BorderRadius.circular(32),
-            border: Border.all(color: Colors.white.withValues(alpha: 0.1), width: 1.5),
+            border: Border.all(
+                color: Colors.white.withValues(alpha: 0.1), width: 1.5),
             boxShadow: [
               BoxShadow(
                 color: badge.glowColor.withValues(alpha: 0.35),
@@ -2772,17 +3973,27 @@ class _BadgeUnlockPopup extends StatelessWidget {
                     stops: const [0.0, 0.45, 0.55, 1.0],
                   ),
                   boxShadow: [
-                    BoxShadow(color: badge.glowColor.withValues(alpha: 0.8), blurRadius: 40, spreadRadius: 5),
-                    BoxShadow(color: Colors.black.withValues(alpha: 0.4), blurRadius: 15, offset: const Offset(0, 10)),
+                    BoxShadow(
+                        color: badge.glowColor.withValues(alpha: 0.8),
+                        blurRadius: 40,
+                        spreadRadius: 5),
+                    BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.4),
+                        blurRadius: 15,
+                        offset: const Offset(0, 10)),
                   ],
-                  border: Border.all(color: Colors.white.withValues(alpha: 0.9), width: 2),
+                  border: Border.all(
+                      color: Colors.white.withValues(alpha: 0.9), width: 2),
                 ),
                 child: Center(
                   child: ShaderMask(
                     shaderCallback: (bounds) => LinearGradient(
                       begin: Alignment.topCenter,
                       end: Alignment.bottomCenter,
-                      colors: [Colors.white, Colors.white.withValues(alpha: 0.8)],
+                      colors: [
+                        Colors.white,
+                        Colors.white.withValues(alpha: 0.8)
+                      ],
                     ).createShader(bounds),
                     child: Icon(badge.icon, color: Colors.white, size: 70),
                   ),
@@ -2815,9 +4026,12 @@ class _BadgeUnlockPopup extends StatelessWidget {
                 child: ElevatedButton(
                   onPressed: () => Navigator.of(context).pop(),
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: isDark ? Colors.white.withValues(alpha: 0.1) : Colors.black.withValues(alpha: 0.05),
+                    backgroundColor: isDark
+                        ? Colors.white.withValues(alpha: 0.1)
+                        : Colors.black.withValues(alpha: 0.05),
                     elevation: 0,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(20)),
                   ),
                   child: Text(
                     'Awesome',

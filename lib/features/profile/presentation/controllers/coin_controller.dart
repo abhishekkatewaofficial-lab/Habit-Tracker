@@ -7,6 +7,21 @@ class CoinNotifier extends Notifier<int> {
   @override
   int build() {
     final box = HiveService.settingsBox;
+    
+    // Safety check for first-time onboarding
+    final hasReceived = box.get('hasReceivedWelcomeCoins', defaultValue: false) as bool;
+    if (!hasReceived) {
+      box.put('hasReceivedWelcomeCoins', true);
+      box.put(_coinKey, 1000);
+      
+      // Dispatch async UI ping for Welcome animation
+      Future.microtask(() {
+        ref.read(welcomeCoinsGrantedProvider.notifier).state = true;
+      });
+      
+      return 1000;
+    }
+
     return box.get(_coinKey, defaultValue: 0) as int;
   }
 
@@ -31,3 +46,15 @@ class CoinNotifier extends Notifier<int> {
 final coinProvider = NotifierProvider<CoinNotifier, int>(() {
   return CoinNotifier();
 });
+
+/// Pulse provider — fires `true` for a brief moment when coins are
+/// successfully granted. Home screen listens and shows the +10 animation,
+/// then immediately resets to `false`.
+final coinRewardedProvider = StateProvider<bool>((ref) => false);
+
+/// Pulse provider — fires `true` when coins are spent (e.g. streak protection).
+/// Home screen listens and shows a brief -50 toast, then resets to `false`.
+final coinDeductedProvider = StateProvider<bool>((ref) => false);
+
+/// Pulse provider — fires `true` exactly once per lifetime for onboarding users.
+final welcomeCoinsGrantedProvider = StateProvider<bool>((ref) => false);

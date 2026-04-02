@@ -58,6 +58,7 @@ class _AddEditHabitScreenState extends ConsumerState<AddEditHabitScreen> {
     'mg': 5000,
     'calories': 5000,
     'drink': 50,
+    'reps': 100,
   };
 
   double _getMaxForUnit(String unit) => _unitMaxValues[unit] ?? 100;
@@ -96,7 +97,7 @@ class _AddEditHabitScreenState extends ConsumerState<AddEditHabitScreen> {
   ];
 
   final List<String> _units = [
-    'times', 'steps', 'pages', 'drink', // Count
+    'times', 'reps', 'steps', 'pages', 'drink', // Count
     'km', 'm', 'miles',                // Distance
     'ml', 'Glass', 'Cup', 'oz',        // Volume
     'g', 'mg',                         // Weight
@@ -147,7 +148,7 @@ class _AddEditHabitScreenState extends ConsumerState<AddEditHabitScreen> {
     return '$h:$m $period';
   }
 
-  void _save() {
+  Future<void> _save() async {
     final name = _nameController.text.trim();
     if (name.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -169,15 +170,32 @@ class _AddEditHabitScreenState extends ConsumerState<AddEditHabitScreen> {
       reminderHour: _reminderEnabled ? _reminderHour : null,
       reminderMinute: _reminderEnabled ? _reminderMinute : null,
       createdAt: widget.existingHabit?.createdAt ?? DateTime.now().millisecondsSinceEpoch,
+      startDateString: widget.existingHabit?.startDateString,
       dailyProgress: widget.existingHabit?.dailyProgress ?? {},
+      // ── Critical: preserve all historical goal snapshots on edit ────────────
+      // Without this, every save would discard goalSnapshots and fall back to
+      // the new goalValue for ALL past dates, breaking historical reports/streaks.
+      goalSnapshots: widget.existingHabit?.goalSnapshots ?? {},
     );
 
     if (widget.existingHabit == null) {
-      ref.read(habitProvider.notifier).addHabit(habit);
+      try {
+        await ref.read(habitProvider.notifier).addHabit(habit);
+      } catch (e) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(e.toString().replaceAll('Exception: ', '')), 
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+        return;
+      }
     } else {
       ref.read(habitProvider.notifier).updateHabit(habit);
     }
 
+    if (!mounted) return;
     Navigator.pop(context);
   }
 
@@ -374,26 +392,41 @@ class _AddEditHabitScreenState extends ConsumerState<AddEditHabitScreen> {
                       ),
                       const SizedBox(width: 12),
                       Expanded(
-                        child: TextField(
-                          controller: _nameController,
-                          style: GoogleFonts.poppins(
-                            color: Theme.of(context).brightness == Brightness.dark ? Colors.white : Colors.black,
-                            fontSize: 18, 
-                            fontWeight: FontWeight.w600,
-                          ),
-                          cursorColor: _colors[_selectedColorIndex],
-                          decoration: InputDecoration(
-                            hintText: 'Habit name...',
-                            hintStyle: GoogleFonts.poppins(
-                              color: Theme.of(context).brightness == Brightness.dark 
-                                  ? const Color(0xFF6B6B70) 
-                                  : const Color(0xFFB0B0B5),
-                              fontSize: 18,
-                            ),
-                            border: InputBorder.none,
-                            contentPadding: const EdgeInsets.symmetric(horizontal: 4),
-                          ),
-                        ),
+                        child: widget.existingHabit == null
+                            ? TextField(
+                                controller: _nameController,
+                                style: GoogleFonts.poppins(
+                                  color: Theme.of(context).brightness == Brightness.dark ? Colors.white : Colors.black,
+                                  fontSize: 18, 
+                                  fontWeight: FontWeight.w600,
+                                ),
+                                cursorColor: _colors[_selectedColorIndex],
+                                decoration: InputDecoration(
+                                  hintText: 'Habit name...',
+                                  hintStyle: GoogleFonts.poppins(
+                                    color: Theme.of(context).brightness == Brightness.dark 
+                                        ? const Color(0xFF6B6B70) 
+                                        : const Color(0xFFB0B0B5),
+                                    fontSize: 18,
+                                  ),
+                                  border: InputBorder.none,
+                                  contentPadding: const EdgeInsets.symmetric(horizontal: 4),
+                                ),
+                              )
+                            : Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Text(
+                                    _nameController.text,
+                                    style: GoogleFonts.poppins(
+                                      color: Theme.of(context).brightness == Brightness.dark ? Colors.white : Colors.black,
+                                      fontSize: 18, 
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                ],
+                              ),
                       ),
                     ],
                   ),
@@ -467,7 +500,7 @@ class _AddEditHabitScreenState extends ConsumerState<AddEditHabitScreen> {
             ),
             
             const SizedBox(height: 24),
-            const _SectionLabel(label: 'Goal Value'),
+            _SectionLabel(label: widget.existingHabit != null ? 'Change Goal Value' : 'Goal Value'),
             const SizedBox(height: 12),
             
             // Goal Section
@@ -531,55 +564,56 @@ class _AddEditHabitScreenState extends ConsumerState<AddEditHabitScreen> {
                     ],
                   ),
                   const SizedBox(height: 20),
-                  GridView.builder(
-                    shrinkWrap: true,
-                    physics: const NeverScrollableScrollPhysics(),
-                    gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                      crossAxisCount: 5,
-                      mainAxisSpacing: 8,
-                      crossAxisSpacing: 8,
-                      childAspectRatio: 2.5,
-                    ),
-                    itemCount: _units.length,
-                    itemBuilder: (context, index) {
-                      final unit = _units[index];
-                      final isSelected = _selectedUnit == unit;
-                      return GestureDetector(
-                        onTap: () {
-                          setState(() {
-                            _selectedUnit = unit;
-                            final maxVal = _getMaxForUnit(unit);
-                            if (_goalValue > maxVal) {
-                              _goalValue = maxVal;
-                            }
-                          });
-                        },
-                        child: Container(
-                          alignment: Alignment.center,
-                          decoration: BoxDecoration(
-                            color: isSelected 
-                              ? Theme.of(context).brightness == Brightness.dark ? Colors.transparent : const Color(0xFF1B94FF)
-                              : Theme.of(context).colorScheme.surface,
-                            borderRadius: BorderRadius.circular(100),
-                            border: Border.all(
-                                color: isSelected
-                                    ? Theme.of(context).brightness == Brightness.dark ? Colors.white.withValues(alpha: 0.15) : const Color(0xFF1B94FF)
-                                    : Theme.of(context).colorScheme.outline),
-                          ),
-                          child: Text(
-                            unit,
-                            style: GoogleFonts.fredoka(
-                              color: isSelected ? Colors.white : Theme.of(context).colorScheme.onSurfaceVariant,
-                              fontSize: 10,
-                              fontWeight: isSelected
-                                  ? FontWeight.bold
-                                  : FontWeight.normal,
+                  if (widget.existingHabit == null)
+                    GridView.builder(
+                      shrinkWrap: true,
+                      physics: const NeverScrollableScrollPhysics(),
+                      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                        crossAxisCount: 5,
+                        mainAxisSpacing: 8,
+                        crossAxisSpacing: 8,
+                        childAspectRatio: 2.5,
+                      ),
+                      itemCount: _units.length,
+                      itemBuilder: (context, index) {
+                        final unit = _units[index];
+                        final isSelected = _selectedUnit == unit;
+                        return GestureDetector(
+                          onTap: () {
+                            setState(() {
+                              _selectedUnit = unit;
+                              final maxVal = _getMaxForUnit(unit);
+                              if (_goalValue > maxVal) {
+                                _goalValue = maxVal;
+                              }
+                            });
+                          },
+                          child: Container(
+                            alignment: Alignment.center,
+                            decoration: BoxDecoration(
+                              color: isSelected 
+                                ? Theme.of(context).brightness == Brightness.dark ? Colors.transparent : const Color(0xFF1B94FF)
+                                : Theme.of(context).colorScheme.surface,
+                              borderRadius: BorderRadius.circular(100),
+                              border: Border.all(
+                                  color: isSelected
+                                      ? Theme.of(context).brightness == Brightness.dark ? Colors.white.withValues(alpha: 0.15) : const Color(0xFF1B94FF)
+                                      : Theme.of(context).colorScheme.outline),
+                            ),
+                            child: Text(
+                              unit,
+                              style: GoogleFonts.fredoka(
+                                color: isSelected ? Colors.white : Theme.of(context).colorScheme.onSurfaceVariant,
+                                fontSize: 10,
+                                fontWeight: isSelected
+                                    ? FontWeight.bold
+                                    : FontWeight.normal,
+                              ),
                             ),
                           ),
-                        ),
-                      );
-                    },
-                  ),
+                        );
+                      },
+                    ),
                 ],
               ),
             ),

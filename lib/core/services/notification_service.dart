@@ -32,13 +32,20 @@ class NotificationService {
           '🔔 [NotificationService] Error getting local timezone: $e. Falling back to default.');
     }
 
-    // 3. iOS init settings — clean, no action categories
+    // 3. Android init settings — icon must reference a drawable in the APK
+    const androidSettings =
+        AndroidInitializationSettings('@mipmap/ic_launcher');
+
+    // 4. iOS init settings — clean, no action categories
     const iosSettings = DarwinInitializationSettings(
       requestAlertPermission: true,
       requestBadgePermission: true,
       requestSoundPermission: true,
     );
-    const initSettings = InitializationSettings(iOS: iosSettings);
+    const initSettings = InitializationSettings(
+      android: androidSettings,
+      iOS: iosSettings,
+    );
 
     await _plugin.initialize(
       initSettings,
@@ -47,7 +54,7 @@ class NotificationService {
 
     _initialized = true;
 
-    // 4. Request permissions explicitly
+    // 5. Request permissions explicitly
     await requestPermission();
   }
 

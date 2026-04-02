@@ -64,8 +64,9 @@ class BadgeController extends StateNotifier<List<BadgeData>> {
         final isActiveDay = habit.isEveryDay || habit.selectedDays.contains(appWeekday);
         
         if (isActiveDay && !habit.isQuitHabit) {
-          double goal = habit.goalValue > 0 ? habit.goalValue.toDouble() : 1.0;
-          double prog = (habit.dailyProgress[dateKey] ?? 0).clamp(0, habit.goalValue).toDouble();
+          final snapGoal = habit.goalFor(dateKey);
+          double goal = snapGoal > 0 ? snapGoal.toDouble() : 1.0;
+          double prog = (habit.dailyProgress[dateKey] ?? 0).clamp(0, snapGoal).toDouble();
           dayPossible += 1.0;
           dayActual += prog / goal;
         }
@@ -101,8 +102,9 @@ class BadgeController extends StateNotifier<List<BadgeData>> {
         final isActiveDay = habit.isEveryDay || habit.selectedDays.contains(appWeekday);
         
         if (isActiveDay && !habit.isQuitHabit) {
-          double goal = habit.goalValue > 0 ? habit.goalValue.toDouble() : 1.0;
-          double prog = (habit.dailyProgress[dateKey] ?? 0).clamp(0, habit.goalValue).toDouble();
+          final snapGoal = habit.goalFor(dateKey);
+          double goal = snapGoal > 0 ? snapGoal.toDouble() : 1.0;
+          double prog = (habit.dailyProgress[dateKey] ?? 0).clamp(0, snapGoal).toDouble();
           
           dayPossible += 1.0;
           dayActual += prog / goal;

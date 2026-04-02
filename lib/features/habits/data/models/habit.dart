@@ -17,7 +17,20 @@ class Habit extends Equatable {
   final String? startDateString;
   final int sortOrder;
   final Map<String, int> dailyProgress; // Format: {yyyy-mm-dd: current_progress}
+
+  /// Stores the goal value that was active on each day progress was recorded.
+  /// This makes every day self-contained so a future goal edit never corrupts
+  /// historical completion, streaks, or report percentages.
+  /// Format: {yyyy-mm-dd: goalValue_at_that_time}
+  final Map<String, int> goalSnapshots;
+
+  @Deprecated('Anti-farming rules strictly use GlobalRewardTracker natively now. Maintained for reverse-JSON compatibility only.')
   final Map<String, bool> rewardsClaimed; // Format: {yyyy-mm-dd: reward_given}
+
+  /// Returns the goal value that was active on [dateStr].
+  /// Falls back to the current [goalValue] for older entries that predate
+  /// the snapshot system (backward compatible — no crashes, no retroactive changes).
+  int goalFor(String dateStr) => goalSnapshots[dateStr] ?? goalValue;
 
   /// Extremely safe fallback resolver mapping `startDateString` (or `createdAt`) 
   /// precisely to `00:00:00` for perfectly accurate date difference comparisons.
@@ -49,6 +62,7 @@ class Habit extends Equatable {
     this.startDateString,
     this.sortOrder = 0,
     this.dailyProgress = const {},
+    this.goalSnapshots = const {},
     this.rewardsClaimed = const {},
   });
 
@@ -79,6 +93,12 @@ class Habit extends Equatable {
       rewards = Map<String, bool>.from(json['rewardsClaimed'] as Map);
     }
 
+    // Backward compatible: default to empty map for entries that predate snapshots
+    Map<String, int> snapshots = {};
+    if (json['goalSnapshots'] != null) {
+      snapshots = Map<String, int>.from(json['goalSnapshots'] as Map);
+    }
+
     return Habit(
       id: json['id'] as String,
       name: json['name'] as String,
@@ -99,6 +119,7 @@ class Habit extends Equatable {
       startDateString: parsedStartDateString,
       sortOrder: json['sortOrder'] as int? ?? 0,
       dailyProgress: progress,
+      goalSnapshots: snapshots,
       rewardsClaimed: rewards,
     );
   }
@@ -121,6 +142,7 @@ class Habit extends Equatable {
       'startDateString': startDateString,
       'sortOrder': sortOrder,
       'dailyProgress': dailyProgress,
+      'goalSnapshots': goalSnapshots,
       'rewardsClaimed': rewardsClaimed,
     };
   }
@@ -140,6 +162,7 @@ class Habit extends Equatable {
     String? startDateString,
     int? sortOrder,
     Map<String, int>? dailyProgress,
+    Map<String, int>? goalSnapshots,
     Map<String, bool>? rewardsClaimed,
   }) {
     return Habit(
@@ -159,6 +182,7 @@ class Habit extends Equatable {
       startDateString: startDateString ?? this.startDateString,
       sortOrder: sortOrder ?? this.sortOrder,
       dailyProgress: dailyProgress ?? this.dailyProgress,
+      goalSnapshots: goalSnapshots ?? this.goalSnapshots,
       rewardsClaimed: rewardsClaimed ?? this.rewardsClaimed,
     );
   }
@@ -181,6 +205,7 @@ class Habit extends Equatable {
         startDateString,
         sortOrder,
         dailyProgress,
+        goalSnapshots,
         rewardsClaimed,
       ];
 }

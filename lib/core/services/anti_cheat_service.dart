@@ -12,8 +12,13 @@ class AntiCheatService {
   /// Defines how many hours an entry is allowed to be modified AFTER the physical day ends.
   static const int gracePeriodHours = 48;
 
-  /// Rigorously calculate the time state based strictly off centralized UTC metrics.
-  /// Bypasses trivial timezone spoofing exploits natively.
+  /// Helper to strictly strip off time components for pure local calendar date comparison.
+  static DateTime normalize(DateTime dt) {
+    return DateTime(dt.year, dt.month, dt.day);
+  }
+
+  /// Calculates the time state based purely off normalized local time boundaries.
+  /// Bypasses timezone overlap by strictly clamping to user conscious dates.
   ///
   /// [targetDateStr]  — the YYYY-MM-DD key for the specific habit entry being evaluated.
   /// [habitStartDate] — the habit's own start date (from `habit.startDate`).
@@ -23,42 +28,11 @@ class AntiCheatService {
     String targetDateStr, {
     DateTime? habitStartDate,
   }) {
-    // ── PRIORITY RULE 0: Pre-Start Gate ──────────────────────────────────────
-    // This must always be evaluated FIRST and overrides every other state.
-    // A date before the habit's creation day is invisible to the system.
-    if (habitStartDate != null) {
-      DateTime targetDateLocal;
-      try {
-        final parts = targetDateStr.split('-');
-        targetDateLocal = DateTime(
-          int.parse(parts[0]),
-          int.parse(parts[1]),
-          int.parse(parts[2]),
-        );
-      } catch (_) {
-        return HabitEntryState.preStart;
-      }
-
-      // Normalize habitStartDate to midnight for pure calendar-day comparison
-      final startMidnight = DateTime(
-        habitStartDate.year,
-        habitStartDate.month,
-        habitStartDate.day,
-      );
-
-      if (targetDateLocal.isBefore(startMidnight)) {
-        return HabitEntryState.preStart;
-      }
-    }
-
-    // ── ANTI-CHEAT ENGINE (UTC-safe) ─────────────────────────────────────────
-    final nowUtc = DateTime.now().toUtc();
-
-    DateTime targetDateUtc;
+    // Shared Local Target Initialization
+    DateTime targetDateLocal;
     try {
       final parts = targetDateStr.split('-');
-      // Binds the localized YYYY-MM-DD uniformly to a rigid UTC day start
-      targetDateUtc = DateTime.utc(
+      targetDateLocal = DateTime(
         int.parse(parts[0]),
         int.parse(parts[1]),
         int.parse(parts[2]),
@@ -68,21 +42,44 @@ class AntiCheatService {
       return HabitEntryState.lockedFinal;
     }
 
-    // Absolute Day End boundary (UTC midnight + 24 hours)
-    final targetEndOfDayUtc = targetDateUtc.add(const Duration(hours: 24));
+    // ── PRIORITY RULE 0: Pre-Start Gate ──────────────────────────────────────
+    // This must always be evaluated FIRST and overrides every other state.
+    // A date before the habit's creation day is invisible to the system.
+    if (habitStartDate != null) {
 
-    // 1. Future Blockage: Time travel forward
-    if (nowUtc.isBefore(targetDateUtc)) {
+      // Normalize habitStartDate to pure calendar-day comparison
+      final startMidnight = normalize(habitStartDate);
+
+      if (targetDateLocal.isBefore(startMidnight)) {
+        return HabitEntryState.preStart;
+      }
+    }
+
+    // ── ANTI-CHEAT ENGINE (Local Normalized) ───────────────────────────────
+    final normalizedTarget = normalize(targetDateLocal);
+    final today = normalize(DateTime.now());
+
+    // 1. Future Blockage: Prevent clicking strictly ahead of today
+    if (normalizedTarget.isAfter(today)) {
       return HabitEntryState.future;
     }
 
     // 2. Active "Today" state
-    if (nowUtc.isBefore(targetEndOfDayUtc)) {
+    if (normalizedTarget.isAtSameMomentAs(today)) {
       return HabitEntryState.editable;
     }
 
-    // 3. The Grace Window Extension (rolling calculate the exact delta)
-    final diffHours = nowUtc.difference(targetEndOfDayUtc).inHours;
+    // 3. The Grace Window Extension
+    // Fall back to a standard duration delta natively against the local day termination boundary
+    final nowLocal = DateTime.now();
+    final targetEndOfDayLocal = DateTime(
+      targetDateLocal.year,
+      targetDateLocal.month,
+      targetDateLocal.day,
+      23, 59, 59, // Exactly when the day physically ended locally
+    );
+    
+    final diffHours = nowLocal.difference(targetEndOfDayLocal).inHours;
     if (diffHours <= gracePeriodHours) {
       return HabitEntryState.grace;
     }
