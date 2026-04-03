@@ -2,15 +2,16 @@ plugins {
     id("com.android.application")
     id("kotlin-android")
     id("dev.flutter.flutter-gradle-plugin")
+    id("com.google.gms.google-services")
 }
 
 android {
-    namespace = "com.example.habittracker"
+    namespace = "com.habittracker.habit_tracker_ios"
     compileSdk = flutter.compileSdkVersion
     ndkVersion = flutter.ndkVersion
 
     defaultConfig {
-        applicationId = "com.example.habittracker"
+        applicationId = "com.habittracker.habit_tracker_ios"
         minSdk = flutter.minSdkVersion
         targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode

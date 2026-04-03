@@ -11,6 +11,7 @@ import 'package:habit_tracker_ios/features/habits/presentation/controllers/habit
 import 'package:habit_tracker_ios/features/focus_timer/presentation/controllers/focus_dashboard_controller.dart';
 import 'package:habit_tracker_ios/features/habits/presentation/controllers/habit_filter_controller.dart';
 import 'package:habit_tracker_ios/core/services/hive_service.dart';
+import 'package:habit_tracker_ios/core/widgets/habit_icon.dart';
 import 'package:habit_tracker_ios/features/focus_timer/data/models/focus_daily_summary.dart';
 
 final reportDateProvider = StateProvider<DateTime>((ref) => DateTime.now());
@@ -216,7 +217,7 @@ class _HeatmapCard extends StatelessWidget {
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        Text(habit.icon ?? '✨', style: const TextStyle(fontSize: 14)),
+                        HabitIcon(iconStr: habit.icon ?? '✨', size: 14),
                         const SizedBox(width: 6),
                         Expanded(
                           child: Text(
@@ -532,7 +533,7 @@ class YearlyReportView extends ConsumerWidget {
                   // Emoji + Name
                   Row(
                     children: [
-                      Text(habit.icon ?? '✨', style: const TextStyle(fontSize: 14)),
+                      HabitIcon(iconStr: habit.icon ?? '✨', size: 14),
                       const SizedBox(width: 8),
                       Text(
                         habit.name,
@@ -865,7 +866,7 @@ class _MonthlyHabitCard extends StatelessWidget {
           Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Text(habit.icon ?? '✨', style: const TextStyle(fontSize: 14)),
+              HabitIcon(iconStr: habit.icon ?? '✨', size: 14),
               const SizedBox(width: 6),
               Flexible(
                 child: Text(

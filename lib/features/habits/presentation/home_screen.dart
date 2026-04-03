@@ -7,6 +7,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:habit_tracker_ios/core/constants/app_colors.dart';
 import 'package:habit_tracker_ios/core/constants/app_constants.dart';
 import 'package:habit_tracker_ios/core/constants/app_text_styles.dart';
+import 'package:habit_tracker_ios/core/widgets/habit_icon.dart';
 import 'package:habit_tracker_ios/shared_widgets/app_bottom_nav_bar.dart';
 import 'package:habit_tracker_ios/providers/navigation_provider.dart';
 import 'package:intl/intl.dart' hide TextDirection;
@@ -1495,8 +1496,10 @@ class _HabitCard extends ConsumerWidget {
                         padding: const EdgeInsets.symmetric(horizontal: 16),
                         child: Row(
                           children: [
-                            Text(habit.icon ?? '✨',
-                                style: const TextStyle(fontSize: 22)),
+                            HabitIcon(
+                              iconStr: habit.icon ?? '✨',
+                              size: 22,
+                            ),
                             const SizedBox(width: 12),
                             Expanded(
                               child: Column(
@@ -2941,8 +2944,10 @@ class _HabitAnalyticsSheetState extends State<_HabitAnalyticsSheet>
               // Habit header
               Row(
                 children: [
-                  Text(widget.habit.icon ?? '✨',
-                      style: const TextStyle(fontSize: 22)),
+                  HabitIcon(
+                    iconStr: widget.habit.icon ?? '✨',
+                    size: 22,
+                  ),
                   const SizedBox(width: 10),
                   Text(
                     widget.habit.name,
@@ -3647,8 +3652,10 @@ class _StreakProtectionDialogState
                                   shape: BoxShape.circle,
                                 ),
                                 child: Center(
-                                  child: Text(habit.icon ?? '🎯',
-                                      style: const TextStyle(fontSize: 14)),
+                                  child: HabitIcon(
+                                    iconStr: habit.icon ?? '🎯',
+                                    size: 14,
+                                  ),
                                 ),
                               ),
                               const SizedBox(width: 12),

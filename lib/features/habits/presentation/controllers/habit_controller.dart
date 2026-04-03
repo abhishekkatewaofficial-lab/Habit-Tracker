@@ -8,11 +8,15 @@ import 'package:habit_tracker_ios/core/services/smart_nudge_service.dart';
 import 'package:habit_tracker_ios/core/services/anti_cheat_service.dart';
 import 'package:habit_tracker_ios/features/profile/presentation/controllers/coin_controller.dart';
 import 'package:habit_tracker_ios/features/profile/presentation/controllers/global_reward_tracker.dart';
+import 'package:habit_tracker_ios/core/services/auth_service.dart';
+import 'package:habit_tracker_ios/core/services/sync_tracker_service.dart';
 
 final habitRepositoryProvider = Provider((ref) => HabitRepository());
 
 final habitProvider = StateNotifierProvider<HabitNotifier, List<Habit>>((ref) {
+  final uid = ref.watch(currentUidProvider);
   final repository = ref.watch(habitRepositoryProvider);
+  if (uid == null) return HabitNotifier._empty(repository, ref);
   return HabitNotifier(repository, ref);
 });
 
@@ -23,6 +27,8 @@ class HabitNotifier extends StateNotifier<List<Habit>> {
   HabitNotifier(this._repository, this._ref) : super([]) {
     _loadHabits();
   }
+  
+  HabitNotifier._empty(this._repository, this._ref) : super([]);
 
   void _loadHabits() {
     state = _repository.getAllHabits();
@@ -39,6 +45,7 @@ class HabitNotifier extends StateNotifier<List<Habit>> {
     final habitWithOrder = habit.copyWith(sortOrder: nextOrder, startDateString: tzSafeStartDate);
     await _repository.saveHabit(habitWithOrder);
     state = [...state, habitWithOrder];
+    SyncTrackerService.markConfigChanged('habits');
 
     // Schedule notifications if reminder is enabled and time is set
     if (habitWithOrder.reminderEnabled &&
@@ -89,6 +96,7 @@ class HabitNotifier extends StateNotifier<List<Habit>> {
     }
     
     state = updatedHabits;
+    SyncTrackerService.markConfigChanged('habits');
   }
 
   Future<void> updateHabit(Habit habit) async {
@@ -97,6 +105,7 @@ class HabitNotifier extends StateNotifier<List<Habit>> {
       for (final h in state)
         if (h.id == habit.id) habit else h
     ];
+    SyncTrackerService.markConfigChanged('habits');
 
     // Always cancel old notifications first, then reschedule if still enabled
     await NotificationService.cancelHabitReminders(habit.id);
@@ -120,6 +129,7 @@ class HabitNotifier extends StateNotifier<List<Habit>> {
     await _repository.deleteHabit(id);
     await NotificationService.cancelHabitReminders(id);
     state = state.where((h) => h.id != id).toList();
+    SyncTrackerService.markConfigChanged('habits');
     // Re-evaluate smart nudges
     SmartNudgeService.scheduleForToday(state);
   }
@@ -183,6 +193,7 @@ class HabitNotifier extends StateNotifier<List<Habit>> {
         goalSnapshots: goalSnaps,
       );
       await updateHabit(updatedHabit);
+      SyncTrackerService.markDailyLogChanged(date);
     }
     
     // Reschedule nudges only when editing today's habits (editable state)
@@ -250,6 +261,7 @@ class HabitNotifier extends StateNotifier<List<Habit>> {
       goalSnapshots: goalSnaps,
     );
     await updateHabit(updatedHabit);
+    SyncTrackerService.markDailyLogChanged(date);
     
     // Reschedule nudges only when editing today's habits (editable state)
     if (entryState == HabitEntryState.editable) {

@@ -1,12 +1,15 @@
+import 'dart:convert';
 import 'dart:math';
 import 'dart:ui';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:habit_tracker_ios/shared_widgets/cupertino_time_picker_sheet.dart';
 import 'package:habit_tracker_ios/core/constants/app_colors.dart';
 import 'package:habit_tracker_ios/core/constants/app_text_styles.dart';
+import 'package:habit_tracker_ios/core/widgets/habit_icon.dart';
 import 'package:habit_tracker_ios/features/habits/data/models/habit.dart';
 import 'package:habit_tracker_ios/features/habits/presentation/controllers/habit_controller.dart';
 import 'package:uuid/uuid.dart';
@@ -32,31 +35,27 @@ class _AddEditHabitScreenState extends ConsumerState<AddEditHabitScreen> {
   int? _reminderHour;
   int? _reminderMinute;
 
-  final Map<String, List<String>> _emojiCategories = {
-    'Fitness': ['🏃', '💪', '🧘', '🚴', '🏊', '🚶', '🤸', '⚽', '🏀', '🎾', '🚵', '🏸', '🥋', '🥊', '🛹'],
-    'Study': ['📚', '✏️', '🧠', '📝', '📖', '🦉', '🎓', '💻', '🔬', '🎨', '🖋️', '📒', '🧐', '🏫', '💡'],
-    'Health': ['💧', '🥗', '🛌', '😴', '💊', '🍎', '🥦', '🥛', '🧼', '🦷', '🥑', '🍌', '🥕', '🧘‍♀️', '🧖‍♂️'],
-    'Productivity': ['📈', '⏳', '🎯', '💼', '👁️', '🚀', '📅', '🔔', '🛠️', '⚙️', '📊', '📋', '📁', '💻', '✅'],
-    'Lifestyle': ['🎸', '☕', '🌿', '📷', '🐶', '🐱', '🏡', '🚲', '🎭', '🎮', '✈️', '🏝️', '🎬', '🎧', '🍷'],
-  };
+  late Map<String, List<String>> _loadedCategories;
+
+  final Map<String, List<String>> _emojiCategories = {};
 
   final Map<String, double> _unitMaxValues = {
-    'times': 10,
+    'times': 50,
     'hours': 24,
-    'minutes': 120,
+    'minutes': 300,
     'sec': 300,
-    'Glass': 15,
-    'Cup': 15,
-    'oz': 20,
-    'steps': 20000,
-    'km': 10,
-    'm': 5000,
-    'miles': 20,
+    'Glass': 30,
+    'Cup': 30,
+    'oz': 50,
+    'steps': 50000,
+    'km': 100,
+    'm': 10000,
+    'miles': 100,
     'pages': 50,
     'ml': 5000,
-    'g': 5000,
+    'g': 10000,
     'mg': 5000,
-    'calories': 5000,
+    'calories': 6000,
     'drink': 50,
     'reps': 100,
   };
@@ -132,6 +131,40 @@ class _AddEditHabitScreenState extends ConsumerState<AddEditHabitScreen> {
     _reminderEnabled = h?.reminderEnabled ?? false;
     _reminderHour = h?.reminderHour;
     _reminderMinute = h?.reminderMinute;
+
+    _loadedCategories = Map.from(_emojiCategories);
+    _loadAssetIcons();
+  }
+
+  Future<void> _loadAssetIcons() async {
+    try {
+      final manifest = await AssetManifest.loadFromAssetBundle(rootBundle);
+      final iconPaths = manifest.listAssets().where((k) {
+        return k.startsWith('assets/habit_icons/') && (k.endsWith('.png') || k.endsWith('.svg'));
+      }).toSet().toList();
+      if (iconPaths.isEmpty) return;
+
+      final Map<String, List<String>> assetCats = {};
+      for (final path in iconPaths) {
+        final segments = path.split('/');
+        if (segments.length >= 4) {
+          // e.g. assets/habit_icons/fitness/dumbbell.png
+          String catName = segments[2];
+          catName = catName[0].toUpperCase() + catName.substring(1).toLowerCase();
+          assetCats.putIfAbsent(catName, () => []).add(path);
+        }
+      }
+
+      if (mounted) {
+        setState(() {
+          for (final entry in assetCats.entries) {
+            _loadedCategories[entry.key] = entry.value; 
+          }
+        });
+      }
+    } catch (e) {
+      debugPrint('Error loading asset icons: $e');
+    }
   }
 
   @override
@@ -208,7 +241,7 @@ class _AddEditHabitScreenState extends ConsumerState<AddEditHabitScreen> {
       transitionDuration: const Duration(milliseconds: 300),
       pageBuilder: (context, anim1, anim2) {
         return _EmojiPickerDialog(
-          categories: _emojiCategories,
+          categories: _loadedCategories,
           selectedEmoji: _selectedEmoji,
           onEmojiSelected: (emoji) {
             setState(() => _selectedEmoji = emoji);
@@ -384,9 +417,12 @@ class _AddEditHabitScreenState extends ConsumerState<AddEditHabitScreen> {
                             ),
                           ),
                           alignment: Alignment.center,
-                          child: Text(
-                            _selectedEmoji,
-                            style: const TextStyle(fontSize: 30),
+                          child: HabitIcon(
+                            iconStr: _selectedEmoji,
+                            size: 30,
+                            color: Theme.of(context).brightness == Brightness.dark 
+                                ? _colors[_selectedColorIndex] 
+                                : _colors[_selectedColorIndex].withValues(alpha: 0.9), // Tints SVG/PNG dynamically!
                           ),
                         ),
                       ),
@@ -1012,9 +1048,9 @@ class _EmojiItemState extends State<_EmojiItem> with SingleTickerProviderStateMi
         child: Container(
           alignment: Alignment.center,
           color: Colors.transparent,
-          child: Text(
-            widget.emoji,
-            style: const TextStyle(fontSize: 34),
+          child: HabitIcon(
+            iconStr: widget.emoji,
+            size: 34,
           ),
         ),
       ),

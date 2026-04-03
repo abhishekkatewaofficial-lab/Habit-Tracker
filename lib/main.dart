@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -11,6 +12,9 @@ import 'core/theme/app_background.dart';
 import 'core/theme/theme_provider.dart';
 import 'features/habits/presentation/home_screen.dart';
 import 'features/habits/presentation/controllers/habit_controller.dart';
+import 'core/services/auth_service.dart';
+import 'core/services/cloud_sync_service.dart';
+import 'features/onboarding/presentation/onboarding_screen.dart';
 
 Future<void> main() async {
   // Catch any uncaught async errors from the root zone
@@ -79,14 +83,15 @@ Future<void> _run() async {
     );
   };
 
-  // ── Hive ──────────────────────────────────────────────────────────────────
+  // ── Firebase ─────────────────────────────────────────────────────────────
   try {
-    await HiveService.init();
+    await Firebase.initializeApp();
   } catch (e, st) {
-    debugPrint('HIVE INIT ERROR: $e\n$st');
-    // Hive failure is fatal — data cannot be read at all
-    rethrow;
+    debugPrint('FIREBASE INIT ERROR: $e\n$st');
+    // Firebase failure is non-fatal — app will use local-only mode
   }
+
+  // Hive initialization is now strictly managed by AuthService based on user UID
 
   // ── Notifications ────────────────────────────────────────────────────────
   // Non-fatal: the app works perfectly even if notifications fail to init.
@@ -133,6 +138,9 @@ class _HabitTrackerAppState extends ConsumerState<HabitTrackerApp>
       // Re-evaluate and pre-schedule today's nudges each time app comes to foreground
       final habits = ref.read(habitProvider);
       SmartNudgeService.scheduleForToday(habits);
+    } else if (state == AppLifecycleState.paused || state == AppLifecycleState.inactive) {
+      // Push any pending changes to Firestore when the app goes into the background
+      CloudSyncService.pushBatchSync();
     }
   }
 
@@ -142,6 +150,7 @@ class _HabitTrackerAppState extends ConsumerState<HabitTrackerApp>
     ref.watch(globalBackgroundThemeProvider);
 
     final appThemeMode = ref.watch(themeProvider);
+    final authState = ref.watch(authProvider);
 
     // Map our custom enum → Material ThemeMode
     ThemeMode materialThemeMode;
@@ -163,7 +172,9 @@ class _HabitTrackerAppState extends ConsumerState<HabitTrackerApp>
       theme: AppTheme.lightTheme,
       darkTheme: AppTheme.darkTheme,
       themeMode: materialThemeMode,
-      home: const HomeScreen(),
+      home: authState.isAuthenticated 
+          ? const HomeScreen()
+          : const OnboardingScreen(),
       builder: (context, child) {
         return MediaQuery(
           data: MediaQuery.of(context).copyWith(

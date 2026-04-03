@@ -1,41 +1,54 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../core/services/hive_service.dart';
+import '../../../../core/services/sync_tracker_service.dart';
 import '../../data/models/todo_category.dart';
 import '../../data/models/todo_task.dart';
 import '../../data/repositories/todo_repository.dart';
+import '../../../../core/services/auth_service.dart';
 
-final todoRepositoryProvider = Provider<TodoRepository>((ref) {
+final todoRepositoryProvider = Provider<TodoRepository?>((ref) {
+  final uid = ref.watch(currentUidProvider);
+  if (uid == null) return null;
   return TodoRepository(HiveService.todoBox);
 });
 
 final todoControllerProvider = StateNotifierProvider<TodoController, List<TodoCategory>>((ref) {
   final repository = ref.watch(todoRepositoryProvider);
+  if (repository == null) return TodoController._empty();
   return TodoController(repository);
 });
 
 class TodoController extends StateNotifier<List<TodoCategory>> {
-  final TodoRepository _repository;
+  final TodoRepository? _repository;
 
-  TodoController(this._repository) : super(_repository.getAllCategories());
+  TodoController(this._repository) : super(_repository!.getAllCategories());
+  
+  TodoController._empty() : _repository = null, super([]);
 
   // --- Category Actions ---
 
   Future<void> addCategory(TodoCategory category) async {
-    await _repository.saveCategory(category);
+    if (_repository == null) return;
+    await _repository!.saveCategory(category);
     state = [...state, category];
+    SyncTrackerService.markConfigChanged('todos');
   }
 
   Future<void> updateCategory(TodoCategory category) async {
-    await _repository.saveCategory(category);
+    if (_repository == null) return;
+    await _repository!.saveCategory(category);
     state = [
       for (final cat in state)
         if (cat.id == category.id) category else cat
     ];
+    SyncTrackerService.markConfigChanged('todos');
   }
 
   Future<void> deleteCategory(String id) async {
-    await _repository.deleteCategory(id);
+    if (_repository == null) return;
+    await _repository!.deleteCategory(id);
     state = state.where((cat) => cat.id != id).toList();
+    SyncTrackerService.markConfigChanged('todos');
   }
 
   // --- Task Actions ---

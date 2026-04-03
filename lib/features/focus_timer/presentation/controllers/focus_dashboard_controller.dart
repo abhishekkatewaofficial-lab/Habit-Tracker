@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:habit_tracker_ios/core/services/hive_service.dart';
 import 'package:habit_tracker_ios/features/focus_timer/data/models/focus_item.dart';
 import 'package:habit_tracker_ios/features/focus_timer/data/models/focus_daily_summary.dart';
+import 'package:habit_tracker_ios/core/services/auth_service.dart';
 
 String _todayStr() {
   final now = DateTime.now();
@@ -10,8 +11,10 @@ String _todayStr() {
 }
 
 class FocusDashboardNotifier extends StateNotifier<List<FocusItem>> {
-  FocusDashboardNotifier() : super([]) {
-    _loadAndCheckReset();
+  final bool _isGuest;
+
+  FocusDashboardNotifier({bool isGuest = false}) : _isGuest = isGuest, super([]) {
+    if (!_isGuest) _loadAndCheckReset();
   }
 
   /// Load from Hive and perform midnight resets if needed.
@@ -84,6 +87,7 @@ class FocusDashboardNotifier extends StateNotifier<List<FocusItem>> {
 
   /// Create a new focus item.
   Future<void> addFocus(String name) async {
+    if (_isGuest) return;
     final newItem = FocusItem(
       id: DateTime.now().millisecondsSinceEpoch.toString(),
       name: name,
@@ -97,6 +101,7 @@ class FocusDashboardNotifier extends StateNotifier<List<FocusItem>> {
 
   /// Delete a focus item (does NOT delete daily summaries).
   Future<void> deleteFocus(String id) async {
+    if (_isGuest) return;
     // Snapshot any mid-day progress before deleting
     final item = state.firstWhere((e) => e.id == id);
     if (item.currentElapsedMs > 0) {
@@ -109,6 +114,7 @@ class FocusDashboardNotifier extends StateNotifier<List<FocusItem>> {
 
   /// Start a focus item (and auto-pause others).
   Future<void> startFocus(String id) async {
+    if (_isGuest) return;
     final now = DateTime.now().millisecondsSinceEpoch;
     final updatedList = <FocusItem>[];
 
@@ -137,6 +143,7 @@ class FocusDashboardNotifier extends StateNotifier<List<FocusItem>> {
 
   /// Pause a focus item.
   Future<void> pauseFocus(String id) async {
+    if (_isGuest) return;
     final now = DateTime.now().millisecondsSinceEpoch;
     final updatedList = <FocusItem>[];
 
@@ -160,6 +167,7 @@ class FocusDashboardNotifier extends StateNotifier<List<FocusItem>> {
 
   /// Reorder focus items.
   Future<void> reorderFocus(int oldIndex, int newIndex) async {
+    if (_isGuest) return;
     if (oldIndex < newIndex) {
       newIndex -= 1; // adjust for removed item
     }
@@ -180,5 +188,7 @@ class FocusDashboardNotifier extends StateNotifier<List<FocusItem>> {
 
 final focusDashboardProvider =
     StateNotifierProvider<FocusDashboardNotifier, List<FocusItem>>((ref) {
+  final uid = ref.watch(currentUidProvider);
+  if (uid == null) return FocusDashboardNotifier(isGuest: true);
   return FocusDashboardNotifier();
 });

@@ -66,4 +66,28 @@ class EisenhowerTask extends HiveObject {
       isCompleted: isCompleted ?? this.isCompleted,
     );
   }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'id': id,
+      'title': title,
+      'quadrant': quadrant.index,
+      'createdAt': createdAt.toIso8601String(),
+      'dueDate': dueDate?.toIso8601String(),
+      'priority': priority,
+      'isCompleted': isCompleted,
+    };
+  }
+
+  factory EisenhowerTask.fromJson(Map<String, dynamic> json) {
+    return EisenhowerTask(
+      id: json['id'] as String?,
+      title: json['title'] as String? ?? 'Untitled Task',
+      quadrant: QuadrantType.values[json['quadrant'] as int? ?? 0],
+      createdAt: json['createdAt'] != null ? DateTime.tryParse(json['createdAt'] as String) : null,
+      dueDate: json['dueDate'] != null ? DateTime.tryParse(json['dueDate'] as String) : null,
+      priority: json['priority'] as int? ?? 2,
+      isCompleted: json['isCompleted'] as bool? ?? false,
+    );
+  }
 }

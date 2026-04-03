@@ -8,6 +8,7 @@ import 'package:habit_tracker_ios/core/constants/app_text_styles.dart';
 import 'package:habit_tracker_ios/core/theme/theme_provider.dart';
 import 'package:habit_tracker_ios/core/services/notification_provider.dart';
 import 'package:habit_tracker_ios/core/services/settings_provider.dart';
+import 'package:habit_tracker_ios/core/services/auth_service.dart';
 
 import 'package:habit_tracker_ios/shared_widgets/adaptive_layout.dart';
 import '../controllers/profile_controller.dart';
@@ -31,13 +32,23 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
   @override
   void initState() {
     super.initState();
-    final profile = ref.read(profileProvider);
-    _nameController = TextEditingController(text: profile.name);
+    _nameController = TextEditingController();
     _focusNode.addListener(() {
       setState(() {
         _isEditing = _focusNode.hasFocus;
       });
     });
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // Sync the text controller whenever the profile provider rebuilds
+    // (covers the initial load AND user-switch reinitialisation).
+    final name = ref.read(profileProvider).name;
+    if (_nameController.text != name) {
+      _nameController.text = name;
+    }
   }
 
   @override
@@ -57,11 +68,11 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
   }
 
   Widget _buildPremiumHeader(BuildContext context, dynamic profile) {
+    final authUser = ref.watch(currentUserProvider);
     return Stack(
       clipBehavior: Clip.none,
       alignment: Alignment.center,
       children: [
-
         Column(
           children: [
             GestureDetector(
@@ -134,6 +145,26 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                 ),
               ),
             ),
+            // ── Google Account Email ────────────────────────────────────────
+            if (authUser?.email != null && authUser!.email.isNotEmpty) ...
+            [
+              const SizedBox(height: 8),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  const Icon(CupertinoIcons.mail_solid, size: 13, color: Color(0xFF9CA3AF)),
+                  const SizedBox(width: 6),
+                  Text(
+                    authUser.email,
+                    style: GoogleFonts.poppins(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w500,
+                      color: const Color(0xFF9CA3AF),
+                    ),
+                  ),
+                ],
+              ),
+            ],
           ],
         ),
       ],
@@ -184,7 +215,9 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                   const _AppearanceSection(),
                   const SizedBox(height: 32),
                   const _GroupedSettings(),
-                  const SizedBox(height: 100),
+                  const SizedBox(height: 32),
+                  const _LogoutButton(),
+                  const SizedBox(height: 48),
                 ],
               ),
             ),
@@ -959,6 +992,95 @@ class _CoinBalanceCard extends ConsumerWidget {
               ),
             ),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Logout Button
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _LogoutButton extends ConsumerStatefulWidget {
+  const _LogoutButton();
+
+  @override
+  ConsumerState<_LogoutButton> createState() => _LogoutButtonState();
+}
+
+class _LogoutButtonState extends ConsumerState<_LogoutButton> {
+  bool _isPressed = false;
+
+  Future<void> _handleLogout() async {
+    final confirmed = await showCupertinoDialog<bool>(
+      context: context,
+      builder: (ctx) => CupertinoAlertDialog(
+        title: const Text('Sign Out'),
+        content: const Text('Are you sure you want to sign out of your Google account?'),
+        actions: [
+          CupertinoDialogAction(
+            isDestructiveAction: false,
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: const Text('Cancel'),
+          ),
+          CupertinoDialogAction(
+            isDestructiveAction: true,
+            onPressed: () => Navigator.of(ctx).pop(true),
+            child: const Text('Sign Out'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true && mounted) {
+      await ref.read(authProvider.notifier).signOut();
+      // Navigation back to welcome screen is handled automatically
+      // by the root MaterialApp watching authProvider in main.dart
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    return GestureDetector(
+      onTapDown: (_) => setState(() => _isPressed = true),
+      onTapUp: (_) => setState(() => _isPressed = false),
+      onTapCancel: () => setState(() => _isPressed = false),
+      onTap: _handleLogout,
+      child: AnimatedScale(
+        scale: _isPressed ? 0.97 : 1.0,
+        duration: const Duration(milliseconds: 100),
+        child: Container(
+          width: double.infinity,
+          height: 54,
+          decoration: BoxDecoration(
+            color: isDark ? const Color(0xFF3A1010) : const Color(0xFFFFEBEB),
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(
+              color: isDark ? const Color(0xFF7A2020) : const Color(0xFFFFCCCC),
+            ),
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(
+                CupertinoIcons.square_arrow_left,
+                size: 20,
+                color: isDark ? const Color(0xFFFF6B6B) : const Color(0xFFD32F2F),
+              ),
+              const SizedBox(width: 10),
+              Text(
+                'Sign Out',
+                style: GoogleFonts.poppins(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w600,
+                  color: isDark ? const Color(0xFFFF6B6B) : const Color(0xFFD32F2F),
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );

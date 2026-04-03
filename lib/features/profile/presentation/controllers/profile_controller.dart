@@ -1,5 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:habit_tracker_ios/core/services/hive_service.dart';
+import 'package:habit_tracker_ios/core/services/auth_service.dart';
 
 class ProfileState {
   final String name;
@@ -15,22 +16,37 @@ class ProfileState {
   }
 }
 
-class ProfileNotifier extends Notifier<ProfileState> {
+class ProfileNotifier extends AutoDisposeNotifier<ProfileState> {
   static const String _nameKey = 'userName';
   static const String _imageKey = 'profileImagePath';
 
   @override
   ProfileState build() {
+    // Watch UID so this provider rebuilds on every user switch.
+    final uid = ref.watch(currentUidProvider);
+
+    // If no user is logged in, return an empty state immediately.
+    if (uid == null) return ProfileState(name: '', imagePath: null);
+
     final box = HiveService.settingsBox;
-    final name = box.get(_nameKey, defaultValue: '') as String;
+    String name = box.get(_nameKey, defaultValue: '') as String;
     String? imagePath = box.get(_imageKey) as String?;
 
-    // Migrate from legacy absolute file paths seamlessly
+    // On first login for this UID, seed display name from Firebase.
+    if (name.isEmpty) {
+      final firebaseName = ref.read(currentUserProvider)?.displayName;
+      if (firebaseName != null && firebaseName.isNotEmpty) {
+        name = firebaseName;
+        box.put(_nameKey, name);
+      }
+    }
+
+    // Migrate from legacy absolute file paths seamlessly.
     if (imagePath != null && !imagePath.startsWith('assets/images/avatars/')) {
       imagePath = null;
       box.delete(_imageKey);
     }
-    
+
     return ProfileState(name: name, imagePath: imagePath);
   }
 
@@ -45,6 +61,7 @@ class ProfileNotifier extends Notifier<ProfileState> {
   }
 }
 
-final profileProvider = NotifierProvider<ProfileNotifier, ProfileState>(() {
+final profileProvider =
+    AutoDisposeNotifierProvider<ProfileNotifier, ProfileState>(() {
   return ProfileNotifier();
 });
