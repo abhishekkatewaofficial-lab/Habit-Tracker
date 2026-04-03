@@ -13,6 +13,7 @@ import 'package:habit_tracker_ios/features/habits/presentation/controllers/habit
 import 'package:habit_tracker_ios/core/services/hive_service.dart';
 import 'package:habit_tracker_ios/core/widgets/habit_icon.dart';
 import 'package:habit_tracker_ios/features/focus_timer/data/models/focus_daily_summary.dart';
+import 'package:habit_tracker_ios/core/services/habit_root_cause_engine.dart';
 
 final reportDateProvider = StateProvider<DateTime>((ref) => DateTime.now());
 
@@ -2004,10 +2005,6 @@ class InsightsReportView extends ConsumerWidget {
       }
     }
 
-    // Sort by priority and take Top 3
-    generatedInsights.sort((a, b) => b.priority.compareTo(a.priority));
-    final displayInsights = generatedInsights.take(3).toList();
-
     // ────────────────────────────────────────────────────────────────
     // 2.5. Weekly Insights Calculations (Progress Feedback Upgrade)
     // ────────────────────────────────────────────────────────────────
@@ -2127,22 +2124,10 @@ class InsightsReportView extends ConsumerWidget {
             const SizedBox(height: 24),
           ],
 
-          // Smart Findings Section
-          Text(
-            'Smart Findings',
-            style: GoogleFonts.poppins(
-              fontSize: 18,
-              fontWeight: FontWeight.bold,
-              color: isDark ? Colors.white : const Color(0xFF374151),
-            ),
-          ),
-          const SizedBox(height: 16),
-          
-          ...displayInsights.map((insight) => Padding(
-            padding: const EdgeInsets.only(bottom: 12),
-            child: _buildSmartTextCard(context, isDark, insight.text, insight.icon, insight.color),
-          )),
-          
+          // ── Behavior Intelligence Section ──────────────────────────────
+          const SizedBox(height: 4),
+          _BehaviorIntelligenceSection(habits: habits),
+
           const SizedBox(height: 20),
 
           // 30-Day Heatmap
@@ -2325,51 +2310,6 @@ class InsightsReportView extends ConsumerWidget {
     );
   }
 
-  Widget _buildSmartTextCard(BuildContext context, bool isDark, String text, IconData icon, Color iconColor) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-      decoration: BoxDecoration(
-        color: isDark ? const Color(0xFF1C1C1E) : Colors.white.withValues(alpha: 0.3),
-        borderRadius: BorderRadius.circular(16),
-        border: isDark ? Border.all(color: Colors.white.withValues(alpha: 0.08)) : null,
-        boxShadow: isDark ? null : [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.02),
-            blurRadius: 6,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Container(
-            padding: const EdgeInsets.all(8),
-            decoration: BoxDecoration(
-              color: iconColor.withValues(alpha: 0.1),
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Icon(icon, color: iconColor, size: 20),
-          ),
-          const SizedBox(width: 16),
-          Expanded(
-            child: Padding(
-              padding: const EdgeInsets.only(top: 2),
-              child: Text(
-                text,
-                style: GoogleFonts.poppins(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w500,
-                  color: isDark ? const Color(0xFFE5E5EA) : const Color(0xFF1F2937),
-                  height: 1.4,
-                ),
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
 
   Widget _buildHeatmapGrid(BuildContext context, bool isDark, List<double> densities) {
     return Container(
@@ -2519,3 +2459,355 @@ class InsightsReportView extends ConsumerWidget {
     );
   }
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Behavior Intelligence Section — Root-Cause Engine UI
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _BehaviorIntelligenceSection extends StatelessWidget {
+  final List<Habit> habits;
+  const _BehaviorIntelligenceSection({required this.habits});
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final insights = HabitRootCauseEngine.analyse(habits);
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // Section Header
+        Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                gradient: const LinearGradient(
+                  colors: [Color(0xFF6366F1), Color(0xFF8B5CF6)],
+                ),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: const Icon(
+                CupertinoIcons.lightbulb_fill,
+                color: Colors.white,
+                size: 16,
+              ),
+            ),
+            const SizedBox(width: 12),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Behavior Intelligence',
+                  style: GoogleFonts.poppins(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                    color: isDark ? Colors.white : const Color(0xFF111827),
+                  ),
+                ),
+                Text(
+                  'Why you succeed — and why you don\'t',
+                  style: GoogleFonts.poppins(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w500,
+                    color: isDark
+                        ? const Color(0xFF8E8E93)
+                        : const Color(0xFF9CA3AF),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+        const SizedBox(height: 16),
+
+        // Insight Cards
+        ...insights.asMap().entries.map((entry) {
+          final i = entry.key;
+          final insight = entry.value;
+          return Padding(
+            padding: const EdgeInsets.only(bottom: 12),
+            child: _RootCauseInsightCard(
+              insight: insight,
+              isDark: isDark,
+              index: i,
+            ),
+          );
+        }),
+      ],
+    );
+  }
+}
+
+class _RootCauseInsightCard extends StatefulWidget {
+  final RootCauseInsight insight;
+  final bool isDark;
+  final int index;
+
+  const _RootCauseInsightCard({
+    required this.insight,
+    required this.isDark,
+    required this.index,
+  });
+
+  @override
+  State<_RootCauseInsightCard> createState() => _RootCauseInsightCardState();
+}
+
+class _RootCauseInsightCardState extends State<_RootCauseInsightCard>
+    with SingleTickerProviderStateMixin {
+  late AnimationController _controller;
+  late Animation<double> _fadeAnim;
+  late Animation<Offset> _slideAnim;
+  bool _expanded = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      vsync: this,
+      duration: Duration(milliseconds: 400 + widget.index * 80),
+    );
+    _fadeAnim = CurvedAnimation(parent: _controller, curve: Curves.easeOut);
+    _slideAnim = Tween<Offset>(
+      begin: const Offset(0, 0.15),
+      end: Offset.zero,
+    ).animate(CurvedAnimation(parent: _controller, curve: Curves.easeOut));
+
+    // Stagger entrance
+    Future.delayed(Duration(milliseconds: widget.index * 100), () {
+      if (mounted) _controller.forward();
+    });
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  String get _categoryLabel {
+    switch (widget.insight.category) {
+      case InsightCategory.streakPattern:
+        return 'STREAK PATTERN';
+      case InsightCategory.weekdayPattern:
+        return 'WEEKDAY PATTERN';
+      case InsightCategory.habitDifficulty:
+        return 'HABIT DIFFICULTY';
+      case InsightCategory.dropPattern:
+        return 'DROP PATTERN';
+      case InsightCategory.timePattern:
+        return 'TIME PATTERN';
+      case InsightCategory.improvement:
+        return 'IMPROVEMENT';
+      case InsightCategory.risk:
+        return 'RISK ALERT';
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final c = widget.insight;
+    final isDark = widget.isDark;
+    final confidencePct = (c.confidence * 100).round();
+
+    return FadeTransition(
+      opacity: _fadeAnim,
+      child: SlideTransition(
+        position: _slideAnim,
+        child: GestureDetector(
+          onTap: () => setState(() => _expanded = !_expanded),
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 250),
+            curve: Curves.easeInOut,
+            decoration: BoxDecoration(
+              color: isDark ? const Color(0xFF1C1C1E) : Colors.white,
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(
+                color: isDark
+                    ? c.accentColor.withValues(alpha: 0.25)
+                    : c.accentColor.withValues(alpha: 0.2),
+                width: 1.5,
+              ),
+              boxShadow: [
+                BoxShadow(
+                  color: c.accentColor.withValues(alpha: isDark ? 0.08 : 0.06),
+                  blurRadius: 16,
+                  offset: const Offset(0, 6),
+                ),
+                if (!isDark)
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.03),
+                    blurRadius: 8,
+                    offset: const Offset(0, 2),
+                  ),
+              ],
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // Icon container with accent glow
+                      Container(
+                        width: 44,
+                        height: 44,
+                        decoration: BoxDecoration(
+                          color: c.accentColor.withValues(alpha: 0.12),
+                          borderRadius: BorderRadius.circular(14),
+                        ),
+                        child: Icon(c.icon, color: c.accentColor, size: 22),
+                      ),
+                      const SizedBox(width: 14),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            // Category label
+                            Text(
+                              _categoryLabel,
+                              style: GoogleFonts.poppins(
+                                fontSize: 9,
+                                fontWeight: FontWeight.w700,
+                                color: c.accentColor,
+                                letterSpacing: 0.8,
+                              ),
+                            ),
+                            const SizedBox(height: 3),
+                            // Main headline
+                            Text(
+                              c.headline,
+                              style: GoogleFonts.poppins(
+                                fontSize: 14,
+                                fontWeight: FontWeight.w600,
+                                color: isDark
+                                    ? const Color(0xFFE5E5EA)
+                                    : const Color(0xFF111827),
+                                height: 1.35,
+                              ),
+                            ),
+                            const SizedBox(height: 8),
+                            // Actionable Coaching Suggestion
+                            Row(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Padding(
+                                  padding: const EdgeInsets.only(top: 1),
+                                  child: Icon(
+                                    CupertinoIcons.lightbulb_fill,
+                                    size: 12,
+                                    color: c.accentColor.withValues(alpha: 0.8),
+                                  ),
+                                ),
+                                const SizedBox(width: 6),
+                                Expanded(
+                                  child: Text(
+                                    c.suggestion,
+                                    style: GoogleFonts.poppins(
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.w500,
+                                      color: isDark
+                                          ? const Color(0xFFAEAEB2)
+                                          : const Color(0xFF6B7280),
+                                      height: 1.3,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      // Confidence badge
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.end,
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 8, vertical: 3),
+                            decoration: BoxDecoration(
+                              color: c.accentColor.withValues(alpha: 0.12),
+                              borderRadius: BorderRadius.circular(20),
+                            ),
+                            child: Text(
+                              '$confidencePct%',
+                              style: GoogleFonts.poppins(
+                                fontSize: 11,
+                                fontWeight: FontWeight.w700,
+                                color: c.accentColor,
+                              ),
+                            ),
+                          ),
+                          const SizedBox(height: 6),
+                          AnimatedRotation(
+                            turns: _expanded ? 0.5 : 0,
+                            duration: const Duration(milliseconds: 250),
+                            child: Icon(
+                              CupertinoIcons.chevron_down,
+                              size: 14,
+                              color: isDark
+                                  ? const Color(0xFF636366)
+                                  : const Color(0xFF9CA3AF),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+                // Expandable detail text
+                AnimatedCrossFade(
+                  firstChild: const SizedBox(width: double.infinity),
+                  secondChild: Container(
+                    width: double.infinity,
+                    margin: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: c.accentColor.withValues(alpha: 0.07),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Text(
+                      c.detail,
+                      style: GoogleFonts.poppins(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w400,
+                        color: isDark
+                            ? const Color(0xFFAEAEB2)
+                            : const Color(0xFF4B5563),
+                        height: 1.5,
+                      ),
+                    ),
+                  ),
+                  crossFadeState: _expanded
+                      ? CrossFadeState.showSecond
+                      : CrossFadeState.showFirst,
+                  duration: const Duration(milliseconds: 250),
+                ),
+                // Confidence progress bar at bottom
+                ClipRRect(
+                  borderRadius: const BorderRadius.only(
+                    bottomLeft: Radius.circular(20),
+                    bottomRight: Radius.circular(20),
+                  ),
+                  child: LinearProgressIndicator(
+                    value: c.confidence,
+                    minHeight: 3,
+                    backgroundColor: Colors.transparent,
+                    valueColor: AlwaysStoppedAnimation<Color>(
+                      c.accentColor.withValues(alpha: 0.4),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
