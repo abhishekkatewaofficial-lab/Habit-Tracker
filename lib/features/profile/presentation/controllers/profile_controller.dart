@@ -57,13 +57,13 @@ class ProfileNotifier extends AutoDisposeNotifier<ProfileState> {
   void updateName(String newName) {
     state = state.copyWith(name: newName);
     HiveService.settingsBox.put(_nameKey, newName);
-    FirestoreSyncService.pushProfile(name: newName);
+    FirestoreSyncService.pushProfile(newName, state.imagePath);
   }
 
   void updateImagePath(String? path) {
     state = state.copyWith(imagePath: path);
     HiveService.settingsBox.put(_imageKey, path);
-    FirestoreSyncService.pushProfile(imagePath: path);
+    FirestoreSyncService.pushProfile(state.name, path);
   }
 }
 

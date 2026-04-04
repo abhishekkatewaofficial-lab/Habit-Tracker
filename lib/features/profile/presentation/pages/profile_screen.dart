@@ -1218,8 +1218,10 @@ class _LogoutButtonState extends ConsumerState<_LogoutButton> {
 
     if (confirmed == true && mounted) {
       await ref.read(authProvider.notifier).signOut();
-      // Navigation back to welcome screen is handled automatically
-      // by the root MaterialApp watching authProvider in main.dart
+      // Clear the navigation stack so the root widget (OnboardingScreen) becomes visible
+      if (mounted) {
+        Navigator.of(context).popUntil((route) => route.isFirst);
+      }
     }
   }
 

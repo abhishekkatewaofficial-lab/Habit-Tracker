@@ -7,7 +7,7 @@
 	<key>CFBundleDevelopmentRegion</key>
 	<string>$(DEVELOPMENT_LANGUAGE)</string>
 	<key>CFBundleDisplayName</key>
-	<string>Habit Tracker</string>
+	<string>Habitus</string>
 	<key>CFBundleExecutable</key>
 	<string>$(EXECUTABLE_NAME)</string>
 	<key>CFBundleIdentifier</key>
@@ -52,13 +52,13 @@
 	<key>UILaunchStoryboardName</key>
 	<string>LaunchScreen</string>
 	<key>NSLocationWhenInUseUsageDescription</key>
-	<string>Habit Tracker uses your location to log location-based habits.</string>
+	<string>Habitus uses your location to log location-based habits.</string>
 	<key>NSLocationAlwaysUsageDescription</key>
-	<string>Habit Tracker uses your location to trigger location-based reminders.</string>
+	<string>Habitus uses your location to trigger location-based reminders.</string>
 	<key>NSUserNotificationUsageDescription</key>
-	<string>Habit Tracker sends you daily reminders to keep your habits on track.</string>
+	<string>Habitus sends you daily reminders to keep your habits on track.</string>
 	<key>NSMotionUsageDescription</key>
-	<string>Habit Tracker uses your phone&apos;s motion sensor to automatically track your daily steps.</string>
+	<string>Habitus uses your phone&apos;s motion sensor to automatically track your daily steps.</string>
 	<key>UIMainStoryboardFile</key>
 	<string>Main</string>
 	<key>UISupportedInterfaceOrientations</key>

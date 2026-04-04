@@ -57,7 +57,7 @@ class HabitNotifier extends StateNotifier<List<Habit>> {
             habitName: newH.name,
             hour: newH.reminderHour!,
             minute: newH.reminderMinute!,
-            isEveryDay: newH.frequencyType == HabitFrequencyType.everyDay,
+            isEveryDay: newH.isEveryDay,
             selectedDays: newH.selectedDays,
           );
         }

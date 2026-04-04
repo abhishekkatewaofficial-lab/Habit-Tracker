@@ -164,7 +164,7 @@ class _HabitTrackerAppState extends ConsumerState<HabitTrackerApp>
     }
 
     return MaterialApp(
-      title: 'Habit Tracker',
+      title: 'Habitus',
       debugShowCheckedModeBanner: false,
       theme: AppTheme.lightTheme,
       darkTheme: AppTheme.darkTheme,

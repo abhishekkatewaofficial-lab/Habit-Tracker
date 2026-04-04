@@ -133,7 +133,14 @@ class _CategoryCard extends ConsumerWidget {
         motion: const ScrollMotion(),
         children: [
           SlidableAction(
-            onPressed: (context) => _showEditDialog(context, ref),
+            autoClose: false,
+            onPressed: (context) {
+                final slidable = Slidable.of(context);
+                slidable?.close();
+                Future.delayed(const Duration(milliseconds: 50), () {
+                  _showEditDialog(context, ref);
+                });
+            },
             backgroundColor: Colors.transparent,
             foregroundColor: const Color(0xFF6B7280),
             icon: Icons.edit_rounded,
@@ -145,8 +152,13 @@ class _CategoryCard extends ConsumerWidget {
         motion: const ScrollMotion(),
         children: [
           SlidableAction(
+            autoClose: false,
             onPressed: (context) {
-              ref.read(todoControllerProvider.notifier).deleteCategory(category.id);
+              final slidable = Slidable.of(context);
+              slidable?.close();
+              Future.delayed(const Duration(milliseconds: 50), () {
+                ref.read(todoControllerProvider.notifier).deleteCategory(category.id);
+              });
             },
             backgroundColor: Colors.transparent,
             foregroundColor: Colors.redAccent,
@@ -187,19 +199,23 @@ class _CategoryCard extends ConsumerWidget {
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text(
-                category.name,
-                style: Theme.of(context).brightness == Brightness.dark
-                    ? GoogleFonts.poppins(
-                        fontSize: 18,
-                        fontWeight: FontWeight.w700,
-                        color: Colors.white,
-                      )
-                    : GoogleFonts.nunito(
-                        fontSize: 18,
-                        fontWeight: FontWeight.w700,
-                        color: const Color(0xFF2D264B),
-                      ),
+              Expanded(
+                child: Text(
+                  category.name,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: Theme.of(context).brightness == Brightness.dark
+                      ? GoogleFonts.poppins(
+                          fontSize: 18,
+                          fontWeight: FontWeight.w700,
+                          color: Colors.white,
+                        )
+                      : GoogleFonts.nunito(
+                          fontSize: 18,
+                          fontWeight: FontWeight.w700,
+                          color: const Color(0xFF2D264B),
+                        ),
+                ),
               ),
               Container(
                 width: 32,
