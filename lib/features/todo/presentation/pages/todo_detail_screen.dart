@@ -46,11 +46,13 @@ class _TodoDetailScreenState extends ConsumerState<TodoDetailScreen> {
       return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
 
-    return Scaffold(
-      backgroundColor: Colors.transparent,
-      resizeToAvoidBottomInset: true,
-      body: SafeArea(
-        child: Column(
+    return GestureDetector(
+      onTap: () => FocusManager.instance.primaryFocus?.unfocus(),
+      child: Scaffold(
+        backgroundColor: Colors.transparent,
+        resizeToAvoidBottomInset: true,
+        body: SafeArea(
+          child: Column(
           children: [
             // Header
             _buildHeader(context, category),
@@ -77,7 +79,7 @@ class _TodoDetailScreenState extends ConsumerState<TodoDetailScreen> {
           ],
         ),
       ),
-    );
+    ));
   }
 
   Widget _buildHeader(BuildContext context, TodoCategory category) {
@@ -292,7 +294,13 @@ class _TaskItem extends ConsumerWidget {
           motion: const DrawerMotion(),
           children: [
             SlidableAction(
-              onPressed: (_) => _showEditDialog(context, ref),
+              autoClose: false,
+              onPressed: (actionContext) {
+                final slidable = Slidable.of(actionContext);
+                slidable?.close();
+                // Pass the parent context to keep dialog safe from slidable teardown
+                _showEditDialog(context, ref);
+              },
               backgroundColor: Colors.transparent,
               foregroundColor: const Color(0xFF9CA3AF),
               icon: Icons.edit_rounded,
@@ -304,7 +312,7 @@ class _TaskItem extends ConsumerWidget {
           motion: const DrawerMotion(),
           children: [
             SlidableAction(
-              onPressed: (_) => ref.read(todoControllerProvider.notifier).deleteTask(categoryId, task.id),
+              onPressed: (_) { Future.delayed(const Duration(milliseconds: 50), () { ref.read(todoControllerProvider.notifier).deleteTask(categoryId, task.id); }); },
               backgroundColor: Colors.transparent,
               foregroundColor: Colors.redAccent,
               icon: Icons.delete_outline_rounded,
@@ -377,6 +385,7 @@ class _TaskItem extends ConsumerWidget {
           child: CupertinoTextField(
             controller: controller,
             autofocus: true,
+            onSubmitted: (_) => FocusManager.instance.primaryFocus?.unfocus(),
           ),
         ),
         actions: [

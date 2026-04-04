@@ -2621,7 +2621,7 @@ class _RootCauseInsightCardState extends State<_RootCauseInsightCard>
             duration: const Duration(milliseconds: 250),
             curve: Curves.easeInOut,
             decoration: BoxDecoration(
-              color: isDark ? const Color(0xFF1C1C1E) : Colors.white,
+              color: isDark ? const Color(0xFF1C1C1E).withValues(alpha: 0.3) : Colors.white.withValues(alpha: 0.3),
               borderRadius: BorderRadius.circular(20),
               border: Border.all(
                 color: isDark
@@ -2787,21 +2787,7 @@ class _RootCauseInsightCardState extends State<_RootCauseInsightCard>
                       : CrossFadeState.showFirst,
                   duration: const Duration(milliseconds: 250),
                 ),
-                // Confidence progress bar at bottom
-                ClipRRect(
-                  borderRadius: const BorderRadius.only(
-                    bottomLeft: Radius.circular(20),
-                    bottomRight: Radius.circular(20),
-                  ),
-                  child: LinearProgressIndicator(
-                    value: c.confidence,
-                    minHeight: 3,
-                    backgroundColor: Colors.transparent,
-                    valueColor: AlwaysStoppedAnimation<Color>(
-                      c.accentColor.withValues(alpha: 0.4),
-                    ),
-                  ),
-                ),
+
               ],
             ),
           ),

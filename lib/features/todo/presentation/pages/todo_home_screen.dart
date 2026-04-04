@@ -16,10 +16,12 @@ class TodoHomeScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final categories = ref.watch(todoControllerProvider);
 
-    return Scaffold(
-      backgroundColor: Colors.transparent,
-      body: SafeArea(
-        child: Container(
+    return GestureDetector(
+      onTap: () => FocusManager.instance.primaryFocus?.unfocus(),
+      child: Scaffold(
+        backgroundColor: Colors.transparent,
+        body: SafeArea(
+          child: Container(
           width: double.infinity,
           alignment: Alignment.topCenter,
           child: ConstrainedBox(
@@ -86,7 +88,7 @@ class TodoHomeScreen extends ConsumerWidget {
           ),
         ),
       ),
-    );
+    ));
   }
 
   Widget _buildEmptyState() {
@@ -232,6 +234,7 @@ class _CategoryCard extends ConsumerWidget {
             controller: controller,
             autofocus: true,
             placeholder: 'e.g., Shopping, Work, Study...',
+            onSubmitted: (_) => FocusManager.instance.primaryFocus?.unfocus(),
           ),
         ),
         actions: [
@@ -319,6 +322,7 @@ class _AddCategoryDialogState extends ConsumerState<_AddCategoryDialog> {
               TextField(
                 controller: _controller,
                 textAlign: TextAlign.center,
+                onSubmitted: (_) => FocusManager.instance.primaryFocus?.unfocus(),
                 cursorColor: Theme.of(context).brightness == Brightness.dark ? Colors.white : null,
                 style: GoogleFonts.poppins(
                   fontWeight: FontWeight.w600,

@@ -1,9 +1,15 @@
 import 'dart:async';
+import 'package:flutter/services.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:habit_tracker_ios/core/services/hive_service.dart';
+import 'package:habit_tracker_ios/core/services/firestore_sync_service.dart';
+import 'package:habit_tracker_ios/core/services/notification_service.dart';
 import 'package:habit_tracker_ios/features/focus_timer/data/models/focus_item.dart';
 import 'package:habit_tracker_ios/features/focus_timer/data/models/focus_daily_summary.dart';
 import 'package:habit_tracker_ios/core/services/auth_service.dart';
+
+import 'package:habit_tracker_ios/core/services/cloud_sync_service.dart';
 
 String _todayStr() {
   final now = DateTime.now();
@@ -12,9 +18,69 @@ String _todayStr() {
 
 class FocusDashboardNotifier extends StateNotifier<List<FocusItem>> {
   final bool _isGuest;
+  Timer? _ticker;
 
   FocusDashboardNotifier({bool isGuest = false}) : _isGuest = isGuest, super([]) {
-    if (!_isGuest) _loadAndCheckReset();
+    if (!_isGuest) {
+      _loadAndCheckReset();
+      _startTicker();
+    }
+  }
+
+  void reloadFromHive() {
+     if (!_isGuest) _loadAndCheckReset();
+  }
+
+  @override
+  void dispose() {
+    _ticker?.cancel();
+    super.dispose();
+  }
+
+  void _startTicker() {
+    _ticker = Timer.periodic(const Duration(seconds: 10), (timer) {
+      _checkHourlyMilestones();
+    });
+  }
+
+  Future<void> _checkHourlyMilestones() async {
+    if (!state.any((e) => e.isRunning)) return;
+
+    final prefs = await SharedPreferences.getInstance();
+    final enabled = prefs.getBool('hourly_focus_updates') ?? true;
+    final notificationsEnabled = prefs.getBool('notifications_enabled') ?? false;
+    
+    if (!enabled || !notificationsEnabled) return;
+
+    bool needsSave = false;
+    final updatedList = List<FocusItem>.from(state);
+
+    for (int i = 0; i < updatedList.length; i++) {
+      var item = updatedList[i];
+      if (!item.isRunning) continue;
+
+      final elapsedMs = item.currentElapsedMs;
+      final currentHour = elapsedMs ~/ 3600000;
+
+      if (currentHour > 0 && currentHour > item.lastNotifiedHour) {
+        // Send milestone notification using the built-in immediate service
+        NotificationService.showImmediate(
+          id: (item.id.hashCode.abs() & 0x7FFFFFFF) ^ 0x0F0C05,
+          title: 'Focus Update',
+          body: '${currentHour} hour${currentHour > 1 ? "s" : ""} of \'${item.name}\' completed',
+        );
+        HapticFeedback.lightImpact();
+
+        item = item.copyWith(lastNotifiedHour: currentHour);
+        HiveService.focusItemsBox.put(item.id, item.toJson());
+        updatedList[i] = item;
+        needsSave = true;
+      }
+    }
+
+    if (needsSave) {
+      state = updatedList;
+    }
   }
 
   /// Load from Hive and perform midnight resets if needed.
@@ -39,6 +105,7 @@ class FocusDashboardNotifier extends StateNotifier<List<FocusItem>> {
             accumulatedMs: 0,
             isRunning: false,
             startTimeMs: null,
+            lastNotifiedHour: 0,
             lastResetDate: today,
           );
           needsSave = true;
@@ -83,6 +150,7 @@ class FocusDashboardNotifier extends StateNotifier<List<FocusItem>> {
     );
 
     summaryBox.put(date, newSummary.toJson());
+    FirestoreSyncService.pushFocusDailySummary(newSummary);
   }
 
   /// Create a new focus item.
@@ -97,6 +165,7 @@ class FocusDashboardNotifier extends StateNotifier<List<FocusItem>> {
     
     await HiveService.focusItemsBox.put(newItem.id, newItem.toJson());
     state = [...state, newItem];
+    FirestoreSyncService.pushFocusItem(newItem);
   }
 
   /// Delete a focus item (does NOT delete daily summaries).
@@ -110,6 +179,7 @@ class FocusDashboardNotifier extends StateNotifier<List<FocusItem>> {
     
     await HiveService.focusItemsBox.delete(id);
     state = state.where((e) => e.id != id).toList();
+    FirestoreSyncService.deleteFocusItem(id);
   }
 
   /// Start a focus item (and auto-pause others).
@@ -123,6 +193,7 @@ class FocusDashboardNotifier extends StateNotifier<List<FocusItem>> {
         final updated = item.copyWith(isRunning: true, startTimeMs: now);
         await HiveService.focusItemsBox.put(updated.id, updated.toJson());
         updatedList.add(updated);
+        FirestoreSyncService.pushFocusItem(updated);
       } else if (item.isRunning) {
         // Auto-pause
         final elapsed = now - (item.startTimeMs ?? now);
@@ -133,6 +204,7 @@ class FocusDashboardNotifier extends StateNotifier<List<FocusItem>> {
         );
         await HiveService.focusItemsBox.put(updated.id, updated.toJson());
         updatedList.add(updated);
+        FirestoreSyncService.pushFocusItem(updated);
       } else {
         updatedList.add(item);
       }
@@ -157,6 +229,7 @@ class FocusDashboardNotifier extends StateNotifier<List<FocusItem>> {
         );
         await HiveService.focusItemsBox.put(updated.id, updated.toJson());
         updatedList.add(updated);
+        FirestoreSyncService.pushFocusItem(updated);
       } else {
         updatedList.add(item);
       }
@@ -180,6 +253,7 @@ class FocusDashboardNotifier extends StateNotifier<List<FocusItem>> {
     for (int i = 0; i < items.length; i++) {
       items[i] = items[i].copyWith(sortOrder: i);
       await HiveService.focusItemsBox.put(items[i].id, items[i].toJson());
+      FirestoreSyncService.pushFocusItem(items[i]);
     }
 
     state = items;
@@ -190,5 +264,13 @@ final focusDashboardProvider =
     StateNotifierProvider<FocusDashboardNotifier, List<FocusItem>>((ref) {
   final uid = ref.watch(currentUidProvider);
   if (uid == null) return FocusDashboardNotifier(isGuest: true);
-  return FocusDashboardNotifier();
+  
+  final notifier = FocusDashboardNotifier();
+  
+  // Instantly reflect state pulled from Firestore sync
+  ref.listen(syncRefreshProvider, (prev, next) {
+    notifier.reloadFromHive();
+  });
+  
+  return notifier;
 });

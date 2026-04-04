@@ -7,6 +7,7 @@ class FocusItem {
   final int accumulatedMs; // total ms TODAY before current run
   final String lastResetDate; // 'yyyy-MM-dd' — used to detect midnight crossing
   final int sortOrder;
+  final int lastNotifiedHour; // tracks spam prevention
 
   const FocusItem({
     required this.id,
@@ -16,6 +17,7 @@ class FocusItem {
     this.accumulatedMs = 0,
     required this.lastResetDate,
     this.sortOrder = 0,
+    this.lastNotifiedHour = 0,
   });
 
   FocusItem copyWith({
@@ -26,6 +28,7 @@ class FocusItem {
     int? accumulatedMs,
     String? lastResetDate,
     int? sortOrder,
+    int? lastNotifiedHour,
   }) {
     return FocusItem(
       id: id ?? this.id,
@@ -37,6 +40,7 @@ class FocusItem {
       accumulatedMs: accumulatedMs ?? this.accumulatedMs,
       lastResetDate: lastResetDate ?? this.lastResetDate,
       sortOrder: sortOrder ?? this.sortOrder,
+      lastNotifiedHour: lastNotifiedHour ?? this.lastNotifiedHour,
     );
   }
 
@@ -48,6 +52,7 @@ class FocusItem {
         'accumulatedMs': accumulatedMs,
         'lastResetDate': lastResetDate,
         'sortOrder': sortOrder,
+        'lastNotifiedHour': lastNotifiedHour,
       };
 
   factory FocusItem.fromJson(Map<dynamic, dynamic> json) => FocusItem(
@@ -58,6 +63,7 @@ class FocusItem {
         accumulatedMs: json['accumulatedMs'] as int? ?? 0,
         lastResetDate: json['lastResetDate'] as String? ?? _todayStr(),
         sortOrder: json['sortOrder'] as int? ?? 0,
+        lastNotifiedHour: json['lastNotifiedHour'] as int? ?? 0,
       );
 
   /// Current elapsed milliseconds including live running time.

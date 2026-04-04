@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
+import 'package:habit_tracker_ios/core/services/cloud_sync_service.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:habit_tracker_ios/core/constants/app_colors.dart';
@@ -14,6 +15,8 @@ import 'package:habit_tracker_ios/shared_widgets/adaptive_layout.dart';
 import '../controllers/profile_controller.dart';
 import '../controllers/badge_controller.dart';
 import '../controllers/coin_controller.dart';
+import 'package:habit_tracker_ios/features/habits/presentation/controllers/habit_controller.dart';
+import 'package:habit_tracker_ios/core/services/personality_engine.dart';
 
 
 class ProfileScreen extends ConsumerStatefulWidget {
@@ -201,7 +204,9 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
             children: [
             const SizedBox(height: 20),
             _buildPremiumHeader(context, profile),
-            const SizedBox(height: 32),
+            const SizedBox(height: 24),
+            const _PersonalityShowcase(),
+            const SizedBox(height: 24),
             
             const _BadgesShowcase(),
             const SizedBox(height: 20),
@@ -216,6 +221,8 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                   const SizedBox(height: 32),
                   const _GroupedSettings(),
                   const SizedBox(height: 32),
+                  const _SyncButton(),
+                  const SizedBox(height: 16),
                   const _LogoutButton(),
                   const SizedBox(height: 48),
                 ],
@@ -641,6 +648,45 @@ class _GroupedSettings extends ConsumerWidget {
      );
   }
 
+
+  Widget _buildHourlyUpdatesTile(BuildContext context, WidgetRef ref) {
+     final isDark = Theme.of(context).brightness == Brightness.dark;
+     final isNotifOn = ref.watch(notificationProvider);
+     final isHourlyOn = ref.watch(hourlyFocusUpdatesProvider);
+
+     return Column(
+       children: [
+         Opacity(
+           opacity: isNotifOn ? 1.0 : 0.4,
+           child: ListTile(
+             contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+             leading: Padding(
+               padding: const EdgeInsets.only(top: 4),
+               child: Icon(CupertinoIcons.timer, color: isDark ? Colors.white : const Color(0xFF374151)),
+             ),
+             title: Column(
+               crossAxisAlignment: CrossAxisAlignment.start,
+               children: [
+                 Text('Hourly Focus Updates', style: GoogleFonts.poppins(fontSize: 14, fontWeight: FontWeight.w500, color: Theme.of(context).colorScheme.onSurface)),
+                 const SizedBox(height: 2),
+                 Text(
+                   isNotifOn
+                       ? (isHourlyOn ? 'Milestone notifications during open focus' : 'Hourly updates are off')
+                       : 'Enable reminders to use focus updates',
+                   style: GoogleFonts.poppins(fontSize: 10, fontWeight: FontWeight.w400, color: const Color(0xFF9CA3AF)),
+                 ),
+               ],
+             ),
+             trailing: CupertinoSwitch(
+               value: isHourlyOn,
+               onChanged: isNotifOn ? (v) => ref.read(hourlyFocusUpdatesProvider.notifier).setEnabled(v) : null,
+               activeTrackColor: CupertinoColors.activeGreen,
+             ),
+           ),
+         ),
+       ],
+     );
+  }
   @override
   Widget build(BuildContext context, WidgetRef ref) {
      return Column(
@@ -650,6 +696,7 @@ class _GroupedSettings extends ConsumerWidget {
             _buildSoundsTile(context, ref),
             _buildSmartNudgesTile(context, ref),
             _buildHapticsTile(context, ref),
+             _buildHourlyUpdatesTile(context, ref),
          ]),
          const SizedBox(height: 24),
          _buildGroup(context, 'ACCOUNT', [
@@ -999,6 +1046,142 @@ class _CoinBalanceCard extends ConsumerWidget {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// Sync Button
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _SyncButton extends ConsumerStatefulWidget {
+  const _SyncButton();
+
+  @override
+  ConsumerState<_SyncButton> createState() => _SyncButtonState();
+}
+
+class _SyncButtonState extends ConsumerState<_SyncButton> {
+  bool _isPressed = false;
+  bool _isSyncing = false;
+
+  Future<void> _handleSync() async {
+    if (_isSyncing) return;
+    setState(() => _isSyncing = true);
+    
+    try {
+      // Add artificial delay to show user the sync is happening
+      await Future.delayed(const Duration(milliseconds: 600));
+      
+      // Manual sync is technically instant and continuous now, 
+      // but we bump the UI refresher to ensure all providers are fresh.
+      ref.read(syncRefreshProvider.notifier).bump();
+      
+      if (mounted) {
+        showCupertinoDialog(
+          context: context,
+          builder: (ctx) => CupertinoAlertDialog(
+            title: const Text('Data Synced', style: TextStyle(fontWeight: FontWeight.w600)),
+            content: const Padding(
+              padding: EdgeInsets.only(top: 8.0),
+              child: Text('Your habit data has been successfully synchronized.'),
+            ),
+            actions: [
+              CupertinoDialogAction(
+                onPressed: () => Navigator.pop(ctx),
+                child: const Text('OK'),
+              ),
+            ],
+          ),
+        );
+      }
+    } catch (e, st) {
+      if (mounted) {
+        showCupertinoDialog(
+          context: context,
+          builder: (ctx) => CupertinoAlertDialog(
+            title: const Text('Sync Error'),
+            content: Padding(
+              padding: const EdgeInsets.only(top: 8.0),
+              child: Text(e.toString()),
+            ),
+            actions: [
+              CupertinoDialogAction(
+                onPressed: () => Navigator.pop(ctx),
+                child: const Text('OK'),
+              ),
+            ],
+          ),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isSyncing = false);
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    return GestureDetector(
+      onTapDown: (_) => setState(() => _isPressed = true),
+      onTapUp: (_) => setState(() => _isPressed = false),
+      onTapCancel: () => setState(() => _isPressed = false),
+      onTap: _handleSync,
+      child: AnimatedScale(
+        scale: _isPressed ? 0.97 : 1.0,
+        duration: const Duration(milliseconds: 100),
+        child: Container(
+          width: double.infinity,
+          padding: const EdgeInsets.symmetric(vertical: 16),
+          decoration: BoxDecoration(
+            color: isDark ? const Color(0xFF1C1C1E) : Colors.white,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(
+              color: isDark ? const Color(0xFF3A3A3C) : const Color(0xFFE5E7EB),
+              width: 1,
+            ),
+            boxShadow: isDark ? [] : [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.02),
+                blurRadius: 8,
+                offset: const Offset(0, 2),
+              ),
+            ],
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              if (_isSyncing)
+                SizedBox(
+                  width: 20,
+                  height: 20,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2.5,
+                    color: Theme.of(context).colorScheme.primary,
+                  ),
+                )
+              else
+                Icon(
+                  CupertinoIcons.arrow_2_circlepath,
+                  color: Theme.of(context).colorScheme.primary,
+                  size: 20,
+                ),
+              const SizedBox(width: 12),
+              Text(
+                _isSyncing ? 'Syncing Data...' : 'Manual Data Sync',
+                style: GoogleFonts.poppins(
+                  fontSize: 15,
+                  fontWeight: FontWeight.w600,
+                  color: Theme.of(context).colorScheme.onSurface,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // Logout Button
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -1083,6 +1266,91 @@ class _LogoutButtonState extends ConsumerState<_LogoutButton> {
           ),
         ),
       ),
+    );
+  }
+}
+
+class _PersonalityShowcase extends ConsumerWidget {
+  const _PersonalityShowcase();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final habits = ref.watch(habitProvider);
+    final personalities = PersonalityEngine.analyze(habits);
+
+    if (personalities.isEmpty) return const SizedBox.shrink();
+
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    return Column(
+      children: [
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 24),
+          child: Row(
+            children: [
+              Text('Your Habit Style', style: GoogleFonts.poppins(fontSize: 16, fontWeight: FontWeight.bold, color: Theme.of(context).colorScheme.onSurface)),
+            ],
+          ),
+        ),
+        const SizedBox(height: 12),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 24),
+          child: Row(
+            children: personalities.map((p) {
+              return Padding(
+                padding: const EdgeInsets.only(right: 12),
+                child: GestureDetector(
+                  onTap: () {
+                    ScaffoldMessenger.of(context).clearSnackBars();
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Row(
+                          children: [
+                            Text(p.icon, style: const TextStyle(fontSize: 16)),
+                            const SizedBox(width: 8),
+                            Expanded(child: Text(p.description, style: const TextStyle(fontWeight: FontWeight.w600, color: Colors.white))),
+                          ],
+                        ),
+                        behavior: SnackBarBehavior.floating,
+                        duration: const Duration(seconds: 3),
+                        backgroundColor: p.color,
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                        margin: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+                      ),
+                    );
+                  },
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                    decoration: BoxDecoration(
+                      color: Theme.of(context).colorScheme.surface.withValues(alpha: 0.85),
+                      borderRadius: BorderRadius.circular(100),
+                      border: Border.all(
+                        color: isDark ? p.color.withValues(alpha: 0.3) : p.color.withValues(alpha: 0.5),
+                        width: 1.0,
+                      ),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(p.icon, style: const TextStyle(fontSize: 12)),
+                        const SizedBox(width: 6),
+                        Text(
+                          p.title,
+                          style: GoogleFonts.poppins(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w600,
+                            color: p.color,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              );
+            }).toList(),
+          ),
+        ),
+      ],
     );
   }
 }

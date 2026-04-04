@@ -138,9 +138,6 @@ class _HabitTrackerAppState extends ConsumerState<HabitTrackerApp>
       // Re-evaluate and pre-schedule today's nudges each time app comes to foreground
       final habits = ref.read(habitProvider);
       SmartNudgeService.scheduleForToday(habits);
-    } else if (state == AppLifecycleState.paused || state == AppLifecycleState.inactive) {
-      // Push any pending changes to Firestore when the app goes into the background
-      CloudSyncService.pushBatchSync();
     }
   }
 

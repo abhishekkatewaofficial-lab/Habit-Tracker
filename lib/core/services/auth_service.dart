@@ -2,7 +2,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'cloud_sync_service.dart';
+import 'package:habit_tracker_ios/core/services/firestore_sync_service.dart';
 import 'hive_service.dart';
 
 // ── User Model ───────────────────────────────────────────────────────────────
@@ -51,7 +51,8 @@ const _kPhoto = 'auth_photo';
 
 // ── Notifier ──────────────────────────────────────────────────────────────────
 class AuthNotifier extends StateNotifier<AuthState> {
-  AuthNotifier() : super(const AuthState(status: AuthStatus.unauthenticated)) {
+  final Ref _ref;
+  AuthNotifier(this._ref) : super(const AuthState(status: AuthStatus.unauthenticated)) {
     _init();
   }
 
@@ -73,8 +74,11 @@ class AuthNotifier extends StateNotifier<AuthState> {
         status: AuthStatus.authenticated,
         user: AuthUser.fromFirebase(firebaseUser),
       );
-      // Trigger background hydration on existing session
-      CloudSyncService.pullHydration();
+      // Start real-time listeners on session restore
+      FirestoreSyncService.startListeners(
+        firebaseUser.uid,
+        _ref.read(syncRefreshProvider.notifier),
+      );
       return;
     }
 
@@ -92,9 +96,11 @@ class AuthNotifier extends StateNotifier<AuthState> {
           photoUrl: prefs.getString(_kPhoto),
         ),
       );
-      // Even if fallback, wait for internet and pull eventually, but we only strictly pull if firebaseUser is present.
-      // But we can trigger it anyway.
-      CloudSyncService.pullHydration();
+      // Start real-time listeners even for cached session
+      FirestoreSyncService.startListeners(
+        uid,
+        _ref.read(syncRefreshProvider.notifier),
+      );
     }
   }
 
@@ -146,8 +152,11 @@ class AuthNotifier extends StateNotifier<AuthState> {
 
       await HiveService.init(authUser.uid);
       state = AuthState(status: AuthStatus.authenticated, user: authUser);
-      // Force immediate hydration on fresh sign in
-      await CloudSyncService.pullHydration();
+      // Start real-time Firestore listeners for this uid
+      FirestoreSyncService.startListeners(
+        authUser.uid,
+        _ref.read(syncRefreshProvider.notifier),
+      );
     } on GoogleSignInException catch (e) {
       // User cancelled — not an actual error
       if (e.code == GoogleSignInExceptionCode.canceled) {
@@ -186,6 +195,8 @@ class AuthNotifier extends StateNotifier<AuthState> {
     await prefs.remove(_kName);
     await prefs.remove(_kPhoto);
 
+    // Stop all Firestore listeners before clearing session
+    FirestoreSyncService.stopListeners();
     await HiveService.closeAll();
     state = const AuthState(status: AuthStatus.unauthenticated);
   }
@@ -193,7 +204,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
 
 // ── Providers ─────────────────────────────────────────────────────────────────
 final authProvider = StateNotifierProvider<AuthNotifier, AuthState>((ref) {
-  return AuthNotifier();
+  return AuthNotifier(ref);
 });
 
 final currentUserProvider = Provider<AuthUser?>((ref) {

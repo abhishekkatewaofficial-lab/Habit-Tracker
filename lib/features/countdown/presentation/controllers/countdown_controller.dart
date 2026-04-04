@@ -1,11 +1,33 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:habit_tracker_ios/core/services/hive_service.dart';
 import 'package:habit_tracker_ios/core/services/notification_service.dart';
+import 'package:habit_tracker_ios/core/services/firestore_sync_service.dart';
 import '../../data/models/countdown_event.dart';
 
 class CountdownController extends StateNotifier<List<CountdownEvent>> {
   CountdownController() : super([]) {
     _loadFromHive();
+  }
+
+  Future<void> reloadFromHive() async {
+    final oldEvents = List<CountdownEvent>.from(state);
+    _loadFromHive();
+    
+    // Resync OS notifications safely.
+    for (final oldE in oldEvents) {
+      await NotificationService.cancelCountdownReminder(oldE.id);
+    }
+    for (final newE in state) {
+      if (newE.reminderHour != null && newE.reminderMinute != null) {
+        await NotificationService.scheduleCountdownReminder(
+          countdownId: newE.id,
+          countdownName: newE.name,
+          targetDate: newE.targetDate,
+          hour: newE.reminderHour!,
+          minute: newE.reminderMinute!,
+        );
+      }
+    }
   }
 
   void _loadFromHive() {
@@ -19,9 +41,7 @@ class CountdownController extends StateNotifier<List<CountdownEvent>> {
   }
 
   Future<void> addEvent(CountdownEvent event) async {
-    final box = HiveService.countdownBox;
-    await box.put(event.id, event.toJson());
-    // Schedule reminder if set
+    await HiveService.countdownBox.put(event.id, event.toJson());
     if (event.reminderHour != null && event.reminderMinute != null) {
       await NotificationService.scheduleCountdownReminder(
         countdownId: event.id,
@@ -31,14 +51,13 @@ class CountdownController extends StateNotifier<List<CountdownEvent>> {
         minute: event.reminderMinute!,
       );
     }
+    FirestoreSyncService.pushCountdownEvent(event);
     _loadFromHive();
   }
 
   Future<void> updateEvent(CountdownEvent event) async {
-    final box = HiveService.countdownBox;
-    // Cancel existing notification first, then conditionally reschedule
     await NotificationService.cancelCountdownReminder(event.id);
-    await box.put(event.id, event.toJson());
+    await HiveService.countdownBox.put(event.id, event.toJson());
     if (event.reminderHour != null && event.reminderMinute != null) {
       await NotificationService.scheduleCountdownReminder(
         countdownId: event.id,
@@ -48,18 +67,25 @@ class CountdownController extends StateNotifier<List<CountdownEvent>> {
         minute: event.reminderMinute!,
       );
     }
+    FirestoreSyncService.pushCountdownEvent(event);
     _loadFromHive();
   }
 
   Future<void> deleteEvent(String id) async {
-    final box = HiveService.countdownBox;
     await NotificationService.cancelCountdownReminder(id);
-    await box.delete(id);
+    await HiveService.countdownBox.delete(id);
+    FirestoreSyncService.deleteCountdownEvent(id);
     _loadFromHive();
   }
 }
 
 final countdownProvider =
-    StateNotifierProvider<CountdownController, List<CountdownEvent>>(
-  (ref) => CountdownController(),
-);
+    StateNotifierProvider<CountdownController, List<CountdownEvent>>((ref) {
+  final controller = CountdownController();
+  
+  ref.listen(syncRefreshProvider, (prev, next) {
+    controller.reloadFromHive();
+  });
+  
+  return controller;
+});

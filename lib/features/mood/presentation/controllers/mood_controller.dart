@@ -1,7 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import '../../../../core/services/hive_service.dart';
-import '../../../../core/services/sync_tracker_service.dart';
+import '../../../../core/services/firestore_sync_service.dart';
 import '../../data/repositories/mood_repository.dart';
 
 import '../../../../core/services/auth_service.dart';
@@ -17,7 +17,12 @@ final moodRepositoryProvider = Provider<MoodRepository?>((ref) {
 final dailyMoodsProvider = StateNotifierProvider<MoodNotifier, Map<String, String>>((ref) {
   final repository = ref.watch(moodRepositoryProvider);
   if (repository == null) return MoodNotifier._empty();
-  return MoodNotifier(repository);
+  
+  final notifier = MoodNotifier(repository);
+  ref.listen(syncRefreshProvider, (prev, next) {
+    notifier.reloadFromHive();
+  });
+  return notifier;
 });
 
 class MoodNotifier extends StateNotifier<Map<String, String>> {
@@ -26,6 +31,10 @@ class MoodNotifier extends StateNotifier<Map<String, String>> {
   MoodNotifier(this._repository) : super(_repository!.getAllMoods());
   
   MoodNotifier._empty() : _repository = null, super({});
+
+  void reloadFromHive() {
+    if (_repository != null) state = _repository!.getAllMoods();
+  }
 
   /// Get today's mood, if set
   String? get currentMood {
@@ -41,7 +50,7 @@ class MoodNotifier extends StateNotifier<Map<String, String>> {
     
     // Update state to trigger UI rebuild
     state = {...state, dateStr: emoji};
-    SyncTrackerService.markDailyLogChanged(dateStr);
+    FirestoreSyncService.pushMood(dateStr, emoji);
   }
 
   /// Save or update today's mood
@@ -58,6 +67,6 @@ class MoodNotifier extends StateNotifier<Map<String, String>> {
     final newState = Map<String, String>.from(state);
     newState.remove(dateStr);
     state = newState;
-    SyncTrackerService.markDailyLogChanged(dateStr);
+    FirestoreSyncService.deleteMood(dateStr);
   }
 }

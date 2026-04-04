@@ -63,3 +63,25 @@ class SmartNudgesNotifier extends Notifier<bool> {
 
 final smartNudgesProvider =
     NotifierProvider<SmartNudgesNotifier, bool>(SmartNudgesNotifier.new);
+
+class HourlyFocusUpdatesNotifier extends Notifier<bool> {
+  @override
+  bool build() {
+    _loadFromPrefs();
+    return true;
+  }
+
+  Future<void> _loadFromPrefs() async {
+    final prefs = await SharedPreferences.getInstance();
+    state = prefs.getBool('hourly_focus_updates') ?? true;
+  }
+
+  Future<void> setEnabled(bool enabled) async {
+    state = enabled;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool('hourly_focus_updates', enabled);
+  }
+}
+
+final hourlyFocusUpdatesProvider =
+    NotifierProvider<HourlyFocusUpdatesNotifier, bool>(HourlyFocusUpdatesNotifier.new);

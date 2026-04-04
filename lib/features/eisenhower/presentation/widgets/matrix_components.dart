@@ -138,7 +138,7 @@ class _MatrixTaskCardState extends ConsumerState<MatrixTaskCard> with SingleTick
           motion: const ScrollMotion(),
           children: [
             SlidableAction(
-              onPressed: (_) => ref.read(eisenhowerControllerProvider.notifier).deleteTask(task.id),
+              onPressed: (_) { Future.delayed(const Duration(milliseconds: 50), () { ref.read(eisenhowerControllerProvider.notifier).deleteTask(task.id); }); },
               backgroundColor: Colors.transparent,
               foregroundColor: Colors.redAccent,
               icon: Icons.delete_outline_rounded,

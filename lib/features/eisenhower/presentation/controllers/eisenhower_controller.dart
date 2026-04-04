@@ -1,9 +1,10 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:habit_tracker_ios/core/services/hive_service.dart';
-import 'package:habit_tracker_ios/core/services/sync_tracker_service.dart';
 import '../../data/models/eisenhower_task.dart';
 import '../../data/repositories/eisenhower_repository.dart';
 import 'package:habit_tracker_ios/core/services/auth_service.dart';
+
+import 'package:habit_tracker_ios/core/services/firestore_sync_service.dart';
 
 final eisenhowerRepositoryProvider = Provider<EisenhowerRepository?>((ref) {
   final uid = ref.watch(currentUidProvider);
@@ -14,7 +15,12 @@ final eisenhowerRepositoryProvider = Provider<EisenhowerRepository?>((ref) {
 final eisenhowerControllerProvider = StateNotifierProvider<EisenhowerController, List<EisenhowerTask>>((ref) {
   final repository = ref.watch(eisenhowerRepositoryProvider);
   if (repository == null) return EisenhowerController._empty();
-  return EisenhowerController(repository);
+  
+  final controller = EisenhowerController(repository);
+  ref.listen(syncRefreshProvider, (prev, next) {
+    controller.reloadFromHive();
+  });
+  return controller;
 });
 
 class EisenhowerController extends StateNotifier<List<EisenhowerTask>> {
@@ -23,6 +29,8 @@ class EisenhowerController extends StateNotifier<List<EisenhowerTask>> {
   EisenhowerController(this._repository) : super([]) {
     _loadTasks();
   }
+  
+  void reloadFromHive() => _loadTasks();
   
   EisenhowerController._empty() : _repository = null, super([]);
 
@@ -41,7 +49,7 @@ class EisenhowerController extends StateNotifier<List<EisenhowerTask>> {
     );
     await _repository!.saveTask(task);
     state = [...state, task];
-    SyncTrackerService.markConfigChanged('eisenhower');
+    FirestoreSyncService.pushEisenhowerTask(task);
   }
 
   Future<void> updateTask(EisenhowerTask task) async {
@@ -51,14 +59,14 @@ class EisenhowerController extends StateNotifier<List<EisenhowerTask>> {
       for (final t in state)
         if (t.id == task.id) task else t
     ];
-    SyncTrackerService.markConfigChanged('eisenhower');
+    FirestoreSyncService.pushEisenhowerTask(task);
   }
 
   Future<void> deleteTask(String id) async {
     if (_repository == null) return;
     await _repository!.deleteTask(id);
     state = state.where((t) => t.id != id).toList();
-    SyncTrackerService.markConfigChanged('eisenhower');
+    FirestoreSyncService.deleteEisenhowerTask(id);
   }
 
   Future<void> moveTask(String id, QuadrantType newQuadrant) async {
@@ -71,7 +79,7 @@ class EisenhowerController extends StateNotifier<List<EisenhowerTask>> {
         for (final t in state)
           if (t.id == id) updatedTask else t
       ];
-      SyncTrackerService.markConfigChanged('eisenhower');
+      FirestoreSyncService.pushEisenhowerTask(updatedTask);
     }
   }
 
@@ -90,7 +98,7 @@ class EisenhowerController extends StateNotifier<List<EisenhowerTask>> {
         for (final t in state)
           if (t.id == id) toggled else t
       ];
-      SyncTrackerService.markConfigChanged('eisenhower');
+      FirestoreSyncService.pushEisenhowerTask(toggled);
     }
   }
 }

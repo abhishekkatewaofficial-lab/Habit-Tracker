@@ -1,4 +1,5 @@
 import 'package:habit_tracker_ios/core/services/hive_service.dart';
+import 'package:habit_tracker_ios/core/services/firestore_sync_service.dart';
 import 'package:habit_tracker_ios/features/focus_timer/data/models/focus_session.dart';
 
 class FocusRepository {
@@ -22,10 +23,12 @@ class FocusRepository {
   Future<void> saveSession(FocusSession session) async {
     final box = HiveService.focusSessionsBox;
     await box.put(session.id, session.toJson());
+    FirestoreSyncService.pushFocusSession(session);
   }
 
   Future<void> deleteSession(String id) async {
     final box = HiveService.focusSessionsBox;
     await box.delete(id);
+    FirestoreSyncService.deleteFocusSession(id);
   }
 }

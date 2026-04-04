@@ -38,6 +38,7 @@ import 'package:habit_tracker_ios/features/profile/presentation/controllers/coin
 import 'package:habit_tracker_ios/features/habits/presentation/controllers/streak_protection_controller.dart';
 import 'package:habit_tracker_ios/core/services/step_tracking_service.dart';
 import 'package:habit_tracker_ios/features/habits/presentation/pages/step_permission_screen.dart';
+import 'package:habit_tracker_ios/core/services/prediction_service.dart';
 
 /// Root scaffold that owns the bottom nav and swaps feature screens.
 class HomeScreen extends ConsumerWidget {
@@ -1410,13 +1411,19 @@ class _HabitCard extends ConsumerWidget {
             extentRatio: 0.2,
             children: [
               SlidableAction(
-                onPressed: (context) {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (_) => AddEditHabitScreen(existingHabit: habit),
-                    ),
-                  );
+                autoClose: false,
+                onPressed: (actionContext) {
+                  final slidable = Slidable.of(actionContext);
+                  slidable?.close();
+                  // Use the parent context or delayed push to guarantee safety
+                  Future.delayed(const Duration(milliseconds: 50), () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => AddEditHabitScreen(existingHabit: habit),
+                      ),
+                    );
+                  });
                 },
                 backgroundColor: const Color(0xFF3B82F6).withAlpha(40),
                 foregroundColor: const Color(0xFF3B82F6),
@@ -1430,7 +1437,9 @@ class _HabitCard extends ConsumerWidget {
             extentRatio: 0.2,
             children: [
               SlidableAction(
+                autoClose: false,
                 onPressed: (context) async {
+                  final slidable = Slidable.of(context);
                   final confirmed = await showCupertinoDialog<bool>(
                     context: context,
                     builder: (context) => CupertinoAlertDialog(
@@ -1451,8 +1460,11 @@ class _HabitCard extends ConsumerWidget {
                       ],
                     ),
                   );
+                  slidable?.close();
                   if (confirmed == true) {
-                    ref.read(habitProvider.notifier).deleteHabit(habit.id);
+                    Future.delayed(const Duration(milliseconds: 50), () {
+                      ref.read(habitProvider.notifier).deleteHabit(habit.id);
+                    });
                   }
                 },
                 backgroundColor: const Color(0xFFEF4444).withAlpha(40),
@@ -1596,6 +1608,54 @@ class _HabitCard extends ConsumerWidget {
                                           ),
                                         );
                                       }),
+                                      Builder(
+                                        builder: (context) {
+                                          final int? prediction = PredictionService.getPredictionScore(habit);
+                                          if (prediction == null) return const SizedBox.shrink();
+                                          
+                                          Color color;
+                                          if (prediction > 75) color = const Color(0xFF10B981);
+                                          else if (prediction >= 50) color = const Color(0xFFF59E0B);
+                                          else color = const Color(0xFFEF4444);
+                                          
+                                          return GestureDetector(
+                                            onTap: () {
+                                              ScaffoldMessenger.of(context).clearSnackBars();
+                                              ScaffoldMessenger.of(context).showSnackBar(
+                                                SnackBar(
+                                                  content: const Text(
+                                                    "Based on your recent activity",
+                                                    style: TextStyle(fontWeight: FontWeight.w600, color: Colors.white),
+                                                  ),
+                                                  behavior: SnackBarBehavior.floating,
+                                                  duration: const Duration(seconds: 2),
+                                                  backgroundColor: color,
+                                                ),
+                                              );
+                                            },
+                                            child: Container(
+                                              margin: const EdgeInsets.only(left: 6),
+                                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                              decoration: BoxDecoration(
+                                                color: Theme.of(context).colorScheme.surface.withValues(alpha: 0.85),
+                                                borderRadius: BorderRadius.circular(100),
+                                                border: Border.all(
+                                                  color: isDark ? color.withValues(alpha: 0.3) : color.withValues(alpha: 0.5),
+                                                  width: 0.8,
+                                                ),
+                                              ),
+                                              child: Text(
+                                                '$prediction%',
+                                                style: GoogleFonts.poppins(
+                                                  fontSize: 9,
+                                                  fontWeight: FontWeight.w700,
+                                                  color: color,
+                                                ),
+                                              ),
+                                            ),
+                                          );
+                                        },
+                                      ),
                                     ],
                                   ),
                                 ],

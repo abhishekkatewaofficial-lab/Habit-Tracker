@@ -1,4 +1,5 @@
 import 'package:habit_tracker_ios/core/services/hive_service.dart';
+import 'package:habit_tracker_ios/core/services/firestore_sync_service.dart';
 import 'package:habit_tracker_ios/features/diary/data/models/diary_entry.dart';
 
 class DiaryRepository {
@@ -23,13 +24,13 @@ class DiaryRepository {
   }
 
   Future<void> saveEntry(DiaryEntry entry) async {
-    final box = HiveService.diaryBox;
-    await box.put(entry.id, entry.toJson());
+    await HiveService.diaryBox.put(entry.id, entry.toJson());
+    FirestoreSyncService.pushDiaryEntry(entry);
   }
 
   Future<void> deleteEntry(String id) async {
-    final box = HiveService.diaryBox;
-    await box.delete(id);
+    await HiveService.diaryBox.delete(id);
+    FirestoreSyncService.deleteDiaryEntry(id);
   }
 
   List<DiaryEntry> getAllEntries() {

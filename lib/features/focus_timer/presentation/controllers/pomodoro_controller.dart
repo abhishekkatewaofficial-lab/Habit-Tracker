@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:habit_tracker_ios/core/services/hive_service.dart';
 import 'package:wakelock_plus/wakelock_plus.dart';
+import 'package:habit_tracker_ios/core/services/cloud_sync_service.dart';
 
 class PomodoroState {
   // Configuration
@@ -61,6 +62,8 @@ class PomodoroNotifier extends StateNotifier<PomodoroState> {
   PomodoroNotifier() : super(const PomodoroState()) {
     _loadState();
   }
+
+  void reloadFromHive() => _loadState();
 
   void _loadState() {
     final box = HiveService.pomodoroBox;
@@ -239,5 +242,11 @@ class PomodoroNotifier extends StateNotifier<PomodoroState> {
 }
 
 final pomodoroProvider = StateNotifierProvider<PomodoroNotifier, PomodoroState>((ref) {
-  return PomodoroNotifier();
+  final notifier = PomodoroNotifier();
+  
+  ref.listen(syncRefreshProvider, (prev, next) {
+    notifier.reloadFromHive();
+  });
+  
+  return notifier;
 });

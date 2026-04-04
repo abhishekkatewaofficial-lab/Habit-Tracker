@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:habit_tracker_ios/core/services/hive_service.dart';
 import 'package:habit_tracker_ios/core/services/auth_service.dart';
+import 'package:habit_tracker_ios/core/services/cloud_sync_service.dart';
 
 class ProfileState {
   final String name;
@@ -24,6 +25,9 @@ class ProfileNotifier extends AutoDisposeNotifier<ProfileState> {
   ProfileState build() {
     // Watch UID so this provider rebuilds on every user switch.
     final uid = ref.watch(currentUidProvider);
+    
+    // Watch syncRefreshProvider so it instantly updates when cloud push/pull changes name/avatar
+    ref.watch(syncRefreshProvider);
 
     // If no user is logged in, return an empty state immediately.
     if (uid == null) return ProfileState(name: '', imagePath: null);
@@ -53,11 +57,13 @@ class ProfileNotifier extends AutoDisposeNotifier<ProfileState> {
   void updateName(String newName) {
     state = state.copyWith(name: newName);
     HiveService.settingsBox.put(_nameKey, newName);
+    FirestoreSyncService.pushProfile(name: newName);
   }
 
   void updateImagePath(String? path) {
     state = state.copyWith(imagePath: path);
     HiveService.settingsBox.put(_imageKey, path);
+    FirestoreSyncService.pushProfile(imagePath: path);
   }
 }
 

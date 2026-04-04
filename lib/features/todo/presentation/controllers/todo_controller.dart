@@ -1,6 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../core/services/hive_service.dart';
-import '../../../../core/services/sync_tracker_service.dart';
+import '../../../../core/services/firestore_sync_service.dart';
 import '../../data/models/todo_category.dart';
 import '../../data/models/todo_task.dart';
 import '../../data/repositories/todo_repository.dart';
@@ -15,7 +15,10 @@ final todoRepositoryProvider = Provider<TodoRepository?>((ref) {
 final todoControllerProvider = StateNotifierProvider<TodoController, List<TodoCategory>>((ref) {
   final repository = ref.watch(todoRepositoryProvider);
   if (repository == null) return TodoController._empty();
-  return TodoController(repository);
+  final notifier = TodoController(repository);
+  // Reload from Hive whenever cloud pull completes
+  ref.listen(syncRefreshProvider, (_, __) => notifier.reloadFromHive());
+  return notifier;
 });
 
 class TodoController extends StateNotifier<List<TodoCategory>> {
@@ -25,13 +28,18 @@ class TodoController extends StateNotifier<List<TodoCategory>> {
   
   TodoController._empty() : _repository = null, super([]);
 
+  /// Public reload — called after cloud pull hydration to refresh UI from Hive.
+  void reloadFromHive() {
+    if (_repository != null) state = _repository!.getAllCategories();
+  }
+
   // --- Category Actions ---
 
   Future<void> addCategory(TodoCategory category) async {
     if (_repository == null) return;
     await _repository!.saveCategory(category);
     state = [...state, category];
-    SyncTrackerService.markConfigChanged('todos');
+    FirestoreSyncService.pushTodo(category);
   }
 
   Future<void> updateCategory(TodoCategory category) async {
@@ -41,14 +49,14 @@ class TodoController extends StateNotifier<List<TodoCategory>> {
       for (final cat in state)
         if (cat.id == category.id) category else cat
     ];
-    SyncTrackerService.markConfigChanged('todos');
+    FirestoreSyncService.pushTodo(category);
   }
 
   Future<void> deleteCategory(String id) async {
     if (_repository == null) return;
     await _repository!.deleteCategory(id);
     state = state.where((cat) => cat.id != id).toList();
-    SyncTrackerService.markConfigChanged('todos');
+    FirestoreSyncService.deleteTodo(id);
   }
 
   // --- Task Actions ---

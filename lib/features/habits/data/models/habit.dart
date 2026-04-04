@@ -17,6 +17,10 @@ class Habit extends Equatable {
   final String? startDateString;
   final int sortOrder;
   final Map<String, int> dailyProgress; // Format: {yyyy-mm-dd: current_progress}
+  
+  /// Stores the exact time when the goal was reached for a specific date.
+  /// Format: {yyyy-mm-dd: DateTime}
+  final Map<String, DateTime> completionTimestamps;
 
   /// Stores the goal value that was active on each day progress was recorded.
   /// This makes every day self-contained so a future goal edit never corrupts
@@ -62,6 +66,7 @@ class Habit extends Equatable {
     this.startDateString,
     this.sortOrder = 0,
     this.dailyProgress = const {},
+    this.completionTimestamps = const {},
     this.goalSnapshots = const {},
     this.rewardsClaimed = const {},
   });
@@ -98,6 +103,15 @@ class Habit extends Equatable {
     if (json['goalSnapshots'] != null) {
       snapshots = Map<String, int>.from(json['goalSnapshots'] as Map);
     }
+    
+    Map<String, DateTime> timestamps = {};
+    if (json['completionTimestamps'] != null) {
+      final map = Map<String, String>.from(json['completionTimestamps'] as Map);
+      map.forEach((k, v) {
+        final dt = DateTime.tryParse(v);
+        if (dt != null) timestamps[k] = dt;
+      });
+    }
 
     return Habit(
       id: json['id'] as String,
@@ -119,6 +133,7 @@ class Habit extends Equatable {
       startDateString: parsedStartDateString,
       sortOrder: json['sortOrder'] as int? ?? 0,
       dailyProgress: progress,
+      completionTimestamps: timestamps,
       goalSnapshots: snapshots,
       rewardsClaimed: rewards,
     );
@@ -142,6 +157,7 @@ class Habit extends Equatable {
       'startDateString': startDateString,
       'sortOrder': sortOrder,
       'dailyProgress': dailyProgress,
+      'completionTimestamps': completionTimestamps.map((k, v) => MapEntry(k, v.toIso8601String())),
       'goalSnapshots': goalSnapshots,
       'rewardsClaimed': rewardsClaimed,
     };
@@ -162,6 +178,7 @@ class Habit extends Equatable {
     String? startDateString,
     int? sortOrder,
     Map<String, int>? dailyProgress,
+    Map<String, DateTime>? completionTimestamps,
     Map<String, int>? goalSnapshots,
     Map<String, bool>? rewardsClaimed,
   }) {
@@ -182,6 +199,7 @@ class Habit extends Equatable {
       startDateString: startDateString ?? this.startDateString,
       sortOrder: sortOrder ?? this.sortOrder,
       dailyProgress: dailyProgress ?? this.dailyProgress,
+      completionTimestamps: completionTimestamps ?? this.completionTimestamps,
       goalSnapshots: goalSnapshots ?? this.goalSnapshots,
       rewardsClaimed: rewardsClaimed ?? this.rewardsClaimed,
     );
@@ -205,6 +223,7 @@ class Habit extends Equatable {
         startDateString,
         sortOrder,
         dailyProgress,
+        completionTimestamps,
         goalSnapshots,
         rewardsClaimed,
       ];
