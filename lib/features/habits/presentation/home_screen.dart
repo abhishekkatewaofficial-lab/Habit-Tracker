@@ -1,5 +1,6 @@
 import 'dart:ui';
 import 'dart:math' as math;
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -39,6 +40,7 @@ import 'package:habit_tracker_ios/features/habits/presentation/controllers/strea
 import 'package:habit_tracker_ios/core/services/step_tracking_service.dart';
 import 'package:habit_tracker_ios/features/habits/presentation/pages/step_permission_screen.dart';
 import 'package:habit_tracker_ios/core/services/prediction_service.dart';
+import 'package:habit_tracker_ios/features/ai_coach/presentation/pages/ai_coach_screen.dart';
 
 /// Root scaffold that owns the bottom nav and swaps feature screens.
 class HomeScreen extends ConsumerWidget {
@@ -470,7 +472,14 @@ class _HabitsTab extends ConsumerWidget {
                           ],
                         ),
                         const SizedBox(height: 12),
-                        _FilterButton(activeFilter: activeFilter),
+                        Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            _CoachButton(),
+                            const SizedBox(width: 8),
+                            _FilterButton(activeFilter: activeFilter),
+                          ],
+                        ),
                       ],
                     ),
                   ],
@@ -489,6 +498,8 @@ class _HabitsTab extends ConsumerWidget {
               child: SmartDailyPlanCard(),
             )),
             const SliverToBoxAdapter(child: SizedBox(height: 8)),
+            // AI Coach Quit Predictor banners (session-dismiss, Issues #14)
+            const SliverToBoxAdapter(child: _QuitPredictorSection()),
             // Soft streak reminder banner (shown after modal is dismissed)
             const SliverToBoxAdapter(child: _StreakReminderBanner()),
             if (habits.isEmpty)
@@ -2006,6 +2017,160 @@ class _PremiumCompleteButtonState extends State<_PremiumCompleteButton>
                 ),
         ),
       ),
+    );
+  }
+}
+
+// ── AI Coach Button ──────────────────────────────────────────────────────────
+/// Styled pill button that opens the AI Coach full-screen (Issue #1 fix)
+class _CoachButton extends StatelessWidget {
+  const _CoachButton();
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: () => Navigator.of(context).push(
+        PageRouteBuilder(
+          pageBuilder: (_, animation, __) => const AiCoachScreen(),
+          transitionsBuilder: (_, animation, __, child) {
+            return SlideTransition(
+              position: Tween<Offset>(
+                begin: const Offset(0, 1),
+                end: Offset.zero,
+              ).animate(CurvedAnimation(parent: animation, curve: Curves.easeOutCubic)),
+              child: child,
+            );
+          },
+          transitionDuration: const Duration(milliseconds: 420),
+        ),
+      ),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+        decoration: BoxDecoration(
+          gradient: const LinearGradient(
+            colors: [Color(0xFF7B8FF7), Color(0xFFB57BFF)],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
+          borderRadius: BorderRadius.circular(20),
+          boxShadow: [
+            BoxShadow(
+              color: const Color(0xFF7B8FF7).withOpacity(0.35),
+              blurRadius: 10,
+              offset: const Offset(0, 3),
+            ),
+          ],
+        ),
+        child: const Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(CupertinoIcons.sparkles, size: 14, color: Colors.white),
+            SizedBox(width: 5),
+            Text(
+              'Coach',
+              style: TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+                color: Colors.white,
+                letterSpacing: -0.2,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ── Quit Predictor Section ───────────────────────────────────────────────────
+/// Shows dismissible banners for at-risk habits. Persists dismissals for the
+/// current calendar day so they don't re-appear on every app launch.
+class _QuitPredictorSection extends ConsumerStatefulWidget {
+  const _QuitPredictorSection();
+
+  @override
+  ConsumerState<_QuitPredictorSection> createState() =>
+      _QuitPredictorSectionState();
+}
+
+class _QuitPredictorSectionState extends ConsumerState<_QuitPredictorSection> {
+  Set<String> _dismissedIds = {};
+  bool _loaded = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadDismissed();
+  }
+
+  Future<void> _loadDismissed() async {
+    final prefs = await SharedPreferences.getInstance();
+    final today = DateTime.now().toIso8601String().split('T').first;
+    final list = prefs.getStringList('dismissed_risk_$today') ?? [];
+    if (mounted) {
+      setState(() {
+        _dismissedIds = list.toSet();
+        _loaded = true;
+      });
+    }
+  }
+
+  Future<void> _dismiss(String habitId) async {
+    setState(() => _dismissedIds.add(habitId));
+    final prefs = await SharedPreferences.getInstance();
+    final today = DateTime.now().toIso8601String().split('T').first;
+    final list = prefs.getStringList('dismissed_risk_$today') ?? [];
+    if (!list.contains(habitId)) {
+      list.add(habitId);
+      await prefs.setStringList('dismissed_risk_$today', list);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (!_loaded) return const SizedBox.shrink();
+
+    final habits = ref.watch(habitProvider);
+    if (habits.isEmpty) return const SizedBox.shrink();
+
+    // Compute at-risk habits inline (avoids unnecessary controller initialization)
+    final atRisk = habits
+        .where((h) => !h.isQuitHabit && !_dismissedIds.contains(h.id))
+        .where((h) {
+          final score = PredictionService.getPredictionScore(h);
+          return score != null && score < 50;
+        })
+        .take(2) // max 2 banners at once
+        .toList();
+
+    if (atRisk.isEmpty) return const SizedBox.shrink();
+
+    return Column(
+      children: atRisk.map((h) {
+        final score = PredictionService.getPredictionScore(h)!;
+        return QuitPredictorBanner(
+          habitName: h.name,
+          predictionScore: score,
+          onDismiss: () => _dismiss(h.id),
+          onOpenCoach: () {
+            _dismiss(h.id);
+            Navigator.of(context).push(
+              PageRouteBuilder(
+                pageBuilder: (_, animation, __) => const AiCoachScreen(),
+                transitionsBuilder: (_, animation, __, child) => SlideTransition(
+                  position: Tween<Offset>(
+                    begin: const Offset(0, 1),
+                    end: Offset.zero,
+                  ).animate(CurvedAnimation(
+                      parent: animation, curve: Curves.easeOutCubic)),
+                  child: child,
+                ),
+                transitionDuration: const Duration(milliseconds: 420),
+              ),
+            );
+          },
+        );
+      }).toList(),
     );
   }
 }

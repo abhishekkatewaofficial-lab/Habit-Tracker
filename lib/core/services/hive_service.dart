@@ -52,6 +52,7 @@ class HiveService {
       Hive.openBox(_scopedName(AppConstants.pomodoroBox)),
       Hive.openBox(_scopedName(AppConstants.focusItemsBox)),
       Hive.openBox(_scopedName(AppConstants.focusDailySummaryBox)),
+      Hive.openBox(_scopedName(AppConstants.coachBox)),
     ]);
   }
 
@@ -68,6 +69,7 @@ class HiveService {
   static Box get pomodoroBox => Hive.box(_scopedName(AppConstants.pomodoroBox));
   static Box get focusItemsBox => Hive.box(_scopedName(AppConstants.focusItemsBox));
   static Box get focusDailySummaryBox => Hive.box(_scopedName(AppConstants.focusDailySummaryBox));
+  static Box get coachBox => Hive.box(_scopedName(AppConstants.coachBox));
 
   static Future<void> closeAll() async {
     await Hive.close();

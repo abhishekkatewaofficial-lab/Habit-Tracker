@@ -17,12 +17,16 @@ class AppConstants {
   static const String pomodoroBox = 'pomodoro_box';
   static const String focusItemsBox = 'focus_items_box';
   static const String focusDailySummaryBox = 'focus_daily_summary_box';
+  static const String coachBox = 'coach_box';
 
   // Notification channel
   static const String notificationChannelId = 'habit_tracker_channel';
   static const String notificationChannelName = 'Habit Reminders';
   static const String notificationChannelDesc =
       'Notifications for daily habit reminders.';
+
+  // Notification IDs
+  static const int coachDigestNotifId = 0x30000;
 
   // Focus timer defaults (in minutes)
   static const int defaultFocusDuration = 25;

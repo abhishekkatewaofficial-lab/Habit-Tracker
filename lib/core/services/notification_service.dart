@@ -4,6 +4,7 @@ import 'package:flutter_timezone/flutter_timezone.dart';
 import 'package:timezone/data/latest.dart' as tz;
 import 'package:timezone/timezone.dart' as tz;
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:habit_tracker_ios/core/constants/app_constants.dart';
 
 /// Wraps [FlutterLocalNotificationsPlugin] for habit and countdown reminders.
 /// Simple, stable notifications — no interaction actions.
@@ -224,6 +225,41 @@ class NotificationService {
   /// Cancels the single countdown notification for [countdownId].
   static Future<void> cancelCountdownReminder(String countdownId) async {
     await _plugin.cancel(_countdownNotifId(countdownId));
+  }
+
+  // ──────────────────────────────────────────────────────────────
+  // AI Coach scheduling
+  // ──────────────────────────────────────────────────────────────
+
+  /// Schedules a weekly digest every Sunday at 8 PM.
+  static Future<void> scheduleWeeklyDigest() async {
+    final prefs = await SharedPreferences.getInstance();
+    if (!(prefs.getBool('notifications_enabled') ?? false)) return;
+
+    await cancelWeeklyDigest();
+
+    // 7 = Sunday
+    final scheduledDate = _nextInstanceOfWeekdayTime(7, 20, 0);
+
+    debugPrint(
+        '🔔 [Notification] AI Coach Weekly Digest scheduled for: $scheduledDate (Timezone: ${tz.local.name})');
+
+    await _plugin.zonedSchedule(
+      AppConstants.coachDigestNotifId,
+      'Your AI Coach Weekly Digest',
+      'Tap to review your progress and get personalized insights for the week ahead! ✨',
+      scheduledDate,
+      _buildNotificationDetails(prefs.getBool('sounds_enabled') ?? true),
+      androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
+      uiLocalNotificationDateInterpretation:
+          UILocalNotificationDateInterpretation.absoluteTime,
+      matchDateTimeComponents: DateTimeComponents.dayOfWeekAndTime,
+    );
+  }
+
+  /// Cancels the weekly digest notification.
+  static Future<void> cancelWeeklyDigest() async {
+    await _plugin.cancel(AppConstants.coachDigestNotifId);
   }
 
   // ──────────────────────────────────────────────────────────────

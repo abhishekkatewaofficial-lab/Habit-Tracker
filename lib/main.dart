@@ -98,6 +98,8 @@ Future<void> _run() async {
   // On some Android devices/OEMs the permission channel can throw.
   try {
     await NotificationService.init();
+    // Re-schedule AI Coach weekly digest on every launch (self-heals after reinstall)
+    await NotificationService.scheduleWeeklyDigest();
   } catch (e, st) {
     debugPrint('NOTIFICATION INIT ERROR (non-fatal): $e\n$st');
   }

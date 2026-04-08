@@ -1,4 +1,3 @@
-import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -6,7 +5,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:flutter_slidable/flutter_slidable.dart';
 import '../controllers/todo_controller.dart';
 import '../../data/models/todo_category.dart';
-import 'todo_detail_screen.dart';
+import '../../data/models/todo_task.dart';
 
 
 class TodoHomeScreen extends ConsumerWidget {
@@ -20,21 +19,32 @@ class TodoHomeScreen extends ConsumerWidget {
       onTap: () => FocusManager.instance.primaryFocus?.unfocus(),
       child: Scaffold(
         backgroundColor: Colors.transparent,
-        body: SafeArea(
-          child: Container(
-          width: double.infinity,
-          alignment: Alignment.topCenter,
+        body: Container(
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+              colors: [
+                Theme.of(context).brightness == Brightness.dark ? const Color(0xFF333336) : const Color(0xFFF3F4F6),
+                Theme.of(context).brightness == Brightness.dark ? const Color(0xFF1A1A1D) : const Color(0xFFB0B0B5),
+              ],
+            ),
+          ),
+          child: SafeArea(
+            child: Container(
+              width: double.infinity,
+              alignment: Alignment.topCenter,
           child: ConstrainedBox(
             constraints: BoxConstraints(
               maxWidth: MediaQuery.of(context).size.width > 600 ? 700 : double.infinity,
             ),
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  // Top Bar
-                  Row(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Top Bar (with padding)
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
+                  child: Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
                       Text(
@@ -66,29 +76,33 @@ class TodoHomeScreen extends ConsumerWidget {
                       ),
                     ],
                   ),
-                  const SizedBox(height: 32),
+                ),
+                const SizedBox(height: 12),
 
-                  // Categories List
-                  Expanded(
-                    child: categories.isEmpty
-                      ? _buildEmptyState()
-                      : ListView.separated(
-                          physics: const BouncingScrollPhysics(),
-                          itemCount: categories.length,
-                          separatorBuilder: (context, index) => const SizedBox(height: 12),
-                          itemBuilder: (context, index) {
-                            final category = categories[index];
-                            return _CategoryCard(category: category);
-                          },
-                        ),
-                  ),
-                ],
-              ),
+                // Categories List (no padding, full width)
+                Expanded(
+                  child: categories.isEmpty
+                    ? _buildEmptyState()
+                    : ListView.builder(
+                        physics: const BouncingScrollPhysics(),
+                        itemCount: categories.length,
+                        itemBuilder: (context, index) {
+                          final category = categories[index];
+                          return _CategoryCard(
+                            category: category,
+                            index: index,
+                            totalCount: categories.length,
+                          );
+                        },
+                      ),
+                ),
+              ],
             ),
           ),
         ),
       ),
-    ));
+    ),
+   ));
   }
 
   Widget _buildEmptyState() {
@@ -120,125 +134,56 @@ class TodoHomeScreen extends ConsumerWidget {
   }
 }
 
-class _CategoryCard extends ConsumerWidget {
+class _CategoryCard extends ConsumerStatefulWidget {
   final TodoCategory category;
-  const _CategoryCard({required this.category});
+  final int index;
+  final int totalCount;
+  
+  const _CategoryCard({
+    required this.category,
+    required this.index,
+    required this.totalCount,
+  });
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    return Slidable(
-      key: ValueKey(category.id),
-      startActionPane: ActionPane(
-        extentRatio: 0.25,
-        motion: const ScrollMotion(),
-        children: [
-          SlidableAction(
-            autoClose: false,
-            onPressed: (context) {
-                final slidable = Slidable.of(context);
-                slidable?.close();
-                Future.delayed(const Duration(milliseconds: 50), () {
-                  _showEditDialog(context, ref);
-                });
-            },
-            backgroundColor: Colors.transparent,
-            foregroundColor: const Color(0xFF6B7280),
-            icon: Icons.edit_rounded,
-          ),
-        ],
-      ),
-      endActionPane: ActionPane(
-        extentRatio: 0.25,
-        motion: const ScrollMotion(),
-        children: [
-          SlidableAction(
-            autoClose: false,
-            onPressed: (context) {
-              final slidable = Slidable.of(context);
-              slidable?.close();
-              Future.delayed(const Duration(milliseconds: 50), () {
-                ref.read(todoControllerProvider.notifier).deleteCategory(category.id);
-              });
-            },
-            backgroundColor: Colors.transparent,
-            foregroundColor: Colors.redAccent,
-            icon: Icons.delete_outline_rounded,
-          ),
-        ],
-      ),
-      child: GestureDetector(
-        onTap: () {
-          Navigator.push(
-            context,
-            CupertinoPageRoute(builder: (_) => TodoDetailScreen(categoryId: category.id)),
-          );
-        },
-        child: Container(
-          height: 70, // Reduced from 100
-          width: double.infinity,
-          decoration: Theme.of(context).brightness == Brightness.dark
-            ? BoxDecoration(
-                color: const Color(0xFF1C1C1E),
-                borderRadius: BorderRadius.circular(20),
-                border: Border.all(
-                  color: Colors.white.withValues(alpha: 0.08),
-                ),
-              )
-            : BoxDecoration(
-                color: category.color,
-                borderRadius: BorderRadius.circular(20), // Slightly smaller radius for compact card
-                boxShadow: [
-                  BoxShadow(
-                    color: category.color.withValues(alpha: 0.25),
-                    blurRadius: 8,
-                    offset: const Offset(0, 4),
-                  ),
-                ],
-              ),
-          padding: const EdgeInsets.symmetric(horizontal: 20),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Expanded(
-                child: Text(
-                  category.name,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: Theme.of(context).brightness == Brightness.dark
-                      ? GoogleFonts.poppins(
-                          fontSize: 18,
-                          fontWeight: FontWeight.w700,
-                          color: Colors.white,
-                        )
-                      : GoogleFonts.nunito(
-                          fontSize: 18,
-                          fontWeight: FontWeight.w700,
-                          color: const Color(0xFF2D264B),
-                        ),
-                ),
-              ),
-              Container(
-                width: 32,
-                height: 32,
-                decoration: BoxDecoration(
-                  color: Theme.of(context).brightness == Brightness.dark ? Colors.white.withValues(alpha: 0.1) : Colors.white.withValues(alpha: 0.3),
-                  shape: BoxShape.circle,
-                ),
-                child: Icon(
-                  CupertinoIcons.chevron_right,
-                  color: Theme.of(context).brightness == Brightness.dark ? Colors.white : const Color(0xFF2D264B),
-                  size: 16,
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
+  ConsumerState<_CategoryCard> createState() => _CategoryCardState();
+}
+
+class _CategoryCardState extends ConsumerState<_CategoryCard> {
+  bool _isExpanded = false;
+  bool _isAddingTask = false;
+  final _taskController = TextEditingController();
+  final _focusNode = FocusNode();
+
+  @override
+  void dispose() {
+    _taskController.dispose();
+    _focusNode.dispose();
+    super.dispose();
   }
 
-  void _showEditDialog(BuildContext context, WidgetRef ref) {
-    final controller = TextEditingController(text: category.name);
+  void _toggleExpand() {
+    setState(() {
+      _isExpanded = !_isExpanded;
+      if (!_isExpanded) {
+        _isAddingTask = false;
+      }
+    });
+  }
+
+  void _submitTask() {
+    final text = _taskController.text.trim();
+    if (text.isNotEmpty) {
+      ref.read(todoControllerProvider.notifier).addTask(widget.category.id, text);
+      _taskController.clear();
+      _focusNode.requestFocus(); // Auto-focus again for the next item
+    } else {
+      setState(() => _isAddingTask = false);
+    }
+  }
+
+  void _showEditDialog(BuildContext context) {
+    final controller = TextEditingController(text: widget.category.name);
     showCupertinoDialog(
       context: context,
       barrierDismissible: true,
@@ -249,7 +194,7 @@ class _CategoryCard extends ConsumerWidget {
           child: CupertinoTextField(
             controller: controller,
             autofocus: true,
-            placeholder: 'e.g., Shopping, Work, Study...',
+            placeholder: 'e.g., Shop, Work, Home',
             onSubmitted: (_) => FocusManager.instance.primaryFocus?.unfocus(),
           ),
         ),
@@ -263,11 +208,11 @@ class _CategoryCard extends ConsumerWidget {
             onPressed: () {
               if (controller.text.isNotEmpty) {
                 final updated = TodoCategory(
-                  id: category.id,
+                  id: widget.category.id,
                   name: controller.text,
-                  color: category.color,
-                  emoji: category.emoji,
-                  tasks: category.tasks,
+                  color: widget.category.color,
+                  emoji: widget.category.emoji,
+                  tasks: widget.category.tasks,
                 );
                 ref.read(todoControllerProvider.notifier).updateCategory(updated);
               }
@@ -276,6 +221,291 @@ class _CategoryCard extends ConsumerWidget {
             child: const Text('Save'),
           ),
         ],
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final double t = widget.totalCount <= 1 ? 0.0 : (widget.index / (widget.totalCount - 1));
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    
+    final Color startColor = isDark ? const Color(0xFF333336) : const Color(0xFFF3F4F6);
+    final Color endColor = isDark ? const Color(0xFF1A1A1D) : const Color(0xFFB0B0B5);
+    final Color backgroundColor = Color.lerp(startColor, endColor, t)!;
+    final Color textColor = isDark ? Colors.white : Colors.black;
+
+    return TweenAnimationBuilder<double>(
+      tween: Tween(begin: 0.0, end: 1.0),
+      duration: Duration(milliseconds: 300 + (widget.index * 50).clamp(0, 400)),
+      curve: Curves.easeOutCubic,
+      builder: (context, value, child) {
+        return Opacity(
+          opacity: value,
+          child: Transform.translate(
+            offset: Offset(0, 15 * (1 - value)),
+            child: child,
+          ),
+        );
+      },
+      child: Slidable(
+        key: ValueKey(widget.category.id),
+        startActionPane: ActionPane(
+          extentRatio: 0.25,
+          motion: const ScrollMotion(),
+          children: [
+            SlidableAction(
+              autoClose: false,
+              onPressed: (context) {
+                  final slidable = Slidable.of(context);
+                  slidable?.close();
+                  Future.delayed(const Duration(milliseconds: 50), () {
+                    _showEditDialog(context);
+                  });
+              },
+              backgroundColor: const Color(0xFF3A3A3C),
+              foregroundColor: Colors.white,
+              icon: Icons.edit_rounded,
+            ),
+          ],
+        ),
+        endActionPane: ActionPane(
+          extentRatio: 0.25,
+          motion: const ScrollMotion(),
+          children: [
+            SlidableAction(
+              autoClose: false,
+              onPressed: (context) {
+                final slidable = Slidable.of(context);
+                slidable?.close();
+                Future.delayed(const Duration(milliseconds: 50), () {
+                  ref.read(todoControllerProvider.notifier).deleteCategory(widget.category.id);
+                });
+              },
+              backgroundColor: Colors.redAccent,
+              foregroundColor: Colors.white,
+              icon: Icons.delete_outline_rounded,
+            ),
+          ],
+        ),
+        child: GestureDetector(
+          onTap: _toggleExpand,
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 350),
+            curve: Curves.easeOutCubic,
+            width: double.infinity,
+            decoration: BoxDecoration(
+              color: backgroundColor,
+              border: Border(
+                bottom: BorderSide(
+                  color: isDark ? Colors.white.withValues(alpha: 0.05) : Colors.black.withValues(alpha: 0.05),
+                  width: 1,
+                ),
+              ),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Header (Category Title)
+                Container(
+                  height: 96,
+                  padding: const EdgeInsets.symmetric(horizontal: 24),
+                  alignment: Alignment.center,
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Expanded(
+                        child: Text(
+                          widget.category.name.toUpperCase(),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: GoogleFonts.inter(
+                            fontSize: 28,
+                            fontWeight: FontWeight.w800,
+                            letterSpacing: 2.0,
+                            color: textColor,
+                          ),
+                        ),
+                      ),
+                      AnimatedRotation(
+                        turns: _isExpanded ? 0.25 : 0.0,
+                        duration: const Duration(milliseconds: 300),
+                        child: Icon(
+                          CupertinoIcons.chevron_right,
+                          color: textColor.withValues(alpha: 0.4),
+                          size: 24,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                
+                // Expandable Body
+                AnimatedCrossFade(
+                  firstChild: const SizedBox(width: double.infinity, height: 0),
+                  secondChild: Padding(
+                    padding: const EdgeInsets.only(left: 24, right: 24, bottom: 24),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        // Task List
+                        if (widget.category.tasks.isNotEmpty) ...[
+                          ListView.builder(
+                            shrinkWrap: true,
+                            physics: const NeverScrollableScrollPhysics(),
+                            padding: EdgeInsets.zero,
+                            itemCount: widget.category.tasks.length,
+                            itemBuilder: (context, index) {
+                               return _buildTaskItem(widget.category.tasks[index], textColor);
+                            },
+                          ),
+                          const SizedBox(height: 8),
+                        ],
+
+                        // Add Task Input Flow
+                        if (_isAddingTask)
+                          Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Container(
+                                width: 24,
+                                height: 24,
+                                margin: const EdgeInsets.only(top: 10),
+                                decoration: BoxDecoration(
+                                  border: Border.all(
+                                    color: textColor.withValues(alpha: 0.3),
+                                    width: 2,
+                                  ),
+                                  borderRadius: BorderRadius.circular(6),
+                                ),
+                              ),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: TextField(
+                                  controller: _taskController,
+                                  focusNode: _focusNode,
+                                  style: GoogleFonts.poppins(
+                                    color: textColor,
+                                    fontSize: 18,
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                  cursorColor: textColor,
+                                  textInputAction: TextInputAction.done,
+                                  onSubmitted: (_) => _submitTask(),
+                                  decoration: InputDecoration(
+                                    hintText: 'Type task...',
+                                    hintStyle: GoogleFonts.poppins(color: textColor.withValues(alpha: 0.4)),
+                                    border: InputBorder.none,
+                                    enabledBorder: InputBorder.none,
+                                    focusedBorder: InputBorder.none,
+                                    filled: false,
+                                    isDense: true,
+                                    contentPadding: const EdgeInsets.symmetric(vertical: 10),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          )
+                        else
+                          GestureDetector(
+                            behavior: HitTestBehavior.opaque,
+                            onTap: () {
+                              setState(() => _isAddingTask = true);
+                              _focusNode.requestFocus();
+                            },
+                            child: Padding(
+                              padding: const EdgeInsets.symmetric(vertical: 8),
+                              child: Row(
+                                children: [
+                                  Icon(Icons.add, color: textColor.withValues(alpha: 0.5), size: 20),
+                                  const SizedBox(width: 12),
+                                  Text(
+                                    'Add a task...',
+                                    style: GoogleFonts.poppins(
+                                      color: textColor.withValues(alpha: 0.5),
+                                      fontSize: 18,
+                                      fontWeight: FontWeight.w500,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                      ],
+                    ),
+                  ),
+                  crossFadeState: _isExpanded ? CrossFadeState.showSecond : CrossFadeState.showFirst,
+                  duration: const Duration(milliseconds: 350),
+                  sizeCurve: Curves.easeOutCubic,
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildTaskItem(TodoTask task, Color textColor) {
+    return Slidable(
+      key: ValueKey(task.id),
+      endActionPane: ActionPane(
+        extentRatio: 0.25,
+        motion: const StretchMotion(),
+        children: [
+          SlidableAction(
+            onPressed: (context) {
+              ref.read(todoControllerProvider.notifier).deleteTask(widget.category.id, task.id);
+            },
+            backgroundColor: Colors.redAccent,
+            foregroundColor: Colors.white,
+            icon: Icons.delete_outline_rounded,
+          ),
+        ],
+      ),
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: () {
+          ref.read(todoControllerProvider.notifier).toggleTask(widget.category.id, task.id);
+        },
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 10),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              AnimatedContainer(
+                duration: const Duration(milliseconds: 200),
+                width: 24,
+                height: 24,
+                margin: const EdgeInsets.only(top: 2),
+                decoration: BoxDecoration(
+                  color: task.isCompleted ? const Color(0xFF34C759) : Colors.transparent,
+                  border: Border.all(
+                    color: task.isCompleted ? const Color(0xFF34C759) : textColor.withValues(alpha: 0.3),
+                    width: 2,
+                  ),
+                  borderRadius: BorderRadius.circular(6),
+                ),
+                child: task.isCompleted
+                    ? const Icon(Icons.check, size: 16, color: Colors.white)
+                    : null,
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: AnimatedDefaultTextStyle(
+                  duration: const Duration(milliseconds: 200),
+                  style: GoogleFonts.poppins(
+                    fontSize: 18,
+                    color: task.isCompleted ? textColor.withValues(alpha: 0.4) : textColor,
+                    decoration: task.isCompleted ? TextDecoration.lineThrough : TextDecoration.none,
+                    fontWeight: FontWeight.w500,
+                  ),
+                  child: Text(task.title),
+                ),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }
@@ -290,18 +520,7 @@ class _AddCategoryDialog extends ConsumerStatefulWidget {
 
 class _AddCategoryDialogState extends ConsumerState<_AddCategoryDialog> {
   final _controller = TextEditingController();
-  Color _selectedColor = const Color(0xFFFABBDA);
   final String _selectedEmoji = '📝';
-
-  final List<Color> _colors = [
-    const Color(0xFFFABBDA), // Pink
-    const Color(0xFFBAA1FF), // Purple
-    const Color(0xFFB7D5FF), // Blue
-    const Color(0xFFB7FFBF), // Green
-    const Color(0xFFFFB7B7), // Light Red
-    const Color(0xFFFFE2B7), // Orange
-    const Color(0xFFFCFFB7), // Yellow
-  ];
 
   @override
   Widget build(BuildContext context) {
@@ -345,7 +564,7 @@ class _AddCategoryDialogState extends ConsumerState<_AddCategoryDialog> {
                   color: Theme.of(context).brightness == Brightness.dark ? Colors.white : Colors.black,
                 ),
                 decoration: InputDecoration(
-                  hintText: 'e.g., Shopping, Work, Study...',
+                  hintText: 'e.g., Shop, Work, Home',
                   labelStyle: Theme.of(context).brightness == Brightness.dark ? const TextStyle(color: Color(0xFFB0B0B5)) : null,
                   hintStyle: Theme.of(context).brightness == Brightness.dark ? const TextStyle(color: Color(0xFF6B6B70)) : GoogleFonts.poppins(color: Colors.grey[400]),
                   filled: true,
@@ -356,36 +575,7 @@ class _AddCategoryDialogState extends ConsumerState<_AddCategoryDialog> {
                   ),
                 ),
               ),
-              const SizedBox(height: 24),
-              
-              // Color Picker
-              if (Theme.of(context).brightness != Brightness.dark) ...[
-                Wrap(
-                  spacing: 12,
-                  runSpacing: 12,
-                  alignment: WrapAlignment.center,
-                  children: _colors.map((color) {
-                    final isSelected = _selectedColor == color;
-                    return GestureDetector(
-                      onTap: () => setState(() => _selectedColor = color),
-                      child: AnimatedContainer(
-                        duration: const Duration(milliseconds: 200),
-                        width: isSelected ? 36 : 32,
-                        height: isSelected ? 36 : 32,
-                        decoration: BoxDecoration(
-                          color: color,
-                          shape: BoxShape.circle,
-                          border: isSelected ? Border.all(color: const Color(0xFF2D264B), width: 2) : null,
-                          boxShadow: isSelected ? [
-                            BoxShadow(color: color.withValues(alpha: 0.4), blurRadius: 8, offset: const Offset(0, 4))
-                          ] : null,
-                        ),
-                      ),
-                    );
-                  }).toList(),
-                ),
-                const SizedBox(height: 32),
-              ],
+              const SizedBox(height: 32),
               
               // Buttons
               Row(
@@ -424,12 +614,10 @@ class _AddCategoryDialogState extends ConsumerState<_AddCategoryDialog> {
                         ? GestureDetector(
                             onTap: () {
                               if (_controller.text.isNotEmpty) {
-                                final assignedColor = Theme.of(context).brightness == Brightness.dark 
-                                    ? _colors[Random().nextInt(_colors.length)] 
-                                    : _selectedColor;
+                                // Default color assigned for db backwards compatibility
                                 final category = TodoCategory(
                                   name: _controller.text,
-                                  color: assignedColor,
+                                  color: Colors.transparent,
                                   emoji: _selectedEmoji,
                                 );
                                 ref.read(todoControllerProvider.notifier).addCategory(category);
@@ -454,7 +642,7 @@ class _AddCategoryDialogState extends ConsumerState<_AddCategoryDialog> {
                               if (_controller.text.isNotEmpty) {
                                 final category = TodoCategory(
                                   name: _controller.text,
-                                  color: _selectedColor,
+                                  color: Colors.transparent,
                                   emoji: _selectedEmoji,
                                 );
                                 ref.read(todoControllerProvider.notifier).addCategory(category);

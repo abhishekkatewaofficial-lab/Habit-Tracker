@@ -119,12 +119,8 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                 duration: const Duration(milliseconds: 300),
                 padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
                 decoration: BoxDecoration(
-                  color: Theme.of(context).colorScheme.surface.withValues(alpha: _isEditing ? 0.5 : 0.0),
+                  color: Colors.transparent,
                   borderRadius: BorderRadius.circular(24),
-                  border: Border.all(
-                    color: _isEditing ? Theme.of(context).colorScheme.outline.withValues(alpha: 0.6) : Colors.transparent,
-                    width: 1.5,
-                  ),
                 ),
                 child: TextField(
                   controller: _nameController,
@@ -139,6 +135,9 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                     hintText: 'Enter your name',
                     hintStyle: TextStyle(color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.4)),
                     border: InputBorder.none,
+                    enabledBorder: InputBorder.none,
+                    focusedBorder: InputBorder.none,
+                    filled: false,
                     contentPadding: EdgeInsets.zero,
                   ),
                   onChanged: (val) {

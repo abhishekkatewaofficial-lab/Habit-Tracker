@@ -14,6 +14,7 @@ import 'package:habit_tracker_ios/core/services/hive_service.dart';
 import 'package:habit_tracker_ios/core/widgets/habit_icon.dart';
 import 'package:habit_tracker_ios/features/focus_timer/data/models/focus_daily_summary.dart';
 import 'package:habit_tracker_ios/core/services/habit_root_cause_engine.dart';
+import 'package:habit_tracker_ios/features/reports/presentation/pages/bio_rhythm_view.dart';
 
 final reportDateProvider = StateProvider<DateTime>((ref) => DateTime.now());
 
@@ -27,7 +28,7 @@ class ReportsScreen extends StatefulWidget {
 class _ReportsScreenState extends State<ReportsScreen> {
   int _selectedIndex = 0; // Default to Weekly
 
-  final List<String> _tabs = ['Weekly', 'Monthly', 'Yearly', 'Insights', 'Focus', 'Mood'];
+  final List<String> _tabs = ['Weekly', 'Monthly', 'Yearly', 'Insights', 'Focus', 'Mood', 'Bio-Rhythm 💎'];
 
   @override
   Widget build(BuildContext context) {
@@ -67,6 +68,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
                       InsightsReportView(),
                       FocusReportView(),
                       MoodReportView(),
+                      BioRhythmView(),
                     ],
                   ),
                 ),
