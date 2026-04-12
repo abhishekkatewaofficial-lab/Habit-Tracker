@@ -55,6 +55,12 @@
 	<string>Habitus uses your location to log location-based habits.</string>
 	<key>NSLocationAlwaysUsageDescription</key>
 	<string>Habitus uses your location to trigger location-based reminders.</string>
+	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
+	<string>Habitus uses your location to trigger location-based reminders in the background.</string>
+	<key>UIBackgroundModes</key>
+	<array>
+		<string>location</string>
+	</array>
 	<key>NSUserNotificationUsageDescription</key>
 	<string>Habitus sends you daily reminders to keep your habits on track.</string>
 	<key>NSMotionUsageDescription</key>

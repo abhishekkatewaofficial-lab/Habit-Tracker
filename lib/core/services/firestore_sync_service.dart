@@ -13,6 +13,7 @@ import '../../../features/countdown/data/models/countdown_event.dart';
 import '../../../features/focus_timer/data/models/focus_item.dart';
 import '../../../features/focus_timer/data/models/focus_session.dart';
 import '../../../features/focus_timer/data/models/focus_daily_summary.dart';
+import 'notification_service.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Sync Refresh Notifier — bump counter pattern
@@ -127,6 +128,7 @@ class FirestoreSyncService {
     for (final change in snap.docChanges) {
       if (change.type == DocumentChangeType.removed) {
         await HiveService.habitsBox.delete(change.doc.id);
+        await NotificationService.cancelHabitReminders(change.doc.id);
         debugPrint('🔄 habits: DELETED ${change.doc.id}');
         changed = true;
       } else {
@@ -134,6 +136,20 @@ class FirestoreSyncService {
         if (data == null) continue;
         final habit = Habit.fromJson(data);
         await HiveService.habitsBox.put(habit.id, habit.toJson());
+        
+        if (habit.reminderEnabled && habit.reminderHour != null && habit.reminderMinute != null) {
+          await NotificationService.scheduleHabitReminders(
+            habitId: habit.id,
+            habitName: habit.name,
+            hour: habit.reminderHour!,
+            minute: habit.reminderMinute!,
+            isEveryDay: habit.isEveryDay,
+            selectedDays: habit.selectedDays,
+          );
+        } else {
+          await NotificationService.cancelHabitReminders(habit.id);
+        }
+        
         debugPrint('🔄 habits: UPSERTED "${habit.name}"');
         changed = true;
       }
@@ -147,6 +163,13 @@ class FirestoreSyncService {
     bool changed = false;
     for (final change in snap.docChanges) {
       if (change.type == DocumentChangeType.removed) {
+        final oldCatJson = HiveService.todoBox.get(change.doc.id);
+        if (oldCatJson != null) {
+          final oldCat = TodoCategory.fromJson(Map<String, dynamic>.from(oldCatJson as Map));
+          for (final t in oldCat.tasks) {
+            await NotificationService.cancelTodoReminder(t.id);
+          }
+        }
         await HiveService.todoBox.delete(change.doc.id);
         debugPrint('🔄 todos: DELETED ${change.doc.id}');
         changed = true;
@@ -154,7 +177,32 @@ class FirestoreSyncService {
         final data = change.doc.data() as Map<String, dynamic>?;
         if (data == null) continue;
         final cat = TodoCategory.fromJson(data);
+        
+        final oldCatJson = HiveService.todoBox.get(cat.id);
+        if (oldCatJson != null) {
+          final oldCat = TodoCategory.fromJson(Map<String, dynamic>.from(oldCatJson as Map));
+          final newTasks = cat.tasks.map((e) => e.id).toSet();
+          for (final oldT in oldCat.tasks) {
+            if (!newTasks.contains(oldT.id)) {
+              await NotificationService.cancelTodoReminder(oldT.id);
+            }
+          }
+        }
+        
         await HiveService.todoBox.put(cat.id, cat.toJson());
+        
+        for (final t in cat.tasks) {
+          if (!t.isCompleted && t.reminderTime != null) {
+            await NotificationService.scheduleTodoReminder(
+              taskId: t.id,
+              taskTitle: t.title,
+              targetDate: t.reminderTime!,
+            );
+          } else {
+            await NotificationService.cancelTodoReminder(t.id);
+          }
+        }
+        
         debugPrint('🔄 todos: UPSERTED "${cat.name}"');
         changed = true;
       }
@@ -211,6 +259,7 @@ class FirestoreSyncService {
     for (final change in snap.docChanges) {
       if (change.type == DocumentChangeType.removed) {
         await HiveService.countdownBox.delete(change.doc.id);
+        await NotificationService.cancelCountdownReminder(change.doc.id);
         debugPrint('🔄 countdowns: DELETED ${change.doc.id}');
         changed = true;
       } else {
@@ -218,6 +267,19 @@ class FirestoreSyncService {
         if (data == null) continue;
         final event = CountdownEvent.fromJson(data);
         await HiveService.countdownBox.put(event.id, event.toJson());
+        
+        if (event.reminderHour != null && event.reminderMinute != null) {
+          await NotificationService.scheduleCountdownReminder(
+            countdownId: event.id,
+            countdownName: event.name,
+            targetDate: event.targetDate,
+            hour: event.reminderHour!,
+            minute: event.reminderMinute!,
+          );
+        } else {
+          await NotificationService.cancelCountdownReminder(event.id);
+        }
+        
         debugPrint('🔄 countdowns: UPSERTED "${event.name}"');
         changed = true;
       }
@@ -319,153 +381,143 @@ class FirestoreSyncService {
       if (data['imagePath'] != null) {
         HiveService.settingsBox.put('profileImagePath', data['imagePath'] as String);
       }
+      if (data['coins'] != null) {
+        HiveService.settingsBox.put('userCoins', (data['coins'] as num).toInt());
+      }
     }
     _refreshNotifier?.bump();
   }
 
-  // ── Push Methods (called from repositories on every write) ────────────────
+  // ── Push Helpers ────────────────────────────────────────────────────────
+  static Future<void> _safeSet(String path, Map<String, dynamic> json, Future<void> Function() onReject) async {
+    try {
+      final payload = Map<String, dynamic>.from(json);
+      payload['updatedAt'] = FieldValue.serverTimestamp();
+      await _db.doc(path).set(payload, SetOptions(merge: true));
+    } on FirebaseException catch (e) {
+      if (e.code == 'permission-denied') {
+        debugPrint('⚠️ SYNC REJECTED (permission-denied) - Reverting $path');
+        await onReject();
+      } else {
+        debugPrint('⚠️ FIREBASE EXCEPTION on $path: ${e.code} - ${e.message}');
+      }
+    } catch (e) {
+      debugPrint('⚠️ UNKNOWN SYNC ERROR $path: $e');
+    }
+  }
+
+  static Future<void> _safeDelete(String path) async {
+    try {
+      await _db.doc(path).delete();
+    } on FirebaseException catch (e) {
+      debugPrint('⚠️ FIREBASE DELETE REJECTED on $path: ${e.code}');
+    } catch (e) {
+      debugPrint('⚠️ SYNC DELETE ERROR $path: $e');
+    }
+  }
 
   static String? get _uid => FirebaseAuth.instance.currentUser?.uid;
+
+  // ── Push Methods (called from repositories on every write) ────────────────
 
   static Future<void> pushHabit(Habit habit) async {
     final uid = _uid;
     if (uid == null) return;
-    try {
-      await _db
-          .doc('users/$uid/habits/${habit.id}')
-          .set(habit.toJson(), SetOptions(merge: true));
-    } catch (e) {
-      debugPrint('⚠️ pushHabit error: $e');
-    }
+    await _safeSet('users/$uid/habits/${habit.id}', habit.toJson(), () async {
+      await HiveService.habitsBox.delete(habit.id);
+      _refreshNotifier?.bump();
+    });
   }
 
   static Future<void> deleteHabit(String habitId) async {
     final uid = _uid;
     if (uid == null) return;
-    try {
-      await _db.doc('users/$uid/habits/$habitId').delete();
-    } catch (e) {
-      debugPrint('⚠️ deleteHabit error: $e');
-    }
+    await _safeDelete('users/$uid/habits/$habitId');
   }
 
   static Future<void> pushTodo(TodoCategory category) async {
     final uid = _uid;
     if (uid == null) return;
-    try {
-      await _db
-          .doc('users/$uid/todos/${category.id}')
-          .set(category.toJson(), SetOptions(merge: true));
-    } catch (e) {
-      debugPrint('⚠️ pushTodo error: $e');
-    }
+    await _safeSet('users/$uid/todos/${category.id}', category.toJson(), () async {
+      await HiveService.todoBox.delete(category.id);
+      _refreshNotifier?.bump();
+    });
   }
 
   static Future<void> deleteTodo(String categoryId) async {
     final uid = _uid;
     if (uid == null) return;
-    try {
-      await _db.doc('users/$uid/todos/$categoryId').delete();
-    } catch (e) {
-      debugPrint('⚠️ deleteTodo error: $e');
-    }
+    await _safeDelete('users/$uid/todos/$categoryId');
   }
 
   static Future<void> pushDiaryEntry(DiaryEntry entry) async {
     final uid = _uid;
     if (uid == null) return;
-    try {
-      await _db
-          .doc('users/$uid/diary/${entry.id}')
-          .set(entry.toJson(), SetOptions(merge: true));
-    } catch (e) {
-      debugPrint('⚠️ pushDiaryEntry error: $e');
-    }
+    await _safeSet('users/$uid/diary/${entry.id}', entry.toJson(), () async {
+      await HiveService.diaryBox.delete(entry.id);
+      _refreshNotifier?.bump();
+    });
   }
 
   static Future<void> deleteDiaryEntry(String entryId) async {
     final uid = _uid;
     if (uid == null) return;
-    try {
-      await _db.doc('users/$uid/diary/$entryId').delete();
-    } catch (e) {
-      debugPrint('⚠️ deleteDiaryEntry error: $e');
-    }
+    await _safeDelete('users/$uid/diary/$entryId');
   }
 
   static Future<void> pushEisenhowerTask(EisenhowerTask task) async {
     final uid = _uid;
     if (uid == null) return;
-    try {
-      await _db
-          .doc('users/$uid/eisenhower/${task.id}')
-          .set(task.toJson(), SetOptions(merge: true));
-    } catch (e) {
-      debugPrint('⚠️ pushEisenhowerTask error: $e');
-    }
+    await _safeSet('users/$uid/eisenhower/${task.id}', task.toJson(), () async {
+      await HiveService.eisenhowerBox.delete(task.id);
+      _refreshNotifier?.bump();
+    });
   }
 
   static Future<void> deleteEisenhowerTask(String taskId) async {
     final uid = _uid;
     if (uid == null) return;
-    try {
-      await _db.doc('users/$uid/eisenhower/$taskId').delete();
-    } catch (e) {
-      debugPrint('⚠️ deleteEisenhowerTask error: $e');
-    }
+    await _safeDelete('users/$uid/eisenhower/$taskId');
   }
 
   static Future<void> pushCountdownEvent(CountdownEvent event) async {
     final uid = _uid;
     if (uid == null) return;
-    try {
-      await _db
-          .doc('users/$uid/countdowns/${event.id}')
-          .set(event.toJson(), SetOptions(merge: true));
-    } catch (e) {
-      debugPrint('⚠️ pushCountdownEvent error: $e');
-    }
+    await _safeSet('users/$uid/countdowns/${event.id}', event.toJson(), () async {
+      await HiveService.countdownBox.delete(event.id);
+      _refreshNotifier?.bump();
+    });
   }
 
   static Future<void> deleteCountdownEvent(String eventId) async {
     final uid = _uid;
     if (uid == null) return;
-    try {
-      await _db.doc('users/$uid/countdowns/$eventId').delete();
-    } catch (e) {
-      debugPrint('⚠️ deleteCountdownEvent error: $e');
-    }
+    await _safeDelete('users/$uid/countdowns/$eventId');
   }
 
   static Future<void> pushMood(String dateStr, String emoji) async {
     final uid = _uid;
     if (uid == null) return;
-    try {
-      await _db
-          .doc('users/$uid/moods/$dateStr')
-          .set({'emoji': emoji}, SetOptions(merge: true));
-    } catch (e) {
-      debugPrint('⚠️ pushMood error: $e');
-    }
+    await _safeSet('users/$uid/moods/$dateStr', {'emoji': emoji}, () async {
+      await HiveService.dailyMoodsBox.delete(dateStr);
+      _refreshNotifier?.bump();
+    });
   }
 
   static Future<void> deleteMood(String dateStr) async {
     final uid = _uid;
     if (uid == null) return;
-    try {
-      await _db.doc('users/$uid/moods/$dateStr').delete();
-    } catch (e) {
-      debugPrint('⚠️ deleteMood error: $e');
-    }
+    await _safeDelete('users/$uid/moods/$dateStr');
   }
 
-  static Future<void> pushProfile(String? name, String? imagePath) async {
+  static Future<void> pushProfile(String? name, String? imagePath, {int? coins}) async {
     final uid = _uid;
     if (uid == null) return;
     try {
       await _db.doc('users/$uid/profile/info').set({
         if (name != null) 'name': name,
         if (imagePath != null) 'imagePath': imagePath,
+        if (coins != null) 'coins': coins,
         'updatedAt': FieldValue.serverTimestamp(),
       }, SetOptions(merge: true));
     } catch (e) {
@@ -476,57 +528,39 @@ class FirestoreSyncService {
   static Future<void> pushFocusItem(FocusItem item) async {
     final uid = _uid;
     if (uid == null) return;
-    try {
-      await _db
-          .doc('users/$uid/focus_items/${item.id}')
-          .set(item.toJson(), SetOptions(merge: true));
-    } catch (e) {
-      debugPrint('⚠️ pushFocusItem error: $e');
-    }
+    await _safeSet('users/$uid/focus_items/${item.id}', item.toJson(), () async {
+      await HiveService.focusItemsBox.delete(item.id);
+      _refreshNotifier?.bump();
+    });
   }
 
   static Future<void> deleteFocusItem(String itemId) async {
     final uid = _uid;
     if (uid == null) return;
-    try {
-      await _db.doc('users/$uid/focus_items/$itemId').delete();
-    } catch (e) {
-      debugPrint('⚠️ deleteFocusItem error: $e');
-    }
+    await _safeDelete('users/$uid/focus_items/$itemId');
   }
 
   static Future<void> pushFocusSession(FocusSession session) async {
     final uid = _uid;
     if (uid == null) return;
-    try {
-      await _db
-          .doc('users/$uid/focus_sessions/${session.id}')
-          .set(session.toJson(), SetOptions(merge: true));
-    } catch (e) {
-      debugPrint('⚠️ pushFocusSession error: $e');
-    }
+    await _safeSet('users/$uid/focus_sessions/${session.id}', session.toJson(), () async {
+      await HiveService.focusSessionsBox.delete(session.id);
+      _refreshNotifier?.bump();
+    });
   }
 
   static Future<void> deleteFocusSession(String sessionId) async {
     final uid = _uid;
     if (uid == null) return;
-    try {
-      await _db.doc('users/$uid/focus_sessions/$sessionId').delete();
-    } catch (e) {
-      debugPrint('⚠️ deleteFocusSession error: $e');
-    }
+    await _safeDelete('users/$uid/focus_sessions/$sessionId');
   }
 
   static Future<void> pushFocusDailySummary(FocusDailySummary summary) async {
     final uid = _uid;
     if (uid == null) return;
-    try {
-      // The doc ID is the date ('yyyy-MM-dd')
-      await _db
-          .doc('users/$uid/focus_summary/${summary.date}')
-          .set(summary.toJson(), SetOptions(merge: true));
-    } catch (e) {
-      debugPrint('⚠️ pushFocusDailySummary error: $e');
-    }
+    await _safeSet('users/$uid/focus_summary/${summary.date}', summary.toJson(), () async {
+      await HiveService.focusDailySummaryBox.delete(summary.date);
+      _refreshNotifier?.bump();
+    });
   }
 }

@@ -2,6 +2,8 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:habit_tracker_ios/core/services/cloud_sync_service.dart';
+import 'package:fl_chart/fl_chart.dart';
+import 'package:intl/intl.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:habit_tracker_ios/core/constants/app_colors.dart';
@@ -1355,3 +1357,4 @@ class _PersonalityShowcase extends ConsumerWidget {
     );
   }
 }
+

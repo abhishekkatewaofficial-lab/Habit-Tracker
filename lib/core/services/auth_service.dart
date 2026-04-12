@@ -172,15 +172,56 @@ class AuthNotifier extends StateNotifier<AuthState> {
         status: AuthStatus.unauthenticated,
         errorMessage: e.message ?? 'Firebase authentication error.',
       );
-    } catch (e) {
+    } catch (e, stack) {
+      // Log the real error for debugging
+      // ignore: avoid_print
+      print('[AuthService] Unexpected sign-in error: $e\n$stack');
+
+      String msg = 'Sign-in failed. Please try again.';
+      final eStr = e.toString().toLowerCase();
+      if (eStr.contains('simulator') || eStr.contains('platform') || eStr.contains('not supported')) {
+        msg = 'Google Sign-In is not supported on the iOS Simulator. Please test on a real device.';
+      }
       state = AuthState(
         status: AuthStatus.unauthenticated,
-        errorMessage: 'An unexpected error occurred. Please try again.',
+        errorMessage: msg,
       );
     }
   }
 
-  /// Sign out from Firebase and Google + clear local cache
+  /// Sign-in anonymously — for simulator/debug testing only.
+  /// Use this when Google Sign-In is unavailable (e.g. iOS 26 beta simulator).
+  Future<void> signInAnonymously() async {
+    state = const AuthState(status: AuthStatus.loading);
+    try {
+      final userCredential = await FirebaseAuth.instance.signInAnonymously();
+      final firebaseUser = userCredential.user;
+      if (firebaseUser == null) {
+        state = const AuthState(
+          status: AuthStatus.unauthenticated,
+          errorMessage: 'Anonymous sign-in failed.',
+        );
+        return;
+      }
+      final authUser = AuthUser.fromFirebase(firebaseUser);
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString(_kUid, authUser.uid);
+      await prefs.setString(_kEmail, authUser.email);
+      await HiveService.init(authUser.uid);
+      state = AuthState(status: AuthStatus.authenticated, user: authUser);
+      FirestoreSyncService.startListeners(
+        authUser.uid,
+        _ref.read(syncRefreshProvider.notifier),
+      );
+    } catch (e) {
+      state = AuthState(
+        status: AuthStatus.unauthenticated,
+        errorMessage: 'Dev sign-in failed: $e',
+      );
+    }
+  }
+
+
   Future<void> signOut() async {
     try {
       await FirebaseAuth.instance.signOut();

@@ -4,21 +4,33 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'core/services/hive_service.dart';
 import 'core/services/notification_service.dart';
 import 'core/services/smart_nudge_service.dart';
 import 'core/theme/app_theme.dart';
 import 'core/theme/app_background.dart';
 import 'core/theme/theme_provider.dart';
+import 'core/constants/app_constants.dart';
 import 'features/habits/presentation/home_screen.dart';
 import 'features/habits/presentation/controllers/habit_controller.dart';
 import 'core/services/auth_service.dart';
 import 'core/services/cloud_sync_service.dart';
 import 'features/onboarding/presentation/onboarding_screen.dart';
+import 'providers/navigation_provider.dart';
+import 'features/ai_coach/presentation/pages/ai_coach_screen.dart';
+
+final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
 
 Future<void> main() async {
   // Catch any uncaught async errors from the root zone
   await runZonedGuarded(_run, (error, stack) {
+    final errorString = error.toString();
+    // Filter out objective_c FFI crashes on iOS 26 Simulator beta so it stops spamming the terminal.
+    // google_fonts fails to cache the file, but app continues running fine.
+    if (errorString.contains('DOBJC_initializeApi') || errorString.contains('objective_c') || errorString.contains('allowRuntimeFetching')) {
+      return; 
+    }
     debugPrint('ZONE ERROR: $error\n$stack');
   });
 }
@@ -122,14 +134,36 @@ class HabitTrackerApp extends ConsumerStatefulWidget {
 
 class _HabitTrackerAppState extends ConsumerState<HabitTrackerApp>
     with WidgetsBindingObserver {
+  late StreamSubscription<String> _notifSub;
+
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    
+    _notifSub = NotificationService.onNotification.listen(_handleNotificationPayload);
+  }
+
+  void _handleNotificationPayload(String payload) {
+    // Dismiss any pushed modals/screens to get back to the root tab bar
+    navigatorKey.currentState?.popUntil((route) => route.isFirst);
+
+    if (payload.startsWith('coach')) {
+      navigatorKey.currentState?.push(MaterialPageRoute(builder: (_) => const AiCoachScreen()));
+    } else if (payload.startsWith('reports')) {
+      ref.read(navigationIndexProvider.notifier).state = AppConstants.navIndexReports;
+    } else if (payload.startsWith('countdown')) {
+      ref.read(navigationIndexProvider.notifier).state = AppConstants.navIndexFocusCountdown;
+    } else if (payload.startsWith('todo')) {
+      ref.read(navigationIndexProvider.notifier).state = AppConstants.navIndexPlannerTodo;
+    } else if (payload.startsWith('habit')) {
+      ref.read(navigationIndexProvider.notifier).state = AppConstants.navIndexHome;
+    }
   }
 
   @override
   void dispose() {
+    _notifSub.cancel();
     WidgetsBinding.instance.removeObserver(this);
     super.dispose();
   }
@@ -166,6 +200,7 @@ class _HabitTrackerAppState extends ConsumerState<HabitTrackerApp>
     }
 
     return MaterialApp(
+      navigatorKey: navigatorKey,
       title: 'Habitus',
       debugShowCheckedModeBanner: false,
       theme: AppTheme.lightTheme,

@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../core/services/hive_service.dart';
 import '../../../../core/services/firestore_sync_service.dart';
+import '../../../../core/services/notification_service.dart';
 import '../../data/models/todo_category.dart';
 import '../../data/models/todo_task.dart';
 import '../../data/repositories/todo_repository.dart';
@@ -54,6 +55,19 @@ class TodoController extends StateNotifier<List<TodoCategory>> {
 
   Future<void> deleteCategory(String id) async {
     if (_repository == null) return;
+    // Cancel any reminders for tasks in this category
+    final catIndex = state.indexWhere((c) => c.id == id);
+    if (catIndex != -1) {
+      for (final t in state[catIndex].tasks) {
+        if (t.reminderTime != null) {
+          await NotificationService.cancelTodoReminder(t.id);
+        }
+        if (t.reminderLat != null && t.reminderLng != null) {
+          await NotificationService.cancelLocationReminder(t.id);
+        }
+      }
+    }
+    
     await _repository!.deleteCategory(id);
     state = state.where((cat) => cat.id != id).toList();
     FirestoreSyncService.deleteTodo(id);
@@ -79,6 +93,33 @@ class TodoController extends StateNotifier<List<TodoCategory>> {
     if (catIndex == -1) return;
 
     final category = state[catIndex];
+    
+    // Manage notification
+    final taskIndex = category.tasks.indexWhere((t) => t.id == taskId);
+    if (taskIndex != -1) {
+      final task = category.tasks[taskIndex];
+      final isNowCompleted = !task.isCompleted;
+      if (isNowCompleted) {
+        await NotificationService.cancelTodoReminder(task.id);
+        await NotificationService.cancelLocationReminder(task.id);
+      } else {
+        if (task.reminderTime != null) {
+          await NotificationService.scheduleTodoReminder(
+            taskId: task.id,
+            taskTitle: task.title,
+            targetDate: task.reminderTime!,
+          );
+        }
+        if (task.reminderLat != null && task.reminderLng != null) {
+          await NotificationService.scheduleLocationReminder(
+            taskId: task.id,
+            lat: task.reminderLat!,
+            lng: task.reminderLng!,
+          );
+        }
+      }
+    }
+
     final updatedTasks = [
       for (final task in category.tasks)
         if (task.id == taskId)
@@ -104,6 +145,19 @@ class TodoController extends StateNotifier<List<TodoCategory>> {
     if (catIndex == -1) return;
 
     final category = state[catIndex];
+    
+    // Manage notification
+    final taskIndex = category.tasks.indexWhere((t) => t.id == taskId);
+    if (taskIndex != -1) {
+      final task = category.tasks[taskIndex];
+      if (task.reminderTime != null) {
+        await NotificationService.cancelTodoReminder(task.id);
+      }
+      if (task.reminderLat != null && task.reminderLng != null) {
+        await NotificationService.cancelLocationReminder(task.id);
+      }
+    }
+
     final updatedCategory = category.copyWith(
       tasks: category.tasks.where((t) => t.id != taskId).toList(),
     );
@@ -116,6 +170,24 @@ class TodoController extends StateNotifier<List<TodoCategory>> {
     if (catIndex == -1) return;
 
     final category = state[catIndex];
+    
+    // If title changes, update the notification text if it has a reminder
+    final taskIndex = category.tasks.indexWhere((t) => t.id == taskId);
+    if (taskIndex != -1) {
+      final task = category.tasks[taskIndex];
+      if (!task.isCompleted) {
+        if (task.reminderTime != null) {
+          await NotificationService.scheduleTodoReminder(
+            taskId: task.id,
+            taskTitle: newTitle,
+            targetDate: task.reminderTime!,
+          );
+        }
+        // Location reminders don't strictly need a title update since we hardcode "Location Reminder", 
+        // but it's fine.
+      }
+    }
+
     final updatedCategory = category.copyWith(
       tasks: [
         for (final task in category.tasks)
@@ -125,4 +197,80 @@ class TodoController extends StateNotifier<List<TodoCategory>> {
 
     await updateCategory(updatedCategory);
   }
+
+  Future<void> updateTaskReminder(String categoryId, String taskId, DateTime? reminderTime) async {
+    final catIndex = state.indexWhere((c) => c.id == categoryId);
+    if (catIndex == -1) return;
+
+    final category = state[catIndex];
+    final taskIndex = category.tasks.indexWhere((t) => t.id == taskId);
+    if (taskIndex == -1) return;
+
+    final task = category.tasks[taskIndex];
+
+    if (reminderTime == null) {
+      await NotificationService.cancelTodoReminder(task.id);
+    } else {
+      await NotificationService.scheduleTodoReminder(
+        taskId: task.id,
+        taskTitle: task.title,
+        targetDate: reminderTime,
+      );
+    }
+
+    final clearReminder = reminderTime == null;
+
+    final updatedCategory = category.copyWith(
+      tasks: [
+        for (final t in category.tasks)
+          if (t.id == taskId)
+            t.copyWith(reminderTime: reminderTime, clearReminder: clearReminder)
+          else
+            t
+      ],
+    );
+
+    await updateCategory(updatedCategory);
+  }
+
+  Future<void> updateTaskLocation(String categoryId, String taskId, double? lat, double? lng, String? locationName) async {
+    final catIndex = state.indexWhere((c) => c.id == categoryId);
+    if (catIndex == -1) return;
+
+    final category = state[catIndex];
+    final taskIndex = category.tasks.indexWhere((t) => t.id == taskId);
+    if (taskIndex == -1) return;
+
+    final task = category.tasks[taskIndex];
+
+    if (lat == null || lng == null) {
+      await NotificationService.cancelLocationReminder(task.id);
+    } else {
+      await NotificationService.scheduleLocationReminder(
+        taskId: task.id,
+        lat: lat,
+        lng: lng,
+      );
+    }
+
+    final clearLocation = lat == null || lng == null;
+
+    final updatedCategory = category.copyWith(
+      tasks: [
+        for (final t in category.tasks)
+          if (t.id == taskId)
+            t.copyWith(
+              reminderLat: lat, 
+              reminderLng: lng, 
+              reminderLocationName: locationName, 
+              clearLocation: clearLocation
+            )
+          else
+            t
+      ],
+    );
+
+    await updateCategory(updatedCategory);
+  }
 }
+

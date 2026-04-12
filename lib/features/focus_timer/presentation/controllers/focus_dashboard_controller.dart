@@ -49,32 +49,49 @@ class FocusDashboardNotifier extends StateNotifier<List<FocusItem>> {
     final prefs = await SharedPreferences.getInstance();
     final enabled = prefs.getBool('hourly_focus_updates') ?? true;
     final notificationsEnabled = prefs.getBool('notifications_enabled') ?? false;
-    
-    if (!enabled || !notificationsEnabled) return;
 
     bool needsSave = false;
     final updatedList = List<FocusItem>.from(state);
+    final today = _todayStr();
+    final now = DateTime.now().millisecondsSinceEpoch;
 
     for (int i = 0; i < updatedList.length; i++) {
       var item = updatedList[i];
       if (!item.isRunning) continue;
 
+      // Live midnight boundary splitting
+      if (item.lastResetDate != today && item.startTimeMs != null) {
+        final result = _processElapsed(item.accumulatedMs, item.lastResetDate, item.startTimeMs!, now, item.name);
+        item = item.copyWith(
+          accumulatedMs: result.$1,
+          lastResetDate: result.$2,
+          startTimeMs: now,
+          lastNotifiedHour: 0,
+        );
+        needsSave = true;
+      }
+
       final elapsedMs = item.currentElapsedMs;
       final currentHour = elapsedMs ~/ 3600000;
 
       if (currentHour > 0 && currentHour > item.lastNotifiedHour) {
-        // Send milestone notification using the built-in immediate service
-        NotificationService.showImmediate(
-          id: (item.id.hashCode.abs() & 0x7FFFFFFF) ^ 0x0F0C05,
-          title: 'Focus Update',
-          body: '${currentHour} hour${currentHour > 1 ? "s" : ""} of \'${item.name}\' completed',
-        );
-        HapticFeedback.lightImpact();
+        if (enabled && notificationsEnabled) {
+          NotificationService.showImmediate(
+            id: (item.id.hashCode.abs() & 0x7FFFFFFF) ^ 0x0F0C05,
+            title: 'Focus Update',
+            body: '${currentHour} hour${currentHour > 1 ? "s" : ""} of \'${item.name}\' completed',
+          );
+          HapticFeedback.lightImpact();
+        }
 
         item = item.copyWith(lastNotifiedHour: currentHour);
         HiveService.focusItemsBox.put(item.id, item.toJson());
         updatedList[i] = item;
         needsSave = true;
+      } else if (needsSave) {
+        // If we only updated the reset date but not the hour milestone
+        HiveService.focusItemsBox.put(item.id, item.toJson());
+        updatedList[i] = item;
       }
     }
 
@@ -97,17 +114,25 @@ class FocusDashboardNotifier extends StateNotifier<List<FocusItem>> {
 
         // Check for midnight reset crossing
         if (item.lastResetDate != today) {
-          // 1. Snapshot yesterday's total into the Daily Summaries Box
-          _snapshotToDailySummary(item.lastResetDate, item.currentElapsedMs, item.name);
-
-          // 2. Reset the item for today
-          item = item.copyWith(
-            accumulatedMs: 0,
-            isRunning: false,
-            startTimeMs: null,
-            lastNotifiedHour: 0,
-            lastResetDate: today,
-          );
+          if (item.isRunning && item.startTimeMs != null) {
+            final now = DateTime.now().millisecondsSinceEpoch;
+            final result = _processElapsed(item.accumulatedMs, item.lastResetDate, item.startTimeMs!, now, item.name);
+            item = item.copyWith(
+              accumulatedMs: result.$1,
+              lastResetDate: result.$2,
+              startTimeMs: now,
+              lastNotifiedHour: 0,
+            );
+          } else {
+            _snapshotToDailySummary(item.lastResetDate, item.accumulatedMs, item.name);
+            item = item.copyWith(
+              accumulatedMs: 0,
+              isRunning: false,
+              startTimeMs: null,
+              lastNotifiedHour: 0,
+              lastResetDate: today,
+            );
+          }
           needsSave = true;
         }
 
@@ -123,6 +148,49 @@ class FocusDashboardNotifier extends StateNotifier<List<FocusItem>> {
         box.put(item.id, item.toJson());
       }
     }
+  }
+
+  /// Splits elapsed time across midnights. Pushes past days to Daily Summary.
+  /// Returns the accumulatedMs that belongs to the final day, and the date string for that final day.
+  (int, String) _processElapsed(int accumulated, String startDateStr, int startMs, int endMs, String focusName) {
+    if (startMs >= endMs) return (accumulated, startDateStr);
+
+    int currentChunkStart = startMs;
+    int currentAccumulated = accumulated;
+    String currentDateStr = startDateStr;
+
+    while (currentChunkStart < endMs) {
+      final startDt = DateTime.fromMillisecondsSinceEpoch(currentChunkStart);
+      final currentDate = DateTime(startDt.year, startDt.month, startDt.day);
+      final nextMidnight = currentDate.add(const Duration(days: 1));
+      
+      final iterDateStr = '${currentDate.year}-${currentDate.month.toString().padLeft(2, '0')}-${currentDate.day.toString().padLeft(2, '0')}';
+      
+      if (iterDateStr != currentDateStr) {
+        _snapshotToDailySummary(currentDateStr, currentAccumulated, focusName);
+        currentAccumulated = 0;
+        currentDateStr = iterDateStr;
+      }
+      
+      final chunkEndMs = nextMidnight.millisecondsSinceEpoch < endMs 
+          ? nextMidnight.millisecondsSinceEpoch 
+          : endMs;
+          
+      final chunkDuration = chunkEndMs - currentChunkStart;
+      currentAccumulated += chunkDuration;
+      
+      currentChunkStart = chunkEndMs;
+    }
+    
+    final endDt = DateTime.fromMillisecondsSinceEpoch(endMs);
+    final endDateStr = '${endDt.year}-${endDt.month.toString().padLeft(2, '0')}-${endDt.day.toString().padLeft(2, '0')}';
+    if (endDateStr != currentDateStr) {
+        _snapshotToDailySummary(currentDateStr, currentAccumulated, focusName);
+        currentAccumulated = 0;
+        currentDateStr = endDateStr;
+    }
+
+    return (currentAccumulated, currentDateStr);
   }
 
   /// Snapshots elapsed time to the Daily Summary box.
@@ -196,10 +264,11 @@ class FocusDashboardNotifier extends StateNotifier<List<FocusItem>> {
         FirestoreSyncService.pushFocusItem(updated);
       } else if (item.isRunning) {
         // Auto-pause
-        final elapsed = now - (item.startTimeMs ?? now);
+        final result = _processElapsed(item.accumulatedMs, item.lastResetDate, item.startTimeMs ?? now, now, item.name);
         final updated = item.copyWith(
           isRunning: false,
-          accumulatedMs: item.accumulatedMs + elapsed,
+          accumulatedMs: result.$1,
+          lastResetDate: result.$2,
           startTimeMs: null,
         );
         await HiveService.focusItemsBox.put(updated.id, updated.toJson());
@@ -221,10 +290,11 @@ class FocusDashboardNotifier extends StateNotifier<List<FocusItem>> {
 
     for (var item in state) {
       if (item.id == id && item.isRunning) {
-        final elapsed = now - (item.startTimeMs ?? now);
+        final result = _processElapsed(item.accumulatedMs, item.lastResetDate, item.startTimeMs ?? now, now, item.name);
         final updated = item.copyWith(
           isRunning: false,
-          accumulatedMs: item.accumulatedMs + elapsed,
+          accumulatedMs: result.$1,
+          lastResetDate: result.$2,
           startTimeMs: null,
         );
         await HiveService.focusItemsBox.put(updated.id, updated.toJson());

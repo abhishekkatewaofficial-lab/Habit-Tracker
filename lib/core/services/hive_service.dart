@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:habit_tracker_ios/core/constants/app_constants.dart';
 import 'package:habit_tracker_ios/features/eisenhower/data/models/eisenhower_task.dart';
@@ -17,7 +18,32 @@ class HiveService {
 
   static Future<void> init(String uid) async {
     _currentUid = uid;
-    await Hive.initFlutter();
+
+    // Bypass path_provider (and its objective_c FFI dependency) entirely.
+    // On iOS simulators with beta runtimes, path_provider crashes due to a
+    // missing 'DOBJC_initializeApi' symbol. We construct the path ourselves
+    // from the HOME environment variable which is always set by the OS.
+    try {
+      await Hive.initFlutter();
+    } catch (_) {
+      // Fallback: derive the documents path without path_provider
+      String hivePath;
+      try {
+        final home = Platform.environment['HOME'];
+        if (home != null && home.isNotEmpty) {
+          hivePath = '$home/Documents';
+          await Directory(hivePath).create(recursive: true);
+        } else {
+          hivePath = Directory.systemTemp.path;
+        }
+      } catch (_) {
+        hivePath = Directory.systemTemp.path;
+      }
+      // ignore: avoid_print
+      print('[HiveService] path_provider unavailable — using fallback: $hivePath');
+      Hive.init(hivePath);
+    }
+
     
     // Register Adapters if not already registered
     if (!Hive.isAdapterRegistered(8)) {

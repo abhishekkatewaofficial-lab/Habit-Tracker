@@ -15,6 +15,8 @@ import 'package:habit_tracker_ios/core/widgets/habit_icon.dart';
 import 'package:habit_tracker_ios/features/focus_timer/data/models/focus_daily_summary.dart';
 import 'package:habit_tracker_ios/core/services/habit_root_cause_engine.dart';
 import 'package:habit_tracker_ios/features/reports/presentation/pages/bio_rhythm_view.dart';
+import 'package:fl_chart/fl_chart.dart';
+import 'package:habit_tracker_ios/core/services/personality_engine.dart';
 
 final reportDateProvider = StateProvider<DateTime>((ref) => DateTime.now());
 
@@ -2079,7 +2081,6 @@ class InsightsReportView extends ConsumerWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
 
-
           Row(
             children: [
               Expanded(
@@ -2798,4 +2799,3 @@ class _RootCauseInsightCardState extends State<_RootCauseInsightCard>
     );
   }
 }
-

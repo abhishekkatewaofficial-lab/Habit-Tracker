@@ -1,11 +1,15 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:habit_tracker_ios/core/services/hive_service.dart';
+import 'package:habit_tracker_ios/core/services/cloud_sync_service.dart';
 
 class CoinNotifier extends Notifier<int> {
   static const String _coinKey = 'userCoins';
 
   @override
   int build() {
+    // Re-evaluate whenever external sync brings new profile data
+    ref.watch(syncRefreshProvider);
+    
     final box = HiveService.settingsBox;
     
     // Safety check for first-time onboarding
@@ -13,6 +17,7 @@ class CoinNotifier extends Notifier<int> {
     if (!hasReceived) {
       box.put('hasReceivedWelcomeCoins', true);
       box.put(_coinKey, 1000);
+      FirestoreSyncService.pushProfile(null, null, coins: 1000);
       
       // Dispatch async UI ping for Welcome animation
       Future.microtask(() {
@@ -31,6 +36,7 @@ class CoinNotifier extends Notifier<int> {
     final newBalance = state + amount;
     state = newBalance;
     HiveService.settingsBox.put(_coinKey, newBalance);
+    FirestoreSyncService.pushProfile(null, null, coins: newBalance);
   }
 
   void removeCoins(int amount) {
@@ -40,6 +46,7 @@ class CoinNotifier extends Notifier<int> {
     // Prevent negative balance
     state = newBalance < 0 ? 0 : newBalance;
     HiveService.settingsBox.put(_coinKey, state);
+    FirestoreSyncService.pushProfile(null, null, coins: state);
   }
 }
 

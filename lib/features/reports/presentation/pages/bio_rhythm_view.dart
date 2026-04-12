@@ -12,7 +12,7 @@ import 'package:habit_tracker_ios/features/habits/data/repositories/habit_reposi
 import 'package:habit_tracker_ios/features/habits/presentation/controllers/habit_controller.dart';
 import 'package:habit_tracker_ios/features/mood/presentation/controllers/mood_controller.dart';
 import 'package:intl/intl.dart';
-
+import 'package:habit_tracker_ios/core/services/personality_engine.dart';
 // ─── Mood Sentiment Map (confirmed from diary_screen.dart palette) ────────────
 const Map<String, String> _moodSentiment = {
   '😊': 'positive', '😄': 'positive', '😎': 'positive',
@@ -459,22 +459,33 @@ class BioRhythmView extends ConsumerWidget {
         children: [
           _BioHeader(),
           const SizedBox(height: 16),
+          
+          // 1. The Big Picture
           _ExecutiveDiagnosis(data: result.clinical),
           const SizedBox(height: 16),
-          _PeakHourCard(data: result.peak),
-          const SizedBox(height: 12),
-          _MoodCorrelationCard(data: result.mood),
-          const SizedBox(height: 12),
-          _DominoHabitCard(data: result.domino),
+          
+          // 2. Momentum & Energy
+          const _WillpowerForecastCard(),
           const SizedBox(height: 12),
           _BurnoutCard(data: result.burnout),
           const SizedBox(height: 12),
+          
+          // 3. Behavioral Psychology
           _VolatilityEkgCard(data: result.clinical),
+          const SizedBox(height: 12),
+          _MoodCorrelationCard(data: result.mood),
+          const SizedBox(height: 12),
+          
+          // 4. Tactical Optimizers
+          _PeakHourCard(data: result.peak),
+          const SizedBox(height: 12),
+          _WeekdayPowerhouseCard(data: result.dayOfWeek),
           const SizedBox(height: 12),
           _DeepWorkCard(data: result.focus),
           const SizedBox(height: 12),
-          _WeekdayPowerhouseCard(data: result.dayOfWeek),
-          if (kDebugMode) ...[const SizedBox(height: 20), _DebugSeedButton()],
+          _DominoHabitCard(data: result.domino),
+          
+          const SizedBox(height: 120),
           const SizedBox(height: 120),
         ],
       ),
@@ -1059,129 +1070,50 @@ class _BurnoutCard extends StatelessWidget {
             )),
           ],
         ),
+        const SizedBox(height: 16),
+        Container(
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: d.trendColor.withValues(alpha: 0.08),
+            borderRadius: BorderRadius.circular(16),
+          ),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Icon(CupertinoIcons.sparkles, size: 16, color: d.trendColor),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  _getInsightText(d.trend),
+                  style: GoogleFonts.poppins(
+                    fontSize: 11,
+                    color: d.trendColor,
+                    height: 1.4,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
       ],
     );
   }
-}
 
-// ─── Debug Seeder ─────────────────────────────────────────────────────────────
-class _DebugSeedButton extends ConsumerWidget {
-  const _DebugSeedButton();
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    return Center(
-      child: ElevatedButton(
-        style: ElevatedButton.styleFrom(backgroundColor: Colors.red.withValues(alpha: 0.2)),
-        onPressed: () async {
-          final habitsRepo = ref.read(habitRepositoryProvider);
-          final habits = habitsRepo.getAllHabits();
-          if (habits.isEmpty) {
-            ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Add at least 2 habits first!')));
-            return;
-          }
-
-          final today = DateTime.now();
-          final random = math.Random(42); // deterministic
-
-          final moodRepo = ref.read(moodRepositoryProvider);
-
-          // 0. Seed Focus Daily Summaries (last 60 days)
-          final focusBox = HiveService.focusDailySummaryBox;
-          for (int i = 0; i < 60; i++) {
-            final d = today.subtract(Duration(days: i));
-            final ds = DateFormat('yyyy-MM-dd').format(d);
-            
-            // Mood dependency: positively tie high focus to positive mood, low to negative
-            // Actually, since we haven't saved moods or read them yet, let's just generate a mood 
-            // the same way the mood seeder does, but assign Focus here
-            final r = random.nextDouble();
-            String moodEmoji = '😊'; 
-            if (r > 0.8) moodEmoji = '😤';
-            else if (r > 0.5) moodEmoji = '😐';
-
-            int focusMins = 0;
-            if (moodEmoji == '😊') focusMins = 45 + random.nextInt(30);
-            else if (moodEmoji == '😐') focusMins = 20 + random.nextInt(20);
-            else if (moodEmoji == '😤') focusMins = 5 + random.nextInt(10);
-            
-            if (focusMins > 0) {
-              await focusBox.put(ds, {
-                'date': ds,
-                'totalSeconds': focusMins * 60,
-                'focusDurations': {'Deep Work': focusMins * 60}
-              });
-            }
-          }
-
-          // 1. Seed Moods (last 60 days)
-          if (moodRepo != null) {
-            for (int i = 0; i < 60; i++) {
-              final d = today.subtract(Duration(days: i));
-              final ds = DateFormat('yyyy-MM-dd').format(d);
-              // 50% positive, 30% neutral, 20% negative
-              final r = random.nextDouble();
-              String m = '😊'; 
-              if (r > 0.8) m = '😤';
-              else if (r > 0.5) m = '😐';
-              await moodRepo.saveMood(ds, m);
-            }
-            ref.read(dailyMoodsProvider.notifier).reloadFromHive();
-          }
-
-          // 2. Seed Habit completions (last 60 days)
-          for (int hIndex = 0; hIndex < habits.length; hIndex++) {
-            final h = habits[hIndex];
-            final isMorning = h.name.toLowerCase().contains('morning') || random.nextBool(); // bias timestamps
-            final isDomino = hIndex == 0; // First habit acts as domino
-            
-            final newDaily = Map<String, int>.from(h.dailyProgress);
-            final newSnaps = Map<String, int>.from(h.goalSnapshots);
-            final newTs = Map<String, DateTime>.from(h.completionTimestamps);
-            
-            final oldDate = today.subtract(const Duration(days: 61));
-            final oldDateStr = DateFormat('yyyy-MM-dd').format(oldDate);
-            
-            for (int i = 0; i < 60; i++) {
-              final d = today.subtract(Duration(days: i));
-              final ds = DateFormat('yyyy-MM-dd').format(d);
-              
-              if (h.isEveryDay || h.selectedDays.contains(d.weekday % 7)) {
-                
-                // Let's create a burnout trend: higher completion 30-60 days ago, lower recently.
-                double chance = 0.8;
-                if (i < 14) chance = 0.4; // Recent burnout
-                
-                if (random.nextDouble() < chance) {
-                   newDaily[ds] = h.goalValue;
-                   newSnaps[ds] = h.goalValue;
-                   
-                   // Domino habit happens at 6am, others clustered
-                   int hour = isDomino ? 6 : (isMorning ? 7 + random.nextInt(4) : 18 + random.nextInt(4));
-                   int min = random.nextInt(60);
-                   newTs[ds] = DateTime(d.year, d.month, d.day, hour, min);
-                }
-              }
-            }
-            
-            final updated = h.copyWith(
-              startDateString: oldDateStr,
-              dailyProgress: newDaily,
-              goalSnapshots: newSnaps,
-              completionTimestamps: newTs
-            );
-            await habitsRepo.saveHabit(updated);
-          }
-          await ref.read(habitProvider.notifier).reloadFromHive();
-          
-          if (!context.mounted) return;
-          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Seeded 60 days of fake data!')));
-        },
-        child: const Text('🧪 Seed Fake Data (Debug)', style: TextStyle(color: Colors.red)),
-      ),
-    );
+  String _getInsightText(double trend) {
+    if (trend <= -15) {
+      return "Your habit momentum has sharply dropped. Take it easy and prioritize your core routines to recover.";
+    } else if (trend < 0) {
+      return "You're seeing a slight dip in completion rates. Small, consistent efforts will help stabilize your rhythm.";
+    } else if (trend > 15) {
+      return "Great recovery! Your completion rates are bouncing back strongly. Keep fueling this positive momentum.";
+    } else if (trend > 0) {
+      return "Your momentum is steadily building. The current routine seems to be working well for you.";
+    } else {
+      return "Your behavioral momentum is highly stable. You have found a sustainable output pace.";
+    }
   }
 }
+
 
 // ─── Card 5: Deep Work Predictor ──────────────────────────────────────────────
 class _DeepWorkCard extends StatelessWidget {
@@ -1318,7 +1250,6 @@ class _ExecutiveDiagnosis extends StatelessWidget {
 
     final d = data!;
     return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 16),
       decoration: BoxDecoration(
         color: Theme.of(context).colorScheme.surface,
         borderRadius: BorderRadius.circular(20),
@@ -1474,8 +1405,47 @@ class _VolatilityEkgCard extends StatelessWidget {
             ),
           ),
         ),
+        const SizedBox(height: 16),
+        Container(
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: const Color(0xFF14B8A6).withValues(alpha: 0.08),
+            borderRadius: BorderRadius.circular(16),
+          ),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Icon(CupertinoIcons.sparkles, size: 16, color: Color(0xFF14B8A6)),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  _getInsightText(d.volatilityLabel),
+                  style: GoogleFonts.poppins(
+                    fontSize: 11,
+                    color: const Color(0xFF14B8A6),
+                    height: 1.4,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
       ],
     );
+  }
+
+  String _getInsightText(String label) {
+    switch (label) {
+      case 'Spike & Crash':
+        return "High variance. You alternate between highly productive days and total burnout. Try aiming for 70% effort every day rather than 100% occasionally.";
+      case 'Variable':
+        return "Moderate variance. Some days are much easier than others. Look for hidden triggers that might be draining your energy.";
+      case 'Flawless':
+        return "Zero variance detected. Your execution is machine-like. This is the optimal state for building compounding habits.";
+      case 'Anchored':
+      default:
+        return "Stable variance. Your daily execution is highly predictable, which means your system and energy reserves are well balanced.";
+    }
   }
 }
 
@@ -1559,3 +1529,176 @@ class _WeekdayPowerhouseCard extends StatelessWidget {
   }
 }
 
+// ─── Willpower Forecast Card ──────────────────────────────────────────────────
+class _WillpowerForecastCard extends ConsumerWidget {
+  const _WillpowerForecastCard();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final habits = ref.watch(habitProvider);
+    const accent = Color(0xFF9D4EDD);
+
+    if (habits.isEmpty) {
+      return _CardWrapper(
+        title: 'Willpower Forecast',
+        icon: CupertinoIcons.waveform_path_ecg,
+        accentColor: accent,
+        child: const _NotEnoughData(message: 'Start tracking habits to unlock\nyour 7-day willpower forecast'),
+      );
+    }
+
+    final forecast = PersonalityEngine.getWillpowerForecast(habits);
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final labelColor = isDark ? const Color(0xFF8E8E93) : const Color(0xFF6B7280);
+    final bgColor = isDark
+        ? Colors.white.withValues(alpha: 0.05)
+        : Theme.of(context).colorScheme.surface;
+
+    double minY = forecast.next7Days.reduce((a, b) => a < b ? a : b);
+    double maxY = forecast.next7Days.reduce((a, b) => a > b ? a : b);
+    if ((maxY - minY) < 0.05) {
+      minY = (minY - 0.2).clamp(0.0, 1.0);
+      maxY = (maxY + 0.2).clamp(0.0, 1.0);
+    } else {
+      minY = (minY - 0.1).clamp(0.0, 1.0);
+      maxY = (maxY + 0.1).clamp(0.0, 1.0);
+    }
+    final spots = List.generate(
+      forecast.next7Days.length,
+      (i) => FlSpot(i.toDouble(), forecast.next7Days[i]),
+    );
+
+    return _CardWrapper(
+      title: 'Willpower Forecast',
+      icon: CupertinoIcons.waveform_path_ecg,
+      accentColor: accent,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            '7-day biorhythm prediction based on your history',
+            style: GoogleFonts.poppins(
+              fontSize: 11,
+              color: labelColor.withValues(alpha: 0.7),
+            ),
+          ),
+          const SizedBox(height: 16),
+          SizedBox(
+            height: 130,
+            child: LineChart(
+              LineChartData(
+                minY: minY,
+                maxY: maxY,
+                minX: 0,
+                maxX: 6,
+                gridData: FlGridData(
+                  show: true,
+                  drawVerticalLine: false,
+                  horizontalInterval: (maxY - minY) / 3,
+                  getDrawingHorizontalLine: (_) => FlLine(
+                    color: labelColor.withValues(alpha: 0.12),
+                    strokeWidth: 1,
+                    dashArray: [4, 4],
+                  ),
+                ),
+                borderData: FlBorderData(show: false),
+                titlesData: FlTitlesData(
+                  topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                  rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                  leftTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                  bottomTitles: AxisTitles(
+                    sideTitles: SideTitles(
+                      showTitles: true,
+                      interval: 1,
+                      reservedSize: 26,
+                      getTitlesWidget: (value, meta) {
+                        final int idx = value.toInt();
+                        if (idx < 0 || idx > 6) return const SizedBox.shrink();
+                        final String label = idx == 0
+                            ? 'Today'
+                            : DateFormat('E')
+                                .format(DateTime.now().add(Duration(days: idx)))
+                                .substring(0, 1);
+                        return Padding(
+                          padding: const EdgeInsets.only(top: 8),
+                          child: Text(
+                            label,
+                            style: GoogleFonts.poppins(
+                              fontSize: 11,
+                              fontWeight: idx == 0 ? FontWeight.w700 : FontWeight.w500,
+                              color: idx == 0 ? accent : labelColor.withValues(alpha: 0.55),
+                            ),
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+                ),
+                lineBarsData: [
+                  LineChartBarData(
+                    spots: spots,
+                    isCurved: true,
+                    curveSmoothness: 0.35,
+                    color: accent,
+                    barWidth: 3,
+                    isStrokeCapRound: true,
+                    dotData: FlDotData(
+                      show: true,
+                      getDotPainter: (spot, percent, barData, index) {
+                        if (index == 0) {
+                          return FlDotCirclePainter(
+                            radius: 5,
+                            color: bgColor,
+                            strokeWidth: 3,
+                            strokeColor: accent,
+                          );
+                        }
+                        return FlDotCirclePainter(radius: 0, color: Colors.transparent);
+                      },
+                    ),
+                    belowBarData: BarAreaData(
+                      show: true,
+                      gradient: LinearGradient(
+                        colors: [
+                          accent.withValues(alpha: 0.2),
+                          accent.withValues(alpha: 0.0),
+                        ],
+                        begin: Alignment.topCenter,
+                        end: Alignment.bottomCenter,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(height: 12),
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: accent.withValues(alpha: 0.08),
+              borderRadius: BorderRadius.circular(16),
+            ),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Icon(CupertinoIcons.sparkles, size: 16, color: Color(0xFF9D4EDD)),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    forecast.insightMessage,
+                    style: GoogleFonts.poppins(
+                      fontSize: 11,
+                      color: accent,
+                      height: 1.4,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}

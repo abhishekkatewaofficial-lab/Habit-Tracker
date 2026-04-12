@@ -45,12 +45,12 @@ class TodoCategory {
 
   factory TodoCategory.fromJson(Map<String, dynamic> json) {
     return TodoCategory(
-      id: json['id'],
-      name: json['name'],
-      color: Color(json['color']),
-      emoji: json['emoji'] ?? '📝',
+      id: json['id'] as String? ?? '',
+      name: json['name'] as String? ?? '',
+      color: Color(json['color'] as int? ?? 0),
+      emoji: json['emoji'] as String? ?? '📝',
       tasks: (json['tasks'] as List? ?? [])
-          .map((t) => TodoTask.fromJson(t as Map<String, dynamic>))
+          .map((t) => TodoTask.fromJson(Map<String, dynamic>.from(t as Map)))
           .toList(),
     );
   }

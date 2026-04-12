@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:flutter_timezone/flutter_timezone.dart';
@@ -5,6 +6,26 @@ import 'package:timezone/data/latest.dart' as tz;
 import 'package:timezone/timezone.dart' as tz;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:habit_tracker_ios/core/constants/app_constants.dart';
+import 'package:native_geofence/native_geofence.dart';
+
+@pragma('vm:entry-point')
+Future<void> geofenceCallback(GeofenceCallbackParams params) async {
+  debugPrint('📍 [NotificationService] Geofence event: ${params.event} for: ${params.geofences.map((e) => e.id)}');
+  if (params.event == GeofenceEvent.enter) {
+    for (final geofence in params.geofences) {
+      // Show local notification
+      await NotificationService.showImmediate(
+        id: geofence.id.hashCode.abs() % 100000,
+        title: "📍 Location Reminder",
+        body: "You've arrived! Time to check off your task.",
+      );
+      // Remove it so it doesn't trigger again
+      try {
+        await NativeGeofenceManager.instance.removeGeofenceById(geofence.id);
+      } catch (_) {}
+    }
+  }
+}
 
 /// Wraps [FlutterLocalNotificationsPlugin] for habit and countdown reminders.
 /// Simple, stable notifications — no interaction actions.
@@ -15,9 +36,19 @@ class NotificationService {
       FlutterLocalNotificationsPlugin();
 
   static bool _initialized = false;
+  
+  static final StreamController<String> _notificationStream = StreamController<String>.broadcast();
+  static Stream<String> get onNotification => _notificationStream.stream;
 
   static Future<void> init() async {
     if (_initialized) return;
+
+    try {
+      await NativeGeofenceManager.instance.initialize();
+      debugPrint('📍 [NotificationService] Native geofencing initialized.');
+    } catch (e) {
+      debugPrint('📍 [NotificationService] Native geofencing init failed: $e');
+    }
 
     // 1. Initialize timezone data
     tz.initializeTimeZones();
@@ -157,6 +188,7 @@ class NotificationService {
         uiLocalNotificationDateInterpretation:
             UILocalNotificationDateInterpretation.absoluteTime,
         matchDateTimeComponents: DateTimeComponents.dayOfWeekAndTime,
+        payload: 'habit_$habitId',
       );
     }
   }
@@ -228,6 +260,55 @@ class NotificationService {
   }
 
   // ──────────────────────────────────────────────────────────────
+  // To-Do Reminder Scheduling
+  // ──────────────────────────────────────────────────────────────
+
+  /// Stable ID for a todo notification — bit 17 set to avoid collisions.
+  static int _todoNotifId(String taskId) {
+    return (taskId.hashCode.abs() & 0xFFFF) | 0x20000;
+  }
+
+  /// Schedules a reminder for a To-Do task.
+  static Future<void> scheduleTodoReminder({
+    required String taskId,
+    required String taskTitle,
+    required DateTime targetDate,
+  }) async {
+    final prefs = await SharedPreferences.getInstance();
+    if (!(prefs.getBool('notifications_enabled') ?? false)) return;
+
+    await cancelTodoReminder(taskId);
+
+    final scheduledDate = tz.TZDateTime.from(targetDate, tz.local);
+
+    if (scheduledDate.isBefore(tz.TZDateTime.now(tz.local))) {
+      debugPrint(
+          '🔔 [Notification] Todo "$taskTitle" time $scheduledDate is in the past. Skipping.');
+      return;
+    }
+
+    debugPrint(
+        '🔔 [Notification] Todo "$taskTitle" scheduled for: $scheduledDate (Timezone: ${tz.local.name})');
+
+    await _plugin.zonedSchedule(
+      _todoNotifId(taskId),
+      'To-Do Reminder',
+      taskTitle,
+      scheduledDate,
+      _buildNotificationDetails(prefs.getBool('sounds_enabled') ?? true),
+      androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
+      uiLocalNotificationDateInterpretation:
+          UILocalNotificationDateInterpretation.absoluteTime,
+      // No matchDateTimeComponents → fires exactly once
+    );
+  }
+
+  /// Cancels the notification for [taskId].
+  static Future<void> cancelTodoReminder(String taskId) async {
+    await _plugin.cancel(_todoNotifId(taskId));
+  }
+
+  // ──────────────────────────────────────────────────────────────
   // AI Coach scheduling
   // ──────────────────────────────────────────────────────────────
 
@@ -254,6 +335,7 @@ class NotificationService {
       uiLocalNotificationDateInterpretation:
           UILocalNotificationDateInterpretation.absoluteTime,
       matchDateTimeComponents: DateTimeComponents.dayOfWeekAndTime,
+      payload: 'coach_weekly_digest',
     );
   }
 
@@ -280,6 +362,7 @@ class NotificationService {
       title,
       body,
       _buildNotificationDetails(prefs.getBool('sounds_enabled') ?? true),
+      payload: 'reports', // Smart nudges usually relate to reports/insights
     );
   }
 
@@ -303,6 +386,7 @@ class NotificationService {
       androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
       uiLocalNotificationDateInterpretation:
           UILocalNotificationDateInterpretation.absoluteTime,
+      payload: 'reports',
       // No matchDateTimeComponents → one-shot, fires exactly once today
     );
   }
@@ -328,6 +412,48 @@ class NotificationService {
   }
 
   static void _onNotificationTap(NotificationResponse response) {
-    // Tap opens the app — navigation can be added here later if needed
+    if (response.payload != null) {
+      _notificationStream.add(response.payload!);
+    }
+  }
+
+  // ──────────────────────────────────────────────────────────────
+  // Location-Based Reminders (To-Do)
+  // ──────────────────────────────────────────────────────────────
+
+  static Future<void> scheduleLocationReminder({
+    required String taskId,
+    required double lat,
+    required double lng,
+  }) async {
+    final prefs = await SharedPreferences.getInstance();
+    if (!(prefs.getBool('notifications_enabled') ?? false)) return;
+
+    final geofence = Geofence(
+      id: taskId,
+      location: Location(latitude: lat, longitude: lng),
+      radiusMeters: 150, // 150 meters radius
+      triggers: {GeofenceEvent.enter},
+      iosSettings: const IosGeofenceSettings(),
+      androidSettings: const AndroidGeofenceSettings(
+        initialTriggers: {GeofenceEvent.enter},
+      ),
+    );
+
+    try {
+      await NativeGeofenceManager.instance.createGeofence(geofence, geofenceCallback);
+      debugPrint('📍 [Notification] Geofence set for $taskId at $lat, $lng');
+    } catch (e) {
+      debugPrint('📍 [Notification] Geofence error: $e');
+    }
+  }
+
+  static Future<void> cancelLocationReminder(String taskId) async {
+    try {
+      await NativeGeofenceManager.instance.removeGeofenceById(taskId);
+      debugPrint('📍 [Notification] Geofence cancelled for $taskId');
+    } catch (e) {
+      // Ignored if geofence wasn't set or already removed
+    }
   }
 }

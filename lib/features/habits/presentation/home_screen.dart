@@ -2474,91 +2474,110 @@ class _UpdateProgressPopupState extends State<_UpdateProgressPopup> {
             TextEditingController(text: _currentSelection.toInt().toString());
         final isDark = Theme.of(context).brightness == Brightness.dark;
         return Dialog(
-          backgroundColor: isDark ? const Color(0xFF1C1C1E) : Colors.white,
+          backgroundColor: Colors.transparent,
           shape:
               RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
-          child: Padding(
-            padding: const EdgeInsets.all(24),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text('Manual Entry',
-                    style: TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                        color: isDark ? Colors.white : Colors.black)),
-                const SizedBox(height: 16),
-                TextField(
-                  controller: controller,
-                  keyboardType: TextInputType.number,
-                  textAlign: TextAlign.center,
-                  style: TextStyle(color: isDark ? Colors.white : Colors.black),
-                  cursorColor: isDark ? Colors.white : Colors.blue,
-                  decoration: InputDecoration(
-                    filled: true,
-                    fillColor:
-                        isDark ? const Color(0xFF2C2C2E) : Colors.grey[200],
-                    border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
-                        borderSide: BorderSide.none),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(24),
+            child: BackdropFilter(
+              filter: ImageFilter.blur(sigmaX: 15, sigmaY: 15),
+              child: Container(
+                decoration: BoxDecoration(
+                  color: isDark
+                      ? const Color(0xFF1C1C1E)
+                      : Colors.white.withValues(alpha: 0.3), // 70% transparent
+                  borderRadius: BorderRadius.circular(24),
+                  border: Border.all(
+                    color: isDark
+                        ? Colors.white.withValues(alpha: 0.08)
+                        : Colors.white.withValues(alpha: 0.6),
                   ),
                 ),
-                const SizedBox(height: 24),
-                Row(
-                  children: [
-                    Expanded(
-                      child: GestureDetector(
-                        onTap: () => Navigator.pop(context),
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(vertical: 12),
-                          alignment: Alignment.center,
-                          decoration: BoxDecoration(
-                            color: Colors.transparent,
-                            borderRadius: BorderRadius.circular(12),
-                            border: Border.all(
-                                color: isDark
-                                    ? Colors.white.withValues(alpha: 0.15)
-                                    : Colors.grey.withValues(alpha: 0.3)),
-                          ),
-                          child: Text('Cancel',
-                              style: TextStyle(
-                                  color: isDark ? Colors.white : Colors.black)),
+                child: Padding(
+                  padding: const EdgeInsets.all(24),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text('Manual Entry',
+                          style: TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.bold,
+                              color: isDark ? Colors.white : Colors.black)),
+                      const SizedBox(height: 16),
+                      TextField(
+                        controller: controller,
+                        keyboardType: TextInputType.number,
+                        textAlign: TextAlign.center,
+                        style: TextStyle(color: isDark ? Colors.white : Colors.black),
+                        cursorColor: isDark ? Colors.white : Colors.blue,
+                        decoration: InputDecoration(
+                          filled: true,
+                          fillColor:
+                              isDark ? const Color(0xFF2C2C2E) : Colors.grey[200],
+                          border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(12),
+                              borderSide: BorderSide.none),
                         ),
                       ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: GestureDetector(
-                        onTap: () {
-                          final val = int.tryParse(controller.text) ??
-                              _currentSelection.toInt();
-                          final dailyGoal =
-                              widget.habit.goalFor(widget.dateStr);
-                          setState(() => _currentSelection =
-                              val.clamp(0, dailyGoal).toDouble());
-                          Navigator.pop(context);
-                        },
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(vertical: 12),
-                          alignment: Alignment.center,
-                          decoration: BoxDecoration(
-                            color: isDark ? Colors.transparent : Colors.blue,
-                            borderRadius: BorderRadius.circular(12),
-                            border: isDark
-                                ? Border.all(
-                                    color: Colors.white.withValues(alpha: 0.15))
-                                : null,
+                      const SizedBox(height: 24),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: GestureDetector(
+                              onTap: () => Navigator.pop(context),
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(vertical: 12),
+                                alignment: Alignment.center,
+                                decoration: BoxDecoration(
+                                  color: Colors.transparent,
+                                  borderRadius: BorderRadius.circular(12),
+                                  border: Border.all(
+                                      color: isDark
+                                          ? Colors.white.withValues(alpha: 0.15)
+                                          : Colors.grey.withValues(alpha: 0.3)),
+                                ),
+                                child: Text('Cancel',
+                                    style: TextStyle(
+                                        color: isDark ? Colors.white : Colors.black)),
+                              ),
+                            ),
                           ),
-                          child: Text('Set',
-                              style: TextStyle(
-                                  color: Colors.white,
-                                  fontWeight: FontWeight.bold)),
-                        ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: GestureDetector(
+                              onTap: () {
+                                final val = int.tryParse(controller.text) ??
+                                    _currentSelection.toInt();
+                                final dailyGoal =
+                                    widget.habit.goalFor(widget.dateStr);
+                                setState(() => _currentSelection =
+                                    val.clamp(0, dailyGoal).toDouble());
+                                Navigator.pop(context);
+                              },
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(vertical: 12),
+                                alignment: Alignment.center,
+                                decoration: BoxDecoration(
+                                  color: isDark ? Colors.transparent : Colors.blue,
+                                  borderRadius: BorderRadius.circular(12),
+                                  border: isDark
+                                      ? Border.all(
+                                          color: Colors.white.withValues(alpha: 0.15))
+                                      : null,
+                                ),
+                                child: Text('Set',
+                                    style: TextStyle(
+                                        color: Colors.white,
+                                        fontWeight: FontWeight.bold)),
+                              ),
+                            ),
+                          ),
+                        ],
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
-              ],
+              ),
             ),
           ),
         );
@@ -2581,7 +2600,7 @@ class _UpdateProgressPopupState extends State<_UpdateProgressPopup> {
                   : Theme.of(context)
                       .colorScheme
                       .surface
-                      .withValues(alpha: 0.92),
+                      .withValues(alpha: 0.3), // 70% transparent
               child: Padding(
                 padding: const EdgeInsets.all(24),
                 child: Column(

@@ -3,6 +3,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:timezone/timezone.dart' as tz;
 import 'package:habit_tracker_ios/features/habits/data/models/habit.dart';
 import 'package:habit_tracker_ios/core/services/notification_service.dart';
+import 'package:habit_tracker_ios/core/services/personality_engine.dart';
 
 /// ════════════════════════════════════════════════════════════════
 ///  SmartNudgeService — Final Production Version
@@ -121,7 +122,8 @@ class SmartNudgeService {
       if (incomplete.isEmpty) return;
 
       // ── Step 5: Pick the SINGLE best nudge slot ─────────────────
-      final slot = _pickBestSlot(incomplete, todayAll, now, prefs, today);
+      final chronotype = PersonalityEngine.getChronotype(habits);
+      final slot = _pickBestSlot(incomplete, todayAll, now, prefs, today, chronotype);
       if (slot == null) return;
 
       // Skip if fire time already 5+ min in the past
@@ -188,13 +190,28 @@ class SmartNudgeService {
     DateTime now,
     SharedPreferences prefs,
     String today,
+    Chronotype chronotype,
   ) {
-    // ── Priority 1: Streak Risk — schedule for 6 PM or as soon as possible
+    // ── Dynamic Chronotype Hour Configuration ──
+    int streakHour = _streakAfterHour; // Default 18
+    int nearHour = 17;                 // Default 17
+    int eodHour = 21;                  // Default 21
+
+    if (chronotype == Chronotype.lion) {
+      nearHour = 14; // 2 PM
+      eodHour = 18;  // 6 PM
+    } else if (chronotype == Chronotype.wolf) {
+      streakHour = 21; // 9 PM
+      nearHour = 20;   // 8 PM
+      eodHour = 23;    // 11 PM
+    }
+
+    // ── Priority 1: Streak Risk — schedule for [streakHour] or as soon as possible
     final streakHabit = _bestByStreak(incomplete);
     if (streakHabit != null) {
-      final fireAt = now.hour >= _streakAfterHour
-          ? now.add(const Duration(minutes: 3)) // past 6 PM → fire soon
-          : _todayAt(now, _streakAfterHour, 0); // future → schedule for 6 PM
+      final fireAt = now.hour >= streakHour
+          ? now.add(const Duration(minutes: 3)) // past threshold → fire soon
+          : _todayAt(now, streakHour, 0); // future → schedule for threshold
       final n = _streakLen(streakHabit);
       final m = _msg(_streakMsgs, streakHabit.id);
       return _NudgeSlot(
@@ -213,7 +230,7 @@ class SmartNudgeService {
     if (todayAll.length >= _nearMinTotal && incomplete.length <= 2) {
       final n = incomplete.length;
       final m = _msg(_nearMsgs, incomplete.first.id);
-      final fireAt = _todayAt(now, 17, 0); // 5 PM default
+      final fireAt = _todayAt(now, nearHour, 0); 
       if (fireAt.isAfter(now)) {
         return _NudgeSlot(
           id: _kSlotId,
@@ -228,7 +245,7 @@ class SmartNudgeService {
       }
     }
 
-    // ── Priority 3: Time-Based — ±30 min of reminder time
+    // ── Priority 3: Time-Based — explicit times NEVER shift
     for (final h in incomplete) {
       if (h.reminderHour == null) continue;
       final reminderAt =
@@ -247,11 +264,11 @@ class SmartNudgeService {
       }
     }
 
-    // ── Priority 4: End-of-Day — 9 PM, at most once per day
+    // ── Priority 4: End-of-Day — dynamic [eodHour], at most once per day
     final eodKey = 'sn_eod_$today';
     final eodFired = prefs.getBool(eodKey) ?? false;
     if (!eodFired) {
-      final fireAt = _todayAt(now, 21, 0);
+      final fireAt = _todayAt(now, eodHour, 0);
       if (fireAt.isAfter(now)) {
         final h = incomplete.first;
         final m = _msg(_eodMsgs, h.id);
