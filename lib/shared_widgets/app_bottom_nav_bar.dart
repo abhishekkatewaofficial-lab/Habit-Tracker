@@ -180,12 +180,12 @@ class AppBottomNavBar extends ConsumerWidget {
                   },
                 ),
 
-                // 3. Matrix
+                // 3. Schedule
                 _SubNavItem(
-                  icon: CupertinoIcons.square_grid_2x2,
-                  label: 'Matrix',
-                  isSelected: currentIndex == AppConstants.navIndexPlannerEisenhower,
-                  onTap: () => ref.read(navigationIndexProvider.notifier).state = AppConstants.navIndexPlannerEisenhower,
+                  icon: CupertinoIcons.calendar,
+                  label: 'Schedule',
+                  isSelected: currentIndex == AppConstants.navIndexPlannerSchedule,
+                  onTap: () => ref.read(navigationIndexProvider.notifier).state = AppConstants.navIndexPlannerSchedule,
                 ),
               ],
             ),

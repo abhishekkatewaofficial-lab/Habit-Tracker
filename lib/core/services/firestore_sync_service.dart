@@ -14,6 +14,8 @@ import '../../../features/focus_timer/data/models/focus_item.dart';
 import '../../../features/focus_timer/data/models/focus_session.dart';
 import '../../../features/focus_timer/data/models/focus_daily_summary.dart';
 import 'notification_service.dart';
+import '../../../features/timetable/data/models/time_block.dart';
+import '../../../features/timetable/data/models/routine_template.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Sync Refresh Notifier — bump counter pattern
@@ -107,6 +109,16 @@ class FirestoreSyncService {
         .collection('users/$uid/profile')
         .snapshots()
         .listen((snap) => _onProfileChange(snap));
+
+    _subs['timetable'] = _db
+        .collection('users/$uid/timetable')
+        .snapshots()
+        .listen((snap) => _onTimetableChange(snap));
+
+    _subs['routine_templates'] = _db
+        .collection('users/$uid/routine_templates')
+        .snapshots()
+        .listen((snap) => _onRoutineTemplatesChange(snap));
   }
 
   static void stopListeners() {
@@ -384,8 +396,58 @@ class FirestoreSyncService {
       if (data['coins'] != null) {
         HiveService.settingsBox.put('userCoins', (data['coins'] as num).toInt());
       }
+      // ── Streak protection keys sync ──────────────────────────────────────
+      if (data['streakProtected'] != null) {
+        final List<String> keys = (data['streakProtected'] as List<dynamic>)
+            .map((e) => e.toString())
+            .toList();
+        HiveService.settingsBox.put('streakProtected', keys);
+        debugPrint('🔄 profile: synced ${keys.length} streak protection key(s)');
+      }
     }
     _refreshNotifier?.bump();
+  }
+
+  static Future<void> _onTimetableChange(QuerySnapshot snap) async {
+    if (snap.metadata.hasPendingWrites) return;
+
+    bool changed = false;
+    for (final change in snap.docChanges) {
+      if (change.type == DocumentChangeType.removed) {
+        await HiveService.timetableBox.delete(change.doc.id);
+        debugPrint('🔄 timetable: DELETED ${change.doc.id}');
+        changed = true;
+      } else {
+        final data = change.doc.data() as Map<String, dynamic>?;
+        if (data == null) continue;
+        final block = TimeBlock.fromJson(data);
+        await HiveService.timetableBox.put(block.id, block.toJson());
+        debugPrint('🔄 timetable: UPSERTED "${block.title}"');
+        changed = true;
+      }
+    }
+    if (changed) _refreshNotifier?.bump();
+  }
+
+  static Future<void> _onRoutineTemplatesChange(QuerySnapshot snap) async {
+    if (snap.metadata.hasPendingWrites) return;
+
+    bool changed = false;
+    for (final change in snap.docChanges) {
+      if (change.type == DocumentChangeType.removed) {
+        await HiveService.routineTemplatesBox.delete(change.doc.id);
+        debugPrint('🔄 routine_templates: DELETED ${change.doc.id}');
+        changed = true;
+      } else {
+        final data = change.doc.data() as Map<String, dynamic>?;
+        if (data == null) continue;
+        final template = RoutineTemplate.fromJson(data);
+        await HiveService.routineTemplatesBox.put(template.id, template.toJson());
+        debugPrint('🔄 routine_templates: UPSERTED "${template.name}"');
+        changed = true;
+      }
+    }
+    if (changed) _refreshNotifier?.bump();
   }
 
   // ── Push Helpers ────────────────────────────────────────────────────────
@@ -525,6 +587,22 @@ class FirestoreSyncService {
     }
   }
 
+  /// Push the full set of streak-protection keys to Firestore.
+  /// Called from [StreakProtectionNotifier.protect] whenever a new key is added.
+  static Future<void> pushStreakProtection(List<String> keys) async {
+    final uid = _uid;
+    if (uid == null) return;
+    try {
+      await _db.doc('users/$uid/profile/info').set({
+        'streakProtected': keys,
+        'updatedAt': FieldValue.serverTimestamp(),
+      }, SetOptions(merge: true));
+      debugPrint('🔄 streak protection: pushed ${keys.length} key(s) to Firestore');
+    } catch (e) {
+      debugPrint('⚠️ pushStreakProtection error: $e');
+    }
+  }
+
   static Future<void> pushFocusItem(FocusItem item) async {
     final uid = _uid;
     if (uid == null) return;
@@ -562,5 +640,35 @@ class FirestoreSyncService {
       await HiveService.focusDailySummaryBox.delete(summary.date);
       _refreshNotifier?.bump();
     });
+  }
+
+  static Future<void> pushTimeBlock(TimeBlock block) async {
+    final uid = _uid;
+    if (uid == null) return;
+    await _safeSet('users/$uid/timetable/${block.id}', block.toJson(), () async {
+      await HiveService.timetableBox.delete(block.id);
+      _refreshNotifier?.bump();
+    });
+  }
+
+  static Future<void> deleteTimeBlock(String blockId) async {
+    final uid = _uid;
+    if (uid == null) return;
+    await _safeDelete('users/$uid/timetable/$blockId');
+  }
+
+  static Future<void> pushRoutineTemplate(RoutineTemplate template) async {
+    final uid = _uid;
+    if (uid == null) return;
+    await _safeSet('users/$uid/routine_templates/${template.id}', template.toJson(), () async {
+      await HiveService.routineTemplatesBox.delete(template.id);
+      _refreshNotifier?.bump();
+    });
+  }
+
+  static Future<void> deleteRoutineTemplate(String templateId) async {
+    final uid = _uid;
+    if (uid == null) return;
+    await _safeDelete('users/$uid/routine_templates/$templateId');
   }
 }

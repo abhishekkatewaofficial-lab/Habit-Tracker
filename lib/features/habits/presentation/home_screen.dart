@@ -41,6 +41,7 @@ import 'package:habit_tracker_ios/core/services/step_tracking_service.dart';
 import 'package:habit_tracker_ios/features/habits/presentation/pages/step_permission_screen.dart';
 import 'package:habit_tracker_ios/core/services/prediction_service.dart';
 import 'package:habit_tracker_ios/features/ai_coach/presentation/pages/ai_coach_screen.dart';
+import 'package:habit_tracker_ios/features/timetable/presentation/pages/schedule_screen.dart';
 
 /// Root scaffold that owns the bottom nav and swaps feature screens.
 class HomeScreen extends ConsumerWidget {
@@ -58,6 +59,7 @@ class HomeScreen extends ConsumerWidget {
     FocusTimerScreen(), // Index 8: Pomodoro
     StopwatchScreen(), // Index 9: Stopwatch
     CountdownScreen(), // Index 10: Countdown
+    ScheduleScreen(),  // Index 11: Timetable / Schedule
   ];
 
   @override

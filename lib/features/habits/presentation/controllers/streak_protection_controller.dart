@@ -1,5 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:habit_tracker_ios/core/services/hive_service.dart';
+import 'package:habit_tracker_ios/core/services/firestore_sync_service.dart';
 import 'package:habit_tracker_ios/features/habits/data/models/habit.dart';
 
 class StreakProtectionNotifier extends Notifier<Set<String>> {
@@ -26,7 +27,10 @@ class StreakProtectionNotifier extends Notifier<Set<String>> {
     if (state.contains(key)) return;
     final updated = Set<String>.from(state)..add(key);
     state = updated;
-    HiveService.settingsBox.put(_storageKey, updated.toList());
+    final keysList = updated.toList();
+    HiveService.settingsBox.put(_storageKey, keysList);
+    // Push to Firestore so other devices see the updated protection set
+    FirestoreSyncService.pushStreakProtection(keysList);
   }
 
   // Removed weekly limits to support unlimited protections (coin-based only)

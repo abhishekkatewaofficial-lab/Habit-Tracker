@@ -18,6 +18,8 @@ class AppConstants {
   static const String focusItemsBox = 'focus_items_box';
   static const String focusDailySummaryBox = 'focus_daily_summary_box';
   static const String coachBox = 'coach_box';
+  static const String timetableBox = 'timetable_box';
+  static const String routineTemplatesBox = 'routine_templates_box';
 
   // Notification channel
   static const String notificationChannelId = 'habit_tracker_channel';
@@ -60,6 +62,7 @@ class AppConstants {
   
   static const int navIndexPlannerTodo = 5;
   static const int navIndexPlannerEisenhower = 6;
+  static const int navIndexPlannerSchedule = 11;
   
   // Focus Sub-Dock Indices
   static const int navIndexFocusDashboard = 7;

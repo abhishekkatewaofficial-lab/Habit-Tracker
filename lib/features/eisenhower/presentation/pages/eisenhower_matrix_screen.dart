@@ -8,11 +8,53 @@ import '../widgets/matrix_components.dart';
 import 'quadrant_detail_screen.dart';
 
 class EisenhowerMatrixScreen extends ConsumerWidget {
-  const EisenhowerMatrixScreen({super.key});
+  final bool isEmbedded;
+  const EisenhowerMatrixScreen({super.key, this.isEmbedded = false});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     ref.watch(eisenhowerControllerProvider);
+
+    final content = ConstrainedBox(
+      constraints: BoxConstraints(
+        maxWidth: MediaQuery.of(context).size.width > 600 ? 700 : double.infinity,
+      ),
+      child: Column(
+        children: [
+          if (!isEmbedded) _buildHeader(context),
+          const Expanded(
+            child: Padding(
+              padding: EdgeInsets.fromLTRB(16, 0, 16, 16),
+              child: Column(
+                children: [
+                  Expanded(
+                    child: Row(
+                      children: [
+                        Expanded(child: _MatrixQuadrant(type: QuadrantType.doNow)),
+                        SizedBox(width: 12),
+                        Expanded(child: _MatrixQuadrant(type: QuadrantType.schedule)),
+                      ],
+                    ),
+                  ),
+                  SizedBox(height: 12),
+                  Expanded(
+                    child: Row(
+                      children: [
+                        Expanded(child: _MatrixQuadrant(type: QuadrantType.delegate)),
+                        SizedBox(width: 12),
+                        Expanded(child: _MatrixQuadrant(type: QuadrantType.eliminate)),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+
+    if (isEmbedded) return content;
 
     return Scaffold(
       backgroundColor: Colors.transparent,
@@ -20,44 +62,7 @@ class EisenhowerMatrixScreen extends ConsumerWidget {
         child: Container(
           width: double.infinity,
           alignment: Alignment.topCenter,
-          child: ConstrainedBox(
-            constraints: BoxConstraints(
-              maxWidth: MediaQuery.of(context).size.width > 600 ? 700 : double.infinity,
-            ),
-            child: Column(
-              children: [
-                _buildHeader(context),
-                const Expanded(
-                  child: Padding(
-                    padding: EdgeInsets.fromLTRB(16, 0, 16, 16),
-                    child: Column(
-                      children: [
-                        Expanded(
-                          child: Row(
-                            children: [
-                              Expanded(child: _MatrixQuadrant(type: QuadrantType.doNow)),
-                              SizedBox(width: 12),
-                              Expanded(child: _MatrixQuadrant(type: QuadrantType.schedule)),
-                            ],
-                          ),
-                        ),
-                        SizedBox(height: 12),
-                        Expanded(
-                          child: Row(
-                            children: [
-                              Expanded(child: _MatrixQuadrant(type: QuadrantType.delegate)),
-                              SizedBox(width: 12),
-                              Expanded(child: _MatrixQuadrant(type: QuadrantType.eliminate)),
-                            ],
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
+          child: content,
         ),
       ),
     );

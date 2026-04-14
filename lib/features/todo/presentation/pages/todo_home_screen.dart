@@ -9,14 +9,26 @@ import '../controllers/todo_controller.dart';
 import '../../data/models/todo_category.dart';
 import 'dart:ui';
 import '../../data/models/todo_task.dart';
+import 'package:habit_tracker_ios/features/eisenhower/presentation/pages/eisenhower_matrix_screen.dart';
+import 'package:habit_tracker_ios/features/eisenhower/presentation/widgets/matrix_components.dart';
 
 
-class TodoHomeScreen extends ConsumerWidget {
+class TodoHomeScreen extends ConsumerStatefulWidget {
   const TodoHomeScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<TodoHomeScreen> createState() => _TodoHomeScreenState();
+}
+
+class _TodoHomeScreenState extends ConsumerState<TodoHomeScreen> {
+  /// 0 = List view, 1 = Matrix view
+  int _viewMode = 0;
+
+  @override
+  Widget build(BuildContext context) {
     final categories = ref.watch(todoControllerProvider);
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final textColor = isDark ? Colors.white : const Color(0xFF2D264B);
 
     return GestureDetector(
       onTap: () => FocusManager.instance.primaryFocus?.unfocus(),
@@ -28,8 +40,8 @@ class TodoHomeScreen extends ConsumerWidget {
               begin: Alignment.topCenter,
               end: Alignment.bottomCenter,
               colors: [
-                Theme.of(context).brightness == Brightness.dark ? const Color(0xFF333336) : const Color(0xFFF3F4F6),
-                Theme.of(context).brightness == Brightness.dark ? const Color(0xFF1A1A1D) : const Color(0xFFB0B0B5),
+                isDark ? const Color(0xFF333336) : const Color(0xFFF3F4F6),
+                isDark ? const Color(0xFF1A1A1D) : const Color(0xFFB0B0B5),
               ],
             ),
           ),
@@ -37,59 +49,101 @@ class TodoHomeScreen extends ConsumerWidget {
             child: Container(
               width: double.infinity,
               alignment: Alignment.topCenter,
-          child: ConstrainedBox(
-            constraints: BoxConstraints(
-              maxWidth: MediaQuery.of(context).size.width > 600 ? 700 : double.infinity,
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // Top Bar (with padding)
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Text(
-                        'To-Do',
-                        style: GoogleFonts.greatVibes(
-                          fontSize: 48,
-                          fontWeight: FontWeight.w600,
-                          color: Theme.of(context).brightness == Brightness.dark ? Colors.white : const Color(0xFF2D264B),
-                        ),
-                      ),
-                      _GlassAddButton(
-                        onTap: () => _showAddCategoryDialog(context, ref),
-                      ),
-                    ],
-                  ),
+              child: ConstrainedBox(
+                constraints: BoxConstraints(
+                  maxWidth: MediaQuery.of(context).size.width > 600 ? 700 : double.infinity,
                 ),
-                const SizedBox(height: 12),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // ── Top Bar ────────────────────────────────────────────
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text(
+                            _viewMode == 0 ? 'To-Do' : 'Matrix',
+                            style: GoogleFonts.greatVibes(
+                              fontSize: 48,
+                              fontWeight: FontWeight.w600,
+                              color: textColor,
+                            ),
+                          ),
+                          
+                          // ── List / Matrix Toggle ───────────────────────────────
+                          CupertinoSlidingSegmentedControl<int>(
+                            groupValue: _viewMode,
+                            thumbColor: isDark ? const Color(0xFF3A3A3C) : Colors.white,
+                            backgroundColor: isDark
+                                ? const Color(0xFF1C1C1E)
+                                : CupertinoColors.tertiarySystemFill,
+                            children: {
+                              0: Padding(
+                                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                                child: Icon(CupertinoIcons.list_bullet,
+                                      size: 14,
+                                      color: _viewMode == 0
+                                          ? (isDark ? Colors.white : const Color(0xFF2D264B))
+                                          : Colors.grey),
+                              ),
+                              1: Padding(
+                                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                                child: Icon(CupertinoIcons.square_grid_2x2,
+                                      size: 14,
+                                      color: _viewMode == 1
+                                          ? (isDark ? Colors.white : const Color(0xFF2D264B))
+                                          : Colors.grey),
+                              ),
+                            },
+                            onValueChanged: (val) {
+                              if (val != null) setState(() => _viewMode = val);
+                            },
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 12),
 
-                // Categories List (no padding, full width)
-                Expanded(
-                  child: categories.isEmpty
-                    ? _buildEmptyState()
-                    : ListView.builder(
-                        physics: const BouncingScrollPhysics(),
-                        itemCount: categories.length,
-                        itemBuilder: (context, index) {
-                          final category = categories[index];
-                          return _CategoryCard(
-                            category: category,
-                            index: index,
-                            totalCount: categories.length,
-                          );
-                        },
+                    // ── Content ───────────────────────────────────────────
+                    Expanded(
+                      child: AnimatedSwitcher(
+                        duration: const Duration(milliseconds: 300),
+                        switchInCurve: Curves.easeOutCubic,
+                        switchOutCurve: Curves.easeInCubic,
+                        child: _viewMode == 1
+                            ? const EisenhowerMatrixScreen(key: ValueKey('matrix'), isEmbedded: true)
+                            : (categories.isEmpty
+                                ? _buildEmptyState()
+                                : ListView.builder(
+                                    key: const ValueKey('list'),
+                                    physics: const BouncingScrollPhysics(),
+                                    itemCount: categories.length,
+                                    itemBuilder: (context, index) {
+                                      final category = categories[index];
+                                      return _CategoryCard(
+                                        category: category,
+                                        index: index,
+                                        totalCount: categories.length,
+                                      );
+                                    },
+                                  )),
                       ),
+                    ),
+                  ],
                 ),
-              ],
+              ),
             ),
           ),
         ),
+        floatingActionButton: Padding(
+          padding: const EdgeInsets.only(bottom: 115),
+          child: _GlassAddButton(
+            onTap: () => _viewMode == 0 ? _showAddCategoryDialog(context, ref) : showUpsertSheet(context),
+          ),
+        ),
       ),
-    ),
-   ));
+    );
   }
 
   Widget _buildEmptyState() {

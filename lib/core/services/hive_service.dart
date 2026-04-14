@@ -79,6 +79,8 @@ class HiveService {
       Hive.openBox(_scopedName(AppConstants.focusItemsBox)),
       Hive.openBox(_scopedName(AppConstants.focusDailySummaryBox)),
       Hive.openBox(_scopedName(AppConstants.coachBox)),
+      Hive.openBox(_scopedName(AppConstants.timetableBox)),
+      Hive.openBox(_scopedName(AppConstants.routineTemplatesBox)),
     ]);
   }
 
@@ -96,6 +98,8 @@ class HiveService {
   static Box get focusItemsBox => Hive.box(_scopedName(AppConstants.focusItemsBox));
   static Box get focusDailySummaryBox => Hive.box(_scopedName(AppConstants.focusDailySummaryBox));
   static Box get coachBox => Hive.box(_scopedName(AppConstants.coachBox));
+  static Box get timetableBox => Hive.box(_scopedName(AppConstants.timetableBox));
+  static Box get routineTemplatesBox => Hive.box(_scopedName(AppConstants.routineTemplatesBox));
 
   static Future<void> closeAll() async {
     await Hive.close();
